@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  avatar    String?
+  role      String   @default("USER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects  ProjectMember[]
+  tasks     Task[]
+  messages  Message[]
+  notifications Notification[]
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     ProjectMember[]
+  tasks       Task[]
+  sprints     Sprint[]
+  costs       Cost[]
+  messages    Message[]
+}
+
+model ProjectMember {
+  id        String   @id @default(uuid())
+  userId    String
+  projectId String
+  role      String   @default("MEMBER") // ADMIN, MEMBER
+
+  user      User     @relation(fields: [userId], references: [id])
+  project   Project  @relation(fields: [projectId], references: [id])
+
+  @@unique([userId, projectId])
+}
+
+model Sprint {
+  id        String   @id @default(uuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  status    String   @default("PLANNED") // PLANNED, ACTIVE, COMPLETED
+  projectId String
+
+  project   Project  @relation(fields: [projectId], references: [id])
+  tasks     Task[]
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  status      String   @default("TODO") // TODO, IN_PROGRESS, REVIEW, DONE
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  points      Int?     @default(0)
+  projectId   String
+  assigneeId  String?
+  sprintId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project     Project  @relation(fields: [projectId], references: [id])
+  assignee    User?    @relation(fields: [assigneeId], references: [id])
+  sprint      Sprint?  @relation(fields: [sprintId], references: [id])
+}
+
+model Cost {
+  id          String   @id @default(uuid())
+  amount      Float
+  description String
+  date        DateTime @default(now())
+  projectId   String
+
+  project     Project  @relation(fields: [projectId], references: [id])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  projectId String
+  userId    String
+
+  project   Project  @relation(fields: [projectId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  userId    String
+
+  user      User     @relation(fields: [userId], references: [id])
+}
