@@ -27,7 +27,8 @@ model User {
   channelMembers ChannelMember[]
   costs         Cost[]
   notifications Notification[]
-  reports       Report[]
+  sentReports     Report[]        @relation("SentReports")
+  receivedReports Report[]        @relation("ReceivedReports")
 }
 
 model Project {
@@ -189,18 +190,20 @@ model Notification {
 model Report {
   id             String    @id @default(uuid())
   title          String
-  type           String    // weekly, sprint, technical, incident
+  type           String    @default("general") // general, weekly, sprint, technical, incident
   authorId       String
+  recipientId    String?   // ID của Admin nhận báo cáo
   projectId      String
   status         String    @default("sent") // sent, reviewed
-  summary        String
+  summary        String    // Lời nhắn gửi kèm
   completedTasks String?
   blockers       String?
-  pdfUrl         String?
+  pdfUrl         String?   // File đính kèm hoặc PDF URL
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  author         User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author         User      @relation("SentReports", fields: [authorId], references: [id], onDelete: Cascade)
+  recipient      User?     @relation("ReceivedReports", fields: [recipientId], references: [id], onDelete: SetNull)
   project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 

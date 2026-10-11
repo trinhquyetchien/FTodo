@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   BarChart3,
   TrendingDown,
@@ -27,7 +27,8 @@ import {
   ShieldCheck,
   Bug,
   Layers,
-  TrendingUp
+  TrendingUp,
+  Paperclip
 } from "lucide-react";
 import { cn } from "cn";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -68,17 +69,29 @@ import { useProject } from "../project-context";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 
+interface AdminMember {
+  id: string;
+  name: string;
+  email: string;
+  roleName: string;
+  isOwner?: boolean;
+}
+
 interface SubmittedReport {
   id: string;
   title: string;
-  type: "weekly" | "sprint" | "technical" | "incident";
+  type?: string;
   author: string;
   authorEmail: string;
+  authorId?: string;
+  recipientId?: string;
+  recipientName?: string;
+  recipientEmail?: string;
   date: string;
   status: "sent" | "reviewed";
   summary: string;
-  completedTasks: string;
-  blockers: string;
+  completedTasks?: string;
+  blockers?: string;
   pdfUrl?: string;
 }
 
@@ -114,6 +127,8 @@ export default function ReportsPage() {
   const projectId = project?.id || "ftodo-core";
 
   const [reports, setReports] = useState<SubmittedReport[]>([]);
+  const [adminRecipients, setAdminRecipients] = useState<AdminMember[]>([]);
+  const [selectedAdminId, setSelectedAdminId] = useState<string>("");
 
   // Load reports from real PostgreSQL database
   useEffect(() => {
@@ -134,16 +149,89 @@ export default function ReportsPage() {
     };
   }, [projectId]);
 
-  // Modal: Submit report (For member)
+  // Load members with admin privileges
+  useEffect(() => {
+    let isMounted = true;
+    async function loadAdminRecipients() {
+      try {
+        const [membersData, projectData] = await Promise.allSettled([
+          api.members.getMembers(projectId),
+          api.projects.getOne(projectId),
+        ]);
+
+        const admins: AdminMember[] = [];
+        const pDetail = projectData.status === "fulfilled" ? projectData.value : null;
+        const mems = membersData.status === "fulfilled" && Array.isArray(membersData.value) ? membersData.value : [];
+
+        // 1. Project Owner
+        if (pDetail?.owner) {
+          admins.push({
+            id: pDetail.owner.id,
+            name: pDetail.owner.name,
+            email: pDetail.owner.email,
+            roleName: "Chủ dự án (Owner)",
+            isOwner: true,
+          });
+        } else if (project?.ownerId) {
+          admins.push({
+            id: project.ownerId,
+            name: "Chủ dự án",
+            email: "",
+            roleName: "Chủ dự án (Owner)",
+            isOwner: true,
+          });
+        }
+
+        // 2. Members with Admin role group or admin permissions
+        mems.forEach((m: any) => {
+          const uId = m.userId || m.id;
+          const isOwner = (pDetail?.owner?.id || project?.ownerId) === uId;
+          const roleGroupName = m.roleGroup?.name || "";
+          const isAdminRole =
+            roleGroupName.toLowerCase().includes("admin") ||
+            m.effectivePermissions?.includes("settings") ||
+            m.effectivePermissions?.includes("members") ||
+            m.roleGroup?.permissions?.includes("settings");
+
+          if ((isAdminRole || isOwner) && !admins.some((a) => a.id === uId)) {
+            admins.push({
+              id: uId,
+              name: m.name || m.user?.name || "Admin",
+              email: m.email || m.user?.email || "",
+              roleName: isOwner ? "Chủ dự án (Owner)" : (roleGroupName || "Admin"),
+              isOwner,
+            });
+          }
+        });
+
+        if (isMounted) {
+          setAdminRecipients(admins);
+          if (admins.length > 0) {
+            setSelectedAdminId((prev) => prev || admins[0].id);
+          }
+        }
+      } catch (err) {
+        console.warn("Lỗi tải danh sách admin:", err);
+      }
+    }
+
+    loadAdminRecipients();
+    return () => {
+      isMounted = false;
+    };
+  }, [projectId, project?.ownerId]);
+
+  // Modal: Submit report (For member/admin)
   const [chartTab, setChartTab] = useState<"burndown" | "velocity" | "quality">("burndown");
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
   const [reportTitle, setReportTitle] = useState("");
-  const [reportType, setReportType] = useState<"weekly" | "sprint" | "technical" | "incident">("weekly");
   const [reportSummary, setReportSummary] = useState("");
-  const [reportCompleted, setReportCompleted] = useState("");
-  const [reportBlockers, setReportBlockers] = useState("");
+  const [attachedFileName, setAttachedFileName] = useState("");
+  const [attachedFileData, setAttachedFileData] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Modal: Read / PDF preview (For boss & member)
+  // Modal: Read / PDF preview
   const [selectedReport, setSelectedReport] = useState<SubmittedReport | null>(null);
   const [isPdfOpen, setIsPdfOpen] = useState(false);
   const [isPdfFullscreen, setIsPdfFullscreen] = useState(false);
@@ -152,42 +240,67 @@ export default function ReportsPage() {
     setReports(newList);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachedFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setAttachedFileData(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveFile = () => {
+    setAttachedFileName("");
+    setAttachedFileData("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleSendReport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reportTitle.trim() || !reportSummary.trim()) return;
 
+    setIsSubmitting(true);
     try {
       const created = await api.reports.createReport(projectId, {
         title: reportTitle.trim(),
-        type: reportType,
         summary: reportSummary.trim(),
-        completedTasks: reportCompleted.trim() || "Hoàn thành các tác vụ đúng tiến độ Sprint.",
-        blockers: reportBlockers.trim() || "Không có vướng mắc đáng kể.",
+        recipientId: selectedAdminId || undefined,
+        pdfUrl: attachedFileData || undefined,
+        type: "general",
       });
       if (created) {
         setReports((prev) => [created, ...prev]);
       }
     } catch {
+      const targetAdmin = adminRecipients.find((a) => a.id === selectedAdminId);
       const newReport: SubmittedReport = {
         id: "REP-" + String(reports.length + 1).padStart(3, "0"),
         title: reportTitle.trim(),
-        type: reportType,
+        type: "general",
         author: user?.name || "Nhân viên dự án",
         authorEmail: user?.email || "member@example.com",
+        recipientId: selectedAdminId || undefined,
+        recipientName: targetAdmin?.name || "Admin dự án",
+        recipientEmail: targetAdmin?.email || "",
         date: new Date().toLocaleDateString("vi-VN"),
         status: "sent",
         summary: reportSummary.trim(),
-        completedTasks: reportCompleted.trim() || "Hoàn thành các tác vụ đúng tiến độ Sprint.",
-        blockers: reportBlockers.trim() || "Không có vướng mắc đáng kể.",
+        pdfUrl: attachedFileData || undefined,
       };
       saveReports([newReport, ...reports]);
+    } finally {
+      setIsSubmitting(false);
+      setReportTitle("");
+      setReportSummary("");
+      handleRemoveFile();
+      setIsSubmitOpen(false);
     }
-
-    setReportTitle("");
-    setReportSummary("");
-    setReportCompleted("");
-    setReportBlockers("");
-    setIsSubmitOpen(false);
   };
 
   const handleMarkReviewed = async (reportId: string) => {
@@ -222,34 +335,29 @@ export default function ReportsPage() {
             </h2>
             {isOwner ? (
               <Badge className="bg-amber-600 hover:bg-amber-700 text-xs">
-                Giao diện Sếp (Quản trị & Đọc báo cáo)
+                Giao diện Quản trị (Admin)
               </Badge>
             ) : (
               <Badge variant="secondary" className="text-xs">
-                Giao diện Nhân viên (Gửi báo cáo lên Sếp)
+                Giao diện Thành viên
               </Badge>
             )}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            {isOwner
-              ? "Theo dõi chỉ số Burndown, tiếp nhận và đọc báo cáo từ các thành viên gửi lên."
-              : "Theo dõi tiến độ Sprint của nhóm và gửi báo cáo công việc định kỳ lên Chủ dự án."}
+            Theo dõi tiến độ Sprint, phân tích chỉ số Agile và gửi/duyệt báo cáo định kỳ cho các Quản trị viên dự án.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {!isOwner ? (
-            <Button
-              onClick={() => setIsSubmitOpen(true)}
-              className="text-xs gap-1.5 shadow-xs"
-            >
-              <Send className="h-4 w-4" /> Gửi báo cáo cho Sếp
-            </Button>
-          ) : (
-            <Badge variant="outline" className="text-xs font-mono py-1 px-2.5">
-              Hộp thư báo cáo: {reports.length} bản ghi
-            </Badge>
-          )}
+          <Button
+            onClick={() => setIsSubmitOpen(true)}
+            className="text-xs gap-1.5 shadow-xs"
+          >
+            <Send className="h-4 w-4" /> Gửi báo cáo
+          </Button>
+          <Badge variant="outline" className="text-xs font-mono py-1 px-2.5">
+            Hộp thư báo cáo: {reports.length} bản ghi
+          </Badge>
         </div>
       </div>
 
@@ -279,7 +387,7 @@ export default function ReportsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Báo cáo gửi lên Sếp</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground">Báo cáo trong dự án</CardTitle>
             <Inbox className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
@@ -287,7 +395,7 @@ export default function ReportsPage() {
               {reports.length} Báo cáo
             </div>
             <p className="text-[11px] text-muted-foreground mt-1">
-              {reports.filter((r) => r.status === "sent").length} bản mới chờ Sếp đọc
+              {reports.filter((r) => r.status === "sent").length} bản mới chờ Admin duyệt
             </p>
           </CardContent>
         </Card>
@@ -304,112 +412,120 @@ export default function ReportsPage() {
         </Card>
       </div>
 
-      {/* SECTION: BÁO CÁO CÔNG VIỆC GỬI LÊN SẾP (CHỨC NĂNG CHÍNH ĐƯỢC YÊU CẦU) */}
+      {/* SECTION: BÁO CÁO CÔNG VIỆC DỰ ÁN */}
       <Card className="border-primary/20 shadow-xs">
         <CardHeader className="border-b pb-3">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <div>
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <FileText className="h-4 w-4 text-primary" />
-                {isOwner
-                  ? "Báo cáo từ Nhân viên gửi lên Sếp (Hộp thư nhận & đọc báo cáo)"
-                  : "Báo cáo của bạn gửi lên Sếp (Tiến độ & Kết quả)"}
+                Hộp thư Báo cáo dự án
               </CardTitle>
               <CardDescription className="text-xs">
-                {isOwner
-                  ? "Nhấp vào \"Đọc báo cáo\" để duyệt nội dung báo cáo chính thức của nhân viên."
-                  : "Các báo cáo định kỳ đã gửi cho Sếp Trịnh Quyết Chiến xem và duyệt."}
+                Xem danh sách báo cáo gửi cho Admin, tình trạng phê duyệt và tệp tài liệu đính kèm.
               </CardDescription>
             </div>
 
-            {!isOwner && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setIsSubmitOpen(true)}
-                className="text-xs gap-1.5"
-              >
-                <Plus className="h-3.5 w-3.5" /> Tạo báo cáo mới
-              </Button>
-            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsSubmitOpen(true)}
+              className="text-xs gap-1.5"
+            >
+              <Plus className="h-3.5 w-3.5" /> Gửi báo cáo mới
+            </Button>
           </div>
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="divide-y">
-            {reports.map((report) => {
-              const isReviewed = report.status === "reviewed";
+          {reports.length === 0 ? (
+            <div className="p-8 text-center space-y-2">
+              <Inbox className="h-10 w-10 text-muted-foreground/50 mx-auto" />
+              <div className="text-sm font-medium text-muted-foreground">Chưa có báo cáo nào trong dự án</div>
+              <p className="text-xs text-muted-foreground">Nhấn &ldquo;Gửi báo cáo mới&rdquo; để gửi tiêu đề, lời nhắn và tệp đính kèm lên Quản trị viên.</p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {reports.map((report) => {
+                const isReviewed = report.status === "reviewed";
 
-              return (
-                <div
-                  key={report.id}
-                  className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-muted/20 transition-colors"
-                >
-                  <div className="space-y-1 max-w-2xl">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                        {report.id}
-                      </span>
-                      <h4 className="text-sm font-semibold text-foreground">
-                        {report.title}
-                      </h4>
-                      <Badge
-                        variant={isReviewed ? "default" : "secondary"}
-                        className={`text-[10px] ${
-                          isReviewed
-                            ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                            : "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-                        }`}
-                      >
-                        {isReviewed ? "✓ Sếp đã đọc" : "Chờ Sếp xem"}
-                      </Badge>
+                return (
+                  <div
+                    key={report.id}
+                    className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-muted/20 transition-colors"
+                  >
+                    <div className="space-y-1 max-w-2xl">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                          {report.id}
+                        </span>
+                        <h4 className="text-sm font-semibold text-foreground">
+                          {report.title}
+                        </h4>
+                        <Badge
+                          variant={isReviewed ? "default" : "secondary"}
+                          className={`text-[10px] ${
+                            isReviewed
+                              ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                              : "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                          }`}
+                        >
+                          {isReviewed ? "✓ Đã phê duyệt" : "Chờ Admin duyệt"}
+                        </Badge>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                        {report.summary}
+                      </p>
+
+                      <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground pt-1">
+                        <span className="font-medium text-foreground flex items-center gap-1">
+                          <User className="h-3 w-3 text-primary" /> {report.author}
+                        </span>
+                        <span>•</span>
+                        <span className="font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                          <ShieldCheck className="h-3 w-3" /> Gửi đến: {report.recipientName || "Admin dự án"}
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" /> Ngày gửi: {report.date}
+                        </span>
+                        {report.pdfUrl && (
+                          <>
+                            <span>•</span>
+                            <Badge variant="outline" className="text-[10px] gap-1 text-primary border-primary/30">
+                              <Paperclip className="h-2.5 w-2.5" /> Có tệp đính kèm
+                            </Badge>
+                          </>
+                        )}
+                      </div>
                     </div>
 
-                    <p className="text-xs text-muted-foreground line-clamp-1">
-                      {report.summary}
-                    </p>
-
-                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground pt-0.5">
-                      <span className="font-medium text-foreground flex items-center gap-1">
-                        <User className="h-3 w-3 text-primary" /> {report.author}
-                      </span>
-                      <span>•</span>
-                      <span>Ngày gửi: {report.date}</span>
-                      <span>•</span>
-                      <Badge variant="outline" className="text-[9px] uppercase px-1 py-0">
-                        {report.type === "sprint"
-                          ? "Sprint Review"
-                          : report.type === "weekly"
-                          ? "Tuần"
-                          : "Kỹ thuật"}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 self-end sm:self-center">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleOpenPdf(report)}
-                      className="text-xs h-8 gap-1.5 border-primary/40 text-primary hover:bg-primary/5"
-                    >
-                      <Eye className="h-3.5 w-3.5" /> Đọc báo cáo
-                    </Button>
-
-                    {isOwner && !isReviewed && (
+                    <div className="flex items-center gap-2 self-end sm:self-center">
                       <Button
                         size="sm"
-                        onClick={() => handleMarkReviewed(report.id)}
-                        className="text-xs h-8 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        variant="outline"
+                        onClick={() => handleOpenPdf(report)}
+                        className="text-xs h-8 gap-1.5 border-primary/40 text-primary hover:bg-primary/5"
                       >
-                        <Check className="h-3.5 w-3.5" /> Xác nhận đã đọc
+                        <Eye className="h-3.5 w-3.5" /> Đọc báo cáo
                       </Button>
-                    )}
+
+                      {(isOwner || user?.id === report.recipientId) && !isReviewed && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleMarkReviewed(report.id)}
+                          className="text-xs h-8 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                          <Check className="h-3.5 w-3.5" /> Duyệt báo cáo
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -582,26 +698,62 @@ export default function ReportsPage() {
         </CardFooter>
       </Card>
 
-      {/* MODAL 1: GỬI BÁO CÁO CHO SẾP (NHÂN VIÊN) */}
+      {/* MODAL 1: GỬI BÁO CÁO CHO ADMIN */}
       <Dialog open={isSubmitOpen} onOpenChange={setIsSubmitOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Send className="h-4 w-4 text-primary" /> Soạn & Gửi báo cáo cho Sếp
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Send className="h-4 w-4 text-primary" /> Gửi báo cáo cho Quản trị viên (Admin)
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Báo cáo sẽ được chuyển trực tiếp vào hộp thư quản trị của Chủ dự án dưới định dạng văn bản PDF.
+              Chọn người nhận có quyền Admin trong dự án, điền tiêu đề, lời nhắn và đính kèm tệp tài liệu.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSendReport} className="space-y-4 py-2">
+            {/* 1. Chọn người nhận có quyền Admin */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-amber-500" />
+                Người nhận (Thành viên có quyền Admin) <span className="text-rose-500">*</span>
+              </Label>
+              <Select value={selectedAdminId} onValueChange={(val) => setSelectedAdminId(val || "")}>
+                <SelectTrigger className="text-xs">
+                  <SelectValue placeholder="Chọn Admin nhận báo cáo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {adminRecipients.map((adm) => (
+                    <SelectItem key={adm.id} value={adm.id} className="text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{adm.name}</span>
+                        <Badge variant="outline" className="text-[10px] py-0 font-normal">
+                          {adm.roleName}
+                        </Badge>
+                        {adm.email && (
+                          <span className="text-[11px] text-muted-foreground">
+                            • {adm.email}
+                          </span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {adminRecipients.length === 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  Đang tải danh sách Admin dự án...
+                </p>
+              )}
+            </div>
+
+            {/* 2. Tiêu đề báo cáo */}
             <div className="space-y-1.5">
               <Label htmlFor="rep-title" className="text-xs font-semibold">
                 Tiêu đề báo cáo <span className="text-rose-500">*</span>
               </Label>
               <Input
                 id="rep-title"
-                placeholder="VD: Báo cáo hoàn thành Sprint 1 & chuẩn bị Sprint 2..."
+                placeholder="VD: Báo cáo kết quả kiểm thử Sprint 1..."
                 value={reportTitle}
                 onChange={(e) => setReportTitle(e.target.value)}
                 required
@@ -609,87 +761,86 @@ export default function ReportsPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Loại báo cáo</Label>
-                <Select value={reportType} onValueChange={(val: any) => setReportType(val)}>
-                  <SelectTrigger className="text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="weekly">Báo cáo tuần (Weekly)</SelectItem>
-                    <SelectItem value="sprint">Tổng kết Sprint (Sprint Review)</SelectItem>
-                    <SelectItem value="technical">Báo cáo kỹ thuật (Technical)</SelectItem>
-                    <SelectItem value="incident">Sự cố & Rủi ro (Incident)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Người gửi</Label>
-                <Input
-                  disabled
-                  value={`${user?.name || "Thành viên"} (${user?.email})`}
-                  className="text-xs bg-muted/50"
-                />
-              </div>
-            </div>
-
+            {/* 3. Lời nhắn */}
             <div className="space-y-1.5">
               <Label htmlFor="rep-summary" className="text-xs font-semibold">
-                Tóm tắt nội dung chính <span className="text-rose-500">*</span>
+                Lời nhắn / Nội dung gửi kèm <span className="text-rose-500">*</span>
               </Label>
               <Textarea
                 id="rep-summary"
-                placeholder="Tóm tắt ngắn gọn các kết quả nổi bật và hiện trạng..."
+                placeholder="Nhập lời nhắn gửi cho Admin, tóm tắt tiến độ hoặc các lưu ý quan trọng..."
                 value={reportSummary}
                 onChange={(e) => setReportSummary(e.target.value)}
-                rows={2}
+                rows={4}
                 required
                 className="text-xs resize-none"
               />
             </div>
 
+            {/* 4. Tệp đính kèm */}
             <div className="space-y-1.5">
-              <Label htmlFor="rep-tasks" className="text-xs font-semibold">
-                Chi tiết các đầu việc đã hoàn thành
+              <Label className="text-xs font-semibold flex items-center gap-1.5">
+                <Paperclip className="h-3.5 w-3.5 text-primary" />
+                Tệp đính kèm (PDF, DOCX, ZIP, Hình ảnh...)
               </Label>
-              <Textarea
-                id="rep-tasks"
-                placeholder="- Đã xong tính năng A&#10;- Đã nghiệm thu module B..."
-                value={reportCompleted}
-                onChange={(e) => setReportCompleted(e.target.value)}
-                rows={3}
-                className="text-xs"
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
               />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="rep-blockers" className="text-xs font-semibold">
-                Vấn đề / Khó khăn cần Sếp hỗ trợ
-              </Label>
-              <Input
-                id="rep-blockers"
-                placeholder="VD: Cần duyệt thêm tài khoản AWS, cần thêm người test..."
-                value={reportBlockers}
-                onChange={(e) => setReportBlockers(e.target.value)}
-                className="text-xs"
-              />
+              {attachedFileName ? (
+                <div className="flex items-center justify-between p-2.5 rounded-lg border bg-muted/30 text-xs">
+                  <div className="flex items-center gap-2 truncate">
+                    <FileText className="h-4 w-4 text-primary shrink-0" />
+                    <span className="font-medium truncate">{attachedFileName}</span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleRemoveFile}
+                    className="h-6 w-6 text-muted-foreground hover:text-rose-600 shrink-0"
+                    title="Xóa tệp đính kèm"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-14 border-dashed border-2 flex flex-col gap-0.5 items-center justify-center text-xs text-muted-foreground hover:text-foreground hover:border-primary/50"
+                >
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <Paperclip className="h-3.5 w-3.5" />
+                    <span>Chọn tệp đính kèm từ thiết bị</span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">
+                    Hỗ trợ các định dạng PDF, Word, Excel, ZIP, hình ảnh...
+                  </span>
+                </Button>
+              )}
             </div>
 
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setIsSubmitOpen(false)}>
                 Hủy
               </Button>
-              <Button type="submit" disabled={!reportTitle.trim() || !reportSummary.trim()}>
-                Xuất PDF & Gửi cho Sếp
+              <Button
+                type="submit"
+                disabled={!reportTitle.trim() || !reportSummary.trim() || isSubmitting}
+                className="gap-1.5"
+              >
+                <Send className="h-3.5 w-3.5" /> {isSubmitting ? "Đang gửi..." : "Gửi báo cáo"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 2: XEM BÁO CÁO CHÍNH THỨC (CHO SẾP & NHÂN VIÊN ĐỌC) */}
+      {/* MODAL 2: XEM BÁO CÁO CHÍNH THỨC */}
       <Dialog open={isPdfOpen} onOpenChange={setIsPdfOpen}>
         <DialogContent
           showCloseButton={false}
@@ -714,7 +865,7 @@ export default function ReportsPage() {
                         {selectedReport.title}
                       </h3>
                       <Badge variant="outline" className="text-[10px] uppercase font-mono shrink-0 hidden sm:inline-flex">
-                        Văn bản chính thức
+                        Văn bản báo cáo
                       </Badge>
                       {selectedReport.status === "reviewed" ? (
                         <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] shrink-0">
@@ -729,7 +880,9 @@ export default function ReportsPage() {
                     <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
                       <span>Mã: <strong className="font-mono text-foreground">{selectedReport.id}</strong></span>
                       <span>•</span>
-                      <span>Tác giả: <strong className="text-foreground">{selectedReport.author}</strong></span>
+                      <span>Người gửi: <strong className="text-foreground">{selectedReport.author}</strong></span>
+                      <span>•</span>
+                      <span>Người nhận: <strong className="text-amber-600 dark:text-amber-400">{selectedReport.recipientName || "Admin dự án"}</strong></span>
                       <span>•</span>
                       <span>Ngày gửi: {selectedReport.date}</span>
                     </div>
@@ -738,7 +891,7 @@ export default function ReportsPage() {
 
                 {/* Right controls */}
                 <div className="flex items-center gap-2 shrink-0">
-                  {isOwner && selectedReport.status !== "reviewed" && (
+                  {(isOwner || user?.id === selectedReport.recipientId) && selectedReport.status !== "reviewed" && (
                     <Button
                       size="sm"
                       onClick={() => handleMarkReviewed(selectedReport.id)}
@@ -758,15 +911,18 @@ export default function ReportsPage() {
                     <Printer className="h-3.5 w-3.5" /> <span className="hidden sm:inline">In ấn</span>
                   </Button>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => alert(`Đang tải tệp báo cáo "${selectedReport.title}.pdf" về máy tính...`)}
-                    className="text-xs h-8 gap-1.5"
-                    title="Tải văn bản báo cáo"
-                  >
-                    <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Tải về</span>
-                  </Button>
+                  {selectedReport.pdfUrl && (
+                    <a
+                      href={selectedReport.pdfUrl}
+                      download={`${selectedReport.title}.pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
+                      title="Tải tệp đính kèm về máy"
+                    >
+                      <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Tải tệp</span>
+                    </a>
+                  )}
 
                   <Button
                     variant="outline"
@@ -826,11 +982,7 @@ export default function ReportsPage() {
                   {/* Centered Document Title */}
                   <div className="text-center py-4 space-y-2 border-b">
                     <div className="text-xs font-bold text-primary uppercase tracking-widest">
-                      {selectedReport.type === "sprint"
-                        ? "BÁO CÁO NGHIỆM THU TIẾN ĐỘ SPRINT"
-                        : selectedReport.type === "weekly"
-                        ? "BÁO CÁO TIẾN ĐỘ CÔNG VIỆC ĐỊNH KỲ TUẦN"
-                        : "BÁO CÁO KỸ THUẬT & KIẾN TRÚC PHẦN MỀM"}
+                      BÁO CÁO CÔNG VIỆC DỰ ÁN
                     </div>
                     <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-foreground uppercase tracking-tight">
                       {selectedReport.title}
@@ -848,9 +1000,9 @@ export default function ReportsPage() {
                       <div className="text-[11px] text-muted-foreground truncate">{selectedReport.authorEmail}</div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground text-[11px] font-medium">Người nhận phê duyệt</div>
-                      <div className="font-bold text-foreground text-sm mt-0.5">Trịnh Quyết Chiến</div>
-                      <div className="text-[11px] text-muted-foreground">Product Owner / Chủ dự án</div>
+                      <div className="text-muted-foreground text-[11px] font-medium">Người nhận phê duyệt (Admin)</div>
+                      <div className="font-bold text-foreground text-sm mt-0.5">{selectedReport.recipientName || "Admin dự án"}</div>
+                      <div className="text-[11px] text-muted-foreground truncate">{selectedReport.recipientEmail || "Quản trị viên dự án"}</div>
                     </div>
                     <div>
                       <div className="text-muted-foreground text-[11px] font-medium">Ngày lập báo cáo</div>
@@ -866,51 +1018,67 @@ export default function ReportsPage() {
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30 text-xs">
-                            ⏳ Đang chờ Sếp ký duyệt
+                            ⏳ Đang chờ Admin ký duyệt
                           </Badge>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Section I: Tóm tắt */}
+                  {/* Section I: Lời nhắn & Nội dung báo cáo */}
                   <div className="space-y-3">
                     <h4 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-wide flex items-center gap-2">
                       <span className="h-6 w-6 rounded-md bg-primary/10 text-primary flex items-center justify-center text-xs font-black">I</span>
-                      Tổng quan nội dung & Kết quả đạt được
+                      Lời nhắn & Nội dung báo cáo
                     </h4>
                     <div className="text-sm sm:text-base leading-relaxed text-foreground bg-muted/20 p-5 rounded-xl border whitespace-pre-line">
                       {selectedReport.summary}
                     </div>
                   </div>
 
-                  {/* Section II: Các hạng mục đã hoàn thành */}
+                  {/* Section II: Tệp đính kèm */}
                   <div className="space-y-3">
                     <h4 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-wide flex items-center gap-2">
                       <span className="h-6 w-6 rounded-md bg-emerald-500/10 text-emerald-600 flex items-center justify-center text-xs font-black">II</span>
-                      Chi tiết các hạng mục công việc đã hoàn thành (WBS & Deliverables)
+                      Tệp tài liệu đính kèm
                     </h4>
-                    <div className="text-sm sm:text-base leading-relaxed text-foreground bg-muted/20 p-5 rounded-xl border whitespace-pre-line font-mono text-xs sm:text-sm">
-                      {selectedReport.completedTasks}
-                    </div>
+                    {selectedReport.pdfUrl ? (
+                      <div className="p-4 rounded-xl border bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2.5 rounded-lg bg-primary/10 text-primary shrink-0">
+                            <FileText className="h-6 w-6" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                              <Paperclip className="h-3.5 w-3.5 text-primary" /> Tệp tài liệu đính kèm
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Tệp tài liệu đính kèm gửi cùng với báo cáo này. Nhấn nút bên phải để tải về hoặc xem.
+                            </div>
+                          </div>
+                        </div>
+                        <a
+                          href={selectedReport.pdfUrl}
+                          download={`${selectedReport.title}.pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors shadow-xs shrink-0 self-start sm:self-auto"
+                        >
+                          <Download className="h-3.5 w-3.5" /> Tải tệp về máy
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl border bg-muted/20 text-xs text-muted-foreground italic">
+                        Không có tệp tài liệu đính kèm kèm theo báo cáo này.
+                      </div>
+                    )}
                   </div>
 
-                  {/* Section III: Khó khăn & Đề xuất */}
+                  {/* Section III: Kế hoạch & Cam kết */}
                   <div className="space-y-3">
                     <h4 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-wide flex items-center gap-2">
-                      <span className="h-6 w-6 rounded-md bg-amber-500/10 text-amber-600 flex items-center justify-center text-xs font-black">III</span>
-                      Khó khăn, vướng mắc & Đề xuất hỗ trợ (Blockers & Risks)
-                    </h4>
-                    <div className="text-sm sm:text-base leading-relaxed text-amber-900 dark:text-amber-300 bg-amber-50/70 dark:bg-amber-950/30 p-5 rounded-xl border border-amber-200 dark:border-amber-900/50 whitespace-pre-line">
-                      {selectedReport.blockers}
-                    </div>
-                  </div>
-
-                  {/* Section IV: Kế hoạch tiếp theo */}
-                  <div className="space-y-3">
-                    <h4 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-wide flex items-center gap-2">
-                      <span className="h-6 w-6 rounded-md bg-blue-500/10 text-blue-600 flex items-center justify-center text-xs font-black">IV</span>
-                      Kế hoạch hành động & Cam kết giai đoạn tiếp theo
+                      <span className="h-6 w-6 rounded-md bg-blue-500/10 text-blue-600 flex items-center justify-center text-xs font-black">III</span>
+                      Kế hoạch hành động & Cam kết tiến độ
                     </h4>
                     <div className="text-sm sm:text-base leading-relaxed text-foreground bg-muted/20 p-5 rounded-xl border">
                       Đội ngũ cam kết tiếp tục bám sát kế hoạch Sprint Backlog, hoàn thiện các User Stories còn lại đúng tiến độ và tiêu chí hoàn thành (Definition of Done), đồng thời tham gia đầy đủ các phiên Daily Scrum và Sprint Review tiếp theo.
@@ -933,7 +1101,7 @@ export default function ReportsPage() {
 
                     <div className="space-y-1">
                       <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                        Chủ dự án phê duyệt
+                        Quản trị viên (Admin) phê duyệt
                       </div>
                       <div className="text-[11px] text-muted-foreground">(Ký số và đóng dấu điện tử)</div>
                       <div className="h-24 flex items-center justify-center">
@@ -947,12 +1115,12 @@ export default function ReportsPage() {
                           </div>
                         ) : (
                           <div className="border border-dashed border-amber-400 rounded-xl p-3 bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 text-xs italic">
-                            Văn bản đang chờ Chủ dự án xem và phê duyệt
+                            Văn bản đang chờ Admin xem và phê duyệt
                           </div>
                         )}
                       </div>
-                      <div className="text-sm font-bold text-foreground">Trịnh Quyết Chiến</div>
-                      <div className="text-xs text-muted-foreground">Product Owner / Chủ dự án FTodo</div>
+                      <div className="text-sm font-bold text-foreground">{selectedReport.recipientName || "Admin dự án"}</div>
+                      <div className="text-xs text-muted-foreground">{selectedReport.recipientEmail || "Quản trị viên dự án"}</div>
                     </div>
                   </div>
 
