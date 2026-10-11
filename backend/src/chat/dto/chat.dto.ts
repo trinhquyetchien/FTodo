@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsBoolean, IsArray, IsString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateChannelDto {
@@ -8,7 +8,29 @@ export class CreateChannelDto {
 
   @ApiPropertyOptional({ example: 'Kênh trao đổi chung toàn dự án', description: 'Mô tả kênh' })
   @IsOptional()
+  @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ example: false, description: 'Kênh riêng tư' })
+  @IsOptional()
+  @IsBoolean()
+  isPrivate?: boolean;
+
+  @ApiPropertyOptional({ example: ['user-id-1', 'user-id-2'], description: 'Danh sách ID thành viên ban đầu' })
+  @IsOptional()
+  @IsArray()
+  memberIds?: string[];
+}
+
+export class AddChannelMemberDto {
+  @ApiProperty({ example: 'user-id-123', description: 'ID người dùng được thêm vào kênh' })
+  @IsNotEmpty({ message: 'User ID không được để trống' })
+  userId: string;
+
+  @ApiPropertyOptional({ example: 'MEMBER', description: 'Vai trò trong kênh (ADMIN, MEMBER)' })
+  @IsOptional()
+  @IsString()
+  role?: string;
 }
 
 export class SendMessageDto {

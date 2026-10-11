@@ -269,15 +269,37 @@ export const api = {
   chat: {
     getChannels: (projectId: string) =>
       apiFetch<any[]>(`/projects/${projectId}/channels`),
-    createChannel: (projectId: string, data: { name: string; description?: string }) =>
+    createChannel: (projectId: string, data: { name: string; description?: string; isPrivate?: boolean; memberIds?: string[] }) =>
       apiFetch<any>(`/projects/${projectId}/channels`, {
         method: "POST",
         body: JSON.stringify(data),
+      }),
+    deleteChannel: (projectId: string, channelId: string) =>
+      apiFetch<{ message: string }>(`/projects/${projectId}/channels/${channelId}`, {
+        method: "DELETE",
+      }),
+    getChannelMembers: (channelId: string) =>
+      apiFetch<any[]>(`/channels/${channelId}/members`),
+    addChannelMember: (channelId: string, data: { userId: string; role?: string }) =>
+      apiFetch<any>(`/channels/${channelId}/members`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    removeChannelMember: (channelId: string, userId: string) =>
+      apiFetch<{ message: string }>(`/channels/${channelId}/members/${userId}`, {
+        method: "DELETE",
       }),
     getMessages: (channelId: string) =>
       apiFetch<any[]>(`/channels/${channelId}/messages`),
     sendMessage: (channelId: string, data: { content: string; attachment?: string }) =>
       apiFetch<any>(`/channels/${channelId}/messages`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getDirectMessages: (projectId: string, otherUserId: string) =>
+      apiFetch<any[]>(`/projects/${projectId}/direct-messages/${otherUserId}`),
+    sendDirectMessage: (projectId: string, otherUserId: string, data: { content: string; attachment?: string }) =>
+      apiFetch<any>(`/projects/${projectId}/direct-messages/${otherUserId}`, {
         method: "POST",
         body: JSON.stringify(data),
       }),
