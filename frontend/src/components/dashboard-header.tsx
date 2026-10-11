@@ -26,6 +26,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { INITIAL_MOCK_PROJECTS } from "@/lib/mock-data";
+import { Logo } from "@/components/logo";
 import {
   getStoredInvitations,
   respondToInvitation,
@@ -112,18 +113,8 @@ export function DashboardHeader() {
       <div className="flex items-center gap-3 min-w-0">
         {!isInsideWorkspace ? (
           /* Default Logo & Title when on main Dashboard / Home */
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground font-black flex items-center justify-center text-sm shadow-sm shadow-primary/25 shrink-0">
-              F
-            </div>
-            <div className="flex flex-col">
-              <span className="text-base sm:text-lg font-bold text-foreground tracking-tight leading-tight">
-                Hệ thống Quản lý Phần mềm Scrum FTodo
-              </span>
-              <span className="text-[10px] text-muted-foreground leading-none">
-                Bảng điều khiển tổng quan dự án
-              </span>
-            </div>
+          <Link href="/" className="flex items-center">
+            <Logo size="sm" subtitleText="Bảng điều khiển tổng quan dự án" />
           </Link>
         ) : (
           /* When inside Workspace: Logo is removed, replaced cleanly with Project Name only (no role badges) */

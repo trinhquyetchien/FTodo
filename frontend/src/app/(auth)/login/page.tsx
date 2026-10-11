@@ -14,9 +14,7 @@ import {
   ArrowRight, 
   Eye, 
   EyeOff, 
-  Sparkles, 
-  CheckCircle2,
-  ShieldCheck
+  Sparkles
 } from "lucide-react";
 
 export default function Login() {
@@ -199,15 +197,6 @@ export default function Login() {
             )}
           </Button>
         </form>
-
-        {/* Subtle quick account hint */}
-        <div className="p-2.5 rounded-xl bg-muted/40 border border-border/50 text-[11px] text-muted-foreground flex items-center justify-between">
-          <span className="flex items-center gap-1.5">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-            <span>Mặc định: <strong className="text-foreground">chien@example.com</strong></span>
-          </span>
-          <span className="text-[10px] text-muted-foreground/70 font-mono">Mật khẩu: bất kỳ</span>
-        </div>
       </CardContent>
 
       <CardFooter className="flex flex-col space-y-2 border-t pt-4">
