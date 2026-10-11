@@ -427,8 +427,12 @@ export default function GlobalDashboard() {
                         </CardContent>
                         <CardFooter className="pt-0">
                           <Link href={`/projects/${project.id}`} className="w-full">
-                            <Button variant="outline" className="w-full gap-2 text-xs">
-                              Mở không gian làm việc (Toàn quyền) <ArrowRight className="h-3.5 w-3.5" />
+                            <Button 
+                              className="w-full gap-2 text-xs font-semibold h-9.5 rounded-xl shadow-xs transition-all bg-primary hover:bg-primary/90 text-primary-foreground hover:shadow-md hover:shadow-primary/25 hover:scale-[1.01] active:scale-[0.99] group cursor-pointer flex items-center justify-center"
+                            >
+                              <FolderKanban className="h-4 w-4 shrink-0" />
+                              <span className="font-bold">Mở không gian làm việc</span>
+                              <ArrowRight className="h-3.5 w-3.5 ml-auto transition-transform group-hover:translate-x-1 text-primary-foreground/90" />
                             </Button>
                           </Link>
                         </CardFooter>
@@ -493,8 +497,12 @@ export default function GlobalDashboard() {
                         </CardContent>
                         <CardFooter className="pt-0">
                           <Link href={`/projects/${project.id}`} className="w-full">
-                            <Button variant="outline" className="w-full gap-2 text-xs">
-                              Vào làm việc (Quyền thành viên) <ArrowRight className="h-3.5 w-3.5" />
+                            <Button 
+                              className="w-full gap-2 text-xs font-semibold h-9.5 rounded-xl shadow-xs transition-all bg-primary hover:bg-primary/90 text-primary-foreground hover:shadow-md hover:shadow-primary/25 hover:scale-[1.01] active:scale-[0.99] group cursor-pointer flex items-center justify-center"
+                            >
+                              <FolderKanban className="h-4 w-4 shrink-0" />
+                              <span className="font-bold">Mở không gian làm việc</span>
+                              <ArrowRight className="h-3.5 w-3.5 ml-auto transition-transform group-hover:translate-x-1 text-primary-foreground/90" />
                             </Button>
                           </Link>
                         </CardFooter>
