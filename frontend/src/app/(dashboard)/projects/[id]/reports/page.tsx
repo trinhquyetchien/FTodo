@@ -19,8 +19,14 @@ import {
   User,
   Check,
   FileCheck,
-  Plus
+  Plus,
+  Maximize2,
+  Minimize2,
+  Printer,
+  X,
+  ShieldCheck
 } from "lucide-react";
+import { cn } from "cn";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -134,6 +140,7 @@ export default function ReportsPage() {
   // Modal: Read / PDF preview (For boss & member)
   const [selectedReport, setSelectedReport] = useState<SubmittedReport | null>(null);
   const [isPdfOpen, setIsPdfOpen] = useState(false);
+  const [isPdfFullscreen, setIsPdfFullscreen] = useState(false);
 
   const saveReports = (newList: SubmittedReport[]) => {
     setReports(newList);
@@ -179,6 +186,7 @@ export default function ReportsPage() {
 
   const handleOpenPdf = (report: SubmittedReport) => {
     setSelectedReport(report);
+    setIsPdfFullscreen(false);
     setIsPdfOpen(true);
   };
 
@@ -431,7 +439,7 @@ export default function ReportsPage() {
 
       {/* MODAL 1: GỬI BÁO CÁO CHO SẾP (NHÂN VIÊN) */}
       <Dialog open={isSubmitOpen} onOpenChange={setIsSubmitOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Send className="h-4 w-4 text-primary" /> Soạn & Gửi báo cáo cho Sếp
@@ -538,142 +546,279 @@ export default function ReportsPage() {
 
       {/* MODAL 2: XEM BÁO CÁO ĐỊNH DẠNG PDF CHÍNH THỨC (CHO SẾP & NHÂN VIÊN ĐỌC) */}
       <Dialog open={isPdfOpen} onOpenChange={setIsPdfOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-0 bg-transparent shadow-2xl">
+        <DialogContent
+          showCloseButton={false}
+          className={cn(
+            "p-0 border bg-card shadow-2xl transition-all duration-200 flex flex-col overflow-hidden",
+            isPdfFullscreen
+              ? "!fixed !inset-0 !top-0 !left-0 !translate-x-0 !translate-y-0 !w-screen !h-screen !max-w-none !max-h-none !rounded-none z-50"
+              : "w-[96vw] max-w-6xl sm:max-w-4xl md:max-w-5xl lg:max-w-6xl xl:max-w-7xl max-h-[92vh] rounded-2xl"
+          )}
+        >
           {selectedReport && (
-            <div className="bg-white dark:bg-slate-900 rounded-xl border p-8 space-y-6 text-foreground font-sans">
-              {/* PDF Document Header */}
-              <div className="border-b pb-4 flex justify-between items-start">
-                <div>
-                  <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                    CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM • FTODO AGILE MANAGEMENT
+            <div className="flex flex-col h-full overflow-hidden">
+              {/* Sticky Top Document Viewer Toolbar */}
+              <div className="shrink-0 bg-background/95 backdrop-blur-md border-b px-5 py-3 flex items-center justify-between gap-3 z-10 shadow-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+                    <FileText className="h-5 w-5" />
                   </div>
-                  <h3 className="text-lg font-bold text-foreground mt-1">
-                    BÁO CÁO TIẾN ĐỘ DỰ ÁN SCRUM
-                  </h3>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    Mã văn bản: <strong className="font-mono text-foreground">{selectedReport.id}</strong> • Dự án: {project?.name}
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-950/30 text-[10px] font-mono">
-                    PDF DOCUMENT
-                  </Badge>
-                  <div className="text-[11px] text-muted-foreground mt-1">
-                    Ngày lập: {selectedReport.date}
-                  </div>
-                </div>
-              </div>
-
-              {/* Title & Author Meta */}
-              <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-lg border space-y-2">
-                <div className="text-xs font-bold text-primary uppercase">
-                  {selectedReport.type === "sprint"
-                    ? "Báo cáo nghiệm thu Sprint"
-                    : selectedReport.type === "weekly"
-                    ? "Báo cáo công tác tuần"
-                    : "Báo cáo kỹ thuật"}
-                </div>
-                <h4 className="text-base font-bold text-foreground leading-snug">
-                  {selectedReport.title}
-                </h4>
-                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-1 border-t">
-                  <div>
-                    Người thực hiện: <strong className="text-foreground">{selectedReport.author}</strong>
-                  </div>
-                  <div>
-                    Người nhận phê duyệt: <strong className="text-foreground">Trịnh Quyết Chiến (Chủ dự án)</strong>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm sm:text-base font-bold text-foreground truncate max-w-xs sm:max-w-md md:max-w-xl">
+                        {selectedReport.title}
+                      </h3>
+                      <Badge variant="outline" className="text-[10px] uppercase font-mono shrink-0 hidden sm:inline-flex">
+                        PDF v1.4
+                      </Badge>
+                      {selectedReport.status === "reviewed" ? (
+                        <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] shrink-0">
+                          ✓ Đã duyệt
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30 text-[10px] shrink-0">
+                          ⏳ Chờ duyệt
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
+                      <span>Mã: <strong className="font-mono text-foreground">{selectedReport.id}</strong></span>
+                      <span>•</span>
+                      <span>Tác giả: <strong className="text-foreground">{selectedReport.author}</strong></span>
+                      <span>•</span>
+                      <span>Ngày: {selectedReport.date}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Body Section 1: Summary */}
-              <div className="space-y-1.5">
-                <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  I. Tóm tắt nội dung báo cáo
-                </h5>
-                <p className="text-xs leading-relaxed text-foreground bg-muted/20 p-3 rounded-lg border">
-                  {selectedReport.summary}
-                </p>
-              </div>
-
-              {/* Body Section 2: Completed Tasks */}
-              <div className="space-y-1.5">
-                <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  II. Chi tiết các hạng mục đã hoàn thành
-                </h5>
-                <div className="text-xs leading-relaxed whitespace-pre-line text-foreground bg-muted/20 p-3 rounded-lg border">
-                  {selectedReport.completedTasks}
-                </div>
-              </div>
-
-              {/* Body Section 3: Blockers */}
-              <div className="space-y-1.5">
-                <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  III. Đề xuất hỗ trợ & Vướng mắc
-                </h5>
-                <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20 p-3 rounded-lg border border-amber-200 dark:border-amber-900">
-                  {selectedReport.blockers}
-                </p>
-              </div>
-
-              {/* Signatures Footer */}
-              <div className="border-t pt-4 grid grid-cols-2 gap-4 text-center text-xs">
-                <div>
-                  <div className="font-semibold text-muted-foreground">Người lập báo cáo</div>
-                  <div className="h-12 flex items-center justify-center font-serif italic text-primary">
-                    {selectedReport.author}
-                  </div>
-                  <div className="text-[11px] font-medium text-foreground">{selectedReport.author}</div>
-                </div>
-
-                <div>
-                  <div className="font-semibold text-muted-foreground">Chủ dự án xác nhận</div>
-                  <div className="h-12 flex items-center justify-center">
-                    {selectedReport.status === "reviewed" ? (
-                      <span className="text-[11px] font-bold text-emerald-600 border border-emerald-500 rounded px-2 py-0.5 uppercase">
-                        ✓ ĐÃ DUYỆT BÁO CÁO
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground italic">
-                        Chờ xác nhận
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[11px] font-medium text-foreground">Trịnh Quyết Chiến</div>
-                </div>
-              </div>
-
-              {/* Modal Actions */}
-              <div className="border-t pt-4 flex items-center justify-between">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsPdfOpen(false)}
-                  className="text-xs"
-                >
-                  Đóng văn bản
-                </Button>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => alert("Đang tải tệp PDF văn bản về máy...")}
-                    className="text-xs gap-1.5"
-                  >
-                    <Download className="h-3.5 w-3.5" /> Tải tệp PDF
-                  </Button>
-
+                {/* Right controls */}
+                <div className="flex items-center gap-2 shrink-0">
                   {isOwner && selectedReport.status !== "reviewed" && (
                     <Button
                       size="sm"
                       onClick={() => handleMarkReviewed(selectedReport.id)}
-                      className="text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      className="text-xs h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
                     >
-                      <Check className="h-3.5 w-3.5" /> Xác nhận đã đọc & Phê duyệt
+                      <Check className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Phê duyệt văn bản</span><span className="sm:hidden">Duyệt</span>
                     </Button>
                   )}
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.print()}
+                    className="text-xs h-8 gap-1.5 hidden md:inline-flex"
+                    title="In văn bản báo cáo"
+                  >
+                    <Printer className="h-3.5 w-3.5" /> <span className="hidden sm:inline">In ấn</span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => alert(`Đang tải tệp PDF "${selectedReport.title}.pdf" về máy tính...`)}
+                    className="text-xs h-8 gap-1.5"
+                    title="Tải văn bản PDF"
+                  >
+                    <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Tải PDF</span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsPdfFullscreen(!isPdfFullscreen)}
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    title={isPdfFullscreen ? "Thu nhỏ cửa sổ" : "Mở rộng toàn màn hình"}
+                  >
+                    {isPdfFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsPdfOpen(false)}
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    title="Đóng cửa sổ đọc báo cáo"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Scrollable Document Desk & A4 Paper Container */}
+              <div className="flex-1 overflow-y-auto bg-slate-100/80 dark:bg-slate-950/90 p-4 sm:p-8 md:p-12">
+                <div className="w-full max-w-4xl mx-auto bg-white dark:bg-slate-900 border shadow-2xl rounded-xl p-8 sm:p-12 md:p-16 space-y-8 font-sans text-foreground">
+                  {/* Official Vietnam National Header */}
+                  <div className="border-b pb-6 flex flex-col sm:flex-row justify-between items-start gap-4">
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                        CÔNG TY CỔ PHẦN CÔNG NGHỆ FTODO
+                      </div>
+                      <div className="text-xs font-semibold text-primary">
+                        BAN QUẢN LÝ DỰ ÁN PHẦN MỀM SCRUM
+                      </div>
+                      <div className="text-xs text-muted-foreground pt-1">
+                        Số văn bản: <strong className="font-mono text-foreground">{selectedReport.id}</strong>/BC-SCRUM
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Dự án: <strong className="text-foreground">{project?.name || "FTodo Core"}</strong>
+                      </div>
+                    </div>
+
+                    <div className="text-left sm:text-right space-y-1">
+                      <div className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+                      </div>
+                      <div className="text-xs font-bold underline underline-offset-4 text-foreground">
+                        Độc lập - Tự do - Hạnh phúc
+                      </div>
+                      <div className="text-xs text-muted-foreground italic pt-1">
+                        Hà Nội, ngày {selectedReport.date}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Centered Document Title */}
+                  <div className="text-center py-4 space-y-2 border-b">
+                    <div className="text-xs font-bold text-primary uppercase tracking-widest">
+                      {selectedReport.type === "sprint"
+                        ? "BÁO CÁO NGHIỆM THU TIẾN ĐỘ SPRINT"
+                        : selectedReport.type === "weekly"
+                        ? "BÁO CÁO TIẾN ĐỘ CÔNG VIỆC ĐỊNH KỲ TUẦN"
+                        : "BÁO CÁO KỸ THUẬT & KIẾN TRÚC PHẦN MỀM"}
+                    </div>
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-foreground uppercase tracking-tight">
+                      {selectedReport.title}
+                    </h2>
+                    <p className="text-xs sm:text-sm text-muted-foreground italic">
+                      Hệ thống quản lý công việc và phát triển phần mềm theo mô hình Agile Scrum Standard
+                    </p>
+                  </div>
+
+                  {/* Document Meta Info Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 dark:bg-slate-800/40 p-5 rounded-xl border text-xs">
+                    <div>
+                      <div className="text-muted-foreground text-[11px] font-medium">Người lập báo cáo</div>
+                      <div className="font-bold text-foreground text-sm mt-0.5">{selectedReport.author}</div>
+                      <div className="text-[11px] text-muted-foreground truncate">{selectedReport.authorEmail}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground text-[11px] font-medium">Người nhận phê duyệt</div>
+                      <div className="font-bold text-foreground text-sm mt-0.5">Trịnh Quyết Chiến</div>
+                      <div className="text-[11px] text-muted-foreground">Product Owner / Chủ dự án</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground text-[11px] font-medium">Ngày lập báo cáo</div>
+                      <div className="font-bold text-foreground text-sm mt-0.5">{selectedReport.date}</div>
+                      <div className="text-[11px] text-muted-foreground">Hạn phản hồi: 48 giờ</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground text-[11px] font-medium">Tình trạng phê duyệt</div>
+                      <div className="mt-1">
+                        {selectedReport.status === "reviewed" ? (
+                          <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                            ✓ Đã phê duyệt chính thức
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30 text-xs">
+                            ⏳ Đang chờ Sếp ký duyệt
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section I: Tóm tắt */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-wide flex items-center gap-2">
+                      <span className="h-6 w-6 rounded-md bg-primary/10 text-primary flex items-center justify-center text-xs font-black">I</span>
+                      Tổng quan nội dung & Kết quả đạt được
+                    </h4>
+                    <div className="text-sm sm:text-base leading-relaxed text-foreground bg-muted/20 p-5 rounded-xl border whitespace-pre-line">
+                      {selectedReport.summary}
+                    </div>
+                  </div>
+
+                  {/* Section II: Các hạng mục đã hoàn thành */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-wide flex items-center gap-2">
+                      <span className="h-6 w-6 rounded-md bg-emerald-500/10 text-emerald-600 flex items-center justify-center text-xs font-black">II</span>
+                      Chi tiết các hạng mục công việc đã hoàn thành (WBS & Deliverables)
+                    </h4>
+                    <div className="text-sm sm:text-base leading-relaxed text-foreground bg-muted/20 p-5 rounded-xl border whitespace-pre-line font-mono text-xs sm:text-sm">
+                      {selectedReport.completedTasks}
+                    </div>
+                  </div>
+
+                  {/* Section III: Khó khăn & Đề xuất */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-wide flex items-center gap-2">
+                      <span className="h-6 w-6 rounded-md bg-amber-500/10 text-amber-600 flex items-center justify-center text-xs font-black">III</span>
+                      Khó khăn, vướng mắc & Đề xuất hỗ trợ (Blockers & Risks)
+                    </h4>
+                    <div className="text-sm sm:text-base leading-relaxed text-amber-900 dark:text-amber-300 bg-amber-50/70 dark:bg-amber-950/30 p-5 rounded-xl border border-amber-200 dark:border-amber-900/50 whitespace-pre-line">
+                      {selectedReport.blockers}
+                    </div>
+                  </div>
+
+                  {/* Section IV: Kế hoạch tiếp theo */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm sm:text-base font-bold text-foreground uppercase tracking-wide flex items-center gap-2">
+                      <span className="h-6 w-6 rounded-md bg-blue-500/10 text-blue-600 flex items-center justify-center text-xs font-black">IV</span>
+                      Kế hoạch hành động & Cam kết giai đoạn tiếp theo
+                    </h4>
+                    <div className="text-sm sm:text-base leading-relaxed text-foreground bg-muted/20 p-5 rounded-xl border">
+                      Đội ngũ cam kết tiếp tục bám sát kế hoạch Sprint Backlog, hoàn thiện các User Stories còn lại đúng tiến độ và tiêu chí hoàn thành (Definition of Done), đồng thời tham gia đầy đủ các phiên Daily Scrum và Sprint Review tiếp theo.
+                    </div>
+                  </div>
+
+                  {/* Signatures & Official Stamp */}
+                  <div className="pt-10 border-t grid grid-cols-1 sm:grid-cols-2 gap-8 text-center">
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        Người lập báo cáo
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">(Ký và ghi rõ họ tên)</div>
+                      <div className="h-24 flex items-center justify-center font-serif italic text-2xl sm:text-3xl text-primary font-bold">
+                        {selectedReport.author}
+                      </div>
+                      <div className="text-sm font-bold text-foreground">{selectedReport.author}</div>
+                      <div className="text-xs text-muted-foreground">{selectedReport.authorEmail}</div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        Chủ dự án phê duyệt
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">(Ký số và đóng dấu điện tử)</div>
+                      <div className="h-24 flex items-center justify-center">
+                        {selectedReport.status === "reviewed" ? (
+                          <div className="border-2 border-emerald-600 rounded-xl p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 shadow-md flex flex-col items-center">
+                            <div className="text-[10px] font-bold tracking-widest uppercase">★ CÔNG TY FTODO ★</div>
+                            <div className="text-sm font-black uppercase text-emerald-600 dark:text-emerald-400 mt-0.5">
+                              ✓ ĐÃ PHÊ DUYỆT VĂN BẢN
+                            </div>
+                            <div className="text-[10px] font-mono text-muted-foreground mt-0.5">Ngày ký: {selectedReport.date}</div>
+                          </div>
+                        ) : (
+                          <div className="border border-dashed border-amber-400 rounded-xl p-3 bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 text-xs italic">
+                            Văn bản đang chờ Chủ dự án xem và phê duyệt
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-sm font-bold text-foreground">Trịnh Quyết Chiến</div>
+                      <div className="text-xs text-muted-foreground">Product Owner / Chủ dự án FTodo</div>
+                    </div>
+                  </div>
+
+                  {/* Document Footer Note */}
+                  <div className="border-t pt-4 flex flex-col sm:flex-row items-center justify-between text-[11px] text-muted-foreground gap-2">
+                    <div>Trang 1 / 1 • Lưu hành nội bộ dự án {project?.name || "FTodo"}</div>
+                    <div className="flex items-center gap-1">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                      Văn bản điện tử bảo mật chuẩn ISO/IEC 25010
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -149,10 +149,8 @@ export function ProjectNav() {
     : allAvailableTabs.filter((t) => t.id !== "settings");
 
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-      {/* Horizontal Tab Links */}
-      <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-        {visibleTabs.map((item) => {
+    <div className="flex items-center gap-1.5 overflow-x-auto w-full pb-1 scrollbar-none">
+      {visibleTabs.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
 
@@ -236,20 +234,6 @@ export function ProjectNav() {
             })}
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
-
-      {/* Role Badge Indicator */}
-      <div className="hidden sm:flex items-center gap-2 shrink-0">
-        {isOwner ? (
-          <Badge variant="outline" className="text-xs border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30 gap-1">
-            <Crown className="h-3 w-3" /> Chủ dự án (Toàn quyền)
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="text-xs border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-950/30 gap-1">
-            <UserCheck className="h-3 w-3" /> Thành viên (Quyền hạn chế)
-          </Badge>
-        )}
-      </div>
     </div>
   );
 }
