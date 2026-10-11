@@ -26,7 +26,13 @@ import {
   Inbox,
   AlertTriangle,
   Receipt,
-  FileCheck
+  FileCheck,
+  Target,
+  Zap,
+  BarChart2,
+  SlidersHorizontal,
+  ArrowRight,
+  Coins
 } from "lucide-react";
 import { useProject } from "../project-context";
 import { useAuth } from "@/lib/auth-context";
@@ -187,11 +193,11 @@ const sprintBurnData = [
 ];
 
 const categoryColors: Record<string, string> = {
-  personnel: "#3b82f6",     // Blue
-  infrastructure: "#10b981",// Emerald
-  licenses: "#8b5cf6",      // Violet
-  hardware: "#f59e0b",      // Amber
-  other: "#ec4899",         // Pink
+  personnel: "#3b82f6",
+  infrastructure: "#10b981",
+  licenses: "#8b5cf6",
+  hardware: "#f59e0b",
+  other: "#ec4899",
 };
 
 const categoryLabels: Record<string, string> = {
@@ -220,10 +226,14 @@ export default function ProjectCostPage() {
     return initialExpenses;
   });
 
+  const [mainView, setMainView] = useState<"overview" | "strategic_roi">("overview");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"all" | "pending" | "my">("all");
+
+  // ROI Simulator state
+  const [expectedRevenue, setExpectedRevenue] = useState(1200000000); // 1.2 billion VND
 
   // Add / Propose Expense Dialog
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
@@ -235,12 +245,10 @@ export default function ProjectCostPage() {
 
   // Review / Decision Dialog (For Boss/Owner)
   const [reviewingExpense, setReviewingExpense] = useState<Expense | null>(null);
-  const [reviewNote, setReviewNote] = useState("");
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [rejectExpenseTarget, setRejectExpenseTarget] = useState<Expense | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  // Save to localStorage whenever expenses change
   const saveExpenses = (updatedList: Expense[]) => {
     setExpenses(updatedList);
     if (typeof window !== "undefined") {
@@ -281,6 +289,19 @@ export default function ProjectCostPage() {
   const remainingBudget = totalBudget - totalSpent;
   const spentPercentage = Math.round((totalSpent / totalBudget) * 100);
 
+  // Strategic Calculations:
+  // EVM: Planned Value (PV) = 180M, Earned Value (EV) = 175M, Actual Cost (AC) = totalSpent
+  const plannedValue = 180000000;
+  const earnedValue = 175000000;
+  const actualCost = totalSpent > 0 ? totalSpent : 163500000;
+  const cpi = Number((earnedValue / actualCost).toFixed(2)); // Cost Performance Index
+  const spi = Number((earnedValue / plannedValue).toFixed(2)); // Schedule Performance Index
+  const sprintBurnRate = 81750000; // Average per sprint
+  const runwaySprints = Number((remainingBudget / sprintBurnRate).toFixed(1));
+
+  // ROI: (Revenue - Total Budget) / Total Budget * 100%
+  const estimatedRoi = Math.round(((expectedRevenue - totalBudget) / totalBudget) * 100);
+
   const pendingList = expenses.filter((e) => e.status === "pending");
   const myExpenses = expenses.filter(
     (e) => e.requesterEmail === user?.email || e.requester === user?.name
@@ -300,7 +321,6 @@ export default function ProjectCostPage() {
     color: categoryColors[cat] || "#94a3b8",
   }));
 
-  // Handle Propose / Add Expense
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newAmount || !newReason.trim()) return;
@@ -314,7 +334,7 @@ export default function ProjectCostPage() {
       requester: user?.name || "Thành viên dự án",
       requesterRole: isOwner ? "Chủ dự án" : (user?.role === "admin" ? "Admin" : "DEV"),
       requesterEmail: user?.email || "member@example.com",
-      status: isOwner ? "approved" : "pending", // Owner auto-approves their own, member is pending
+      status: isOwner ? "approved" : "pending",
       sprint: newSprint,
       reason: newReason.trim(),
       reviewedBy: isOwner ? user?.name : undefined,
@@ -329,7 +349,6 @@ export default function ProjectCostPage() {
     setNewReason("");
   };
 
-  // Boss Approves Expense
   const handleApproveExpense = (expenseId: string, note?: string) => {
     const updated = expenses.map((item) => {
       if (item.id === expenseId) {
@@ -347,7 +366,6 @@ export default function ProjectCostPage() {
     setReviewingExpense(null);
   };
 
-  // Boss Rejects Expense
   const handleConfirmReject = () => {
     if (!rejectExpenseTarget) return;
     const updated = expenses.map((item) => {
@@ -369,7 +387,6 @@ export default function ProjectCostPage() {
     setReviewingExpense(null);
   };
 
-  // Boss Marks as Paid
   const handleMarkAsPaid = (expenseId: string) => {
     const updated = expenses.map((item) => {
       if (item.id === expenseId) {
@@ -387,7 +404,6 @@ export default function ProjectCostPage() {
     return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(val);
   };
 
-  // Filter Table
   const filteredExpenses = expenses.filter((item) => {
     const matchesSearch =
       item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -413,7 +429,7 @@ export default function ProjectCostPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">
-              {isOwner ? "Quản trị Ngân sách & Phê duyệt Chi phí" : "Quản lý Chi phí & Đề xuất Ngân sách"}
+              {isOwner ? "Quản trị Tài chính, Ngân sách & Chỉ số ROI" : "Quản lý Chi phí & Đề xuất Ngân sách"}
             </h1>
             <Badge variant={isOwner ? "default" : "secondary"} className="text-xs">
               {isOwner ? "Giao diện Chủ dự án (Sếp)" : "Giao diện Nhân viên"}
@@ -421,12 +437,38 @@ export default function ProjectCostPage() {
           </div>
           <p className="text-xs text-muted-foreground mt-1">
             {isOwner
-              ? "Toàn quyền theo dõi ngân sách, phê duyệt hoặc từ chối các yêu cầu chi tiêu từ đội ngũ."
+              ? "Toàn quyền theo dõi ngân sách, phân tích chỉ số hoàn vốn ROI, EVM và duyệt chi phí từ đội ngũ."
               : "Theo dõi tình hình ngân sách và gửi các đề xuất chi phí phát sinh kèm lý do cho Chủ dự án duyệt."}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* View switcher for Owner */}
+          {isOwner && (
+            <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 text-xs">
+              <button
+                onClick={() => setMainView("overview")}
+                className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+                  mainView === "overview"
+                    ? "bg-background text-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <DollarSign className="h-3.5 w-3.5" /> Thu chi & Duyệt
+              </button>
+              <button
+                onClick={() => setMainView("strategic_roi")}
+                className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+                  mainView === "strategic_roi"
+                    ? "bg-background text-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Target className="h-3.5 w-3.5 text-primary" /> Phân tích ROI & EVM
+              </button>
+            </div>
+          )}
+
           <Button onClick={() => setIsAddExpenseOpen(true)} className="gap-1.5 shadow-xs">
             <Plus className="h-4 w-4" />
             {isOwner ? "Thêm khoản chi" : "Đề xuất chi phí"}
@@ -434,7 +476,7 @@ export default function ProjectCostPage() {
         </div>
       </div>
 
-      {/* Role Notice Banner */}
+      {/* Role Notice Banner for Member */}
       {!isOwner && (
         <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20">
           <CardContent className="p-4 flex items-center justify-between">
@@ -463,464 +505,652 @@ export default function ProjectCostPage() {
         </Card>
       )}
 
-      {/* 1. Summary Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Tổng ngân sách cấp</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalBudget)}</div>
-            <p className="text-[11px] text-muted-foreground mt-1">Cố định theo hợp đồng dự án</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Đã giải ngân / chi tiêu</CardTitle>
-            <TrendingUp className="h-4 w-4 text-rose-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">
-              {formatCurrency(totalSpent)}
-            </div>
-            <div className="mt-2 space-y-1">
-              <div className="flex justify-between text-[11px] text-muted-foreground">
-                <span>Tiến độ ngân sách</span>
-                <span className="font-semibold text-foreground">{spentPercentage}%</span>
-              </div>
-              <Progress value={spentPercentage} className="h-1.5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              {isOwner ? "Chờ Sếp duyệt" : "Đề xuất đang chờ duyệt"}
-            </CardTitle>
-            <AlertCircle className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-              {formatCurrency(pendingTotal)}
-            </div>
-            <div className="flex items-center justify-between mt-1">
-              <p className="text-[11px] text-muted-foreground">
-                {pendingList.length} đề xuất đang chờ
-              </p>
-              {isOwner && pendingList.length > 0 && (
-                <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
-                  Cần xử lý
+      {/* ======================================================== */}
+      {/* 1. STRATEGIC ROI & EVM VIEW (DÀNH CHO SẾP / OWNER)       */}
+      {/* ======================================================== */}
+      {isOwner && mainView === "strategic_roi" && (
+        <div className="space-y-6">
+          {/* Strategic Metrics KPI Grid */}
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            {/* ROI */}
+            <Card className="border-primary/30 bg-primary/5">
+              <CardHeader className="p-4 pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    ROI Dự kiến (Tỷ suất hoàn vốn)
+                  </CardTitle>
+                  <Target className="h-4 w-4 text-primary" />
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 pt-1">
+                <div className="text-2xl font-black text-primary">+{estimatedRoi}%</div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Giá trị dự kiến: {formatCurrency(expectedRevenue)}
+                </p>
+                <Badge variant="outline" className="mt-2 text-[10px] bg-background border-primary/30 text-primary">
+                  Điểm hòa vốn: Sau 6 - 8 tháng
                 </Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Ngân sách còn lại</CardTitle>
-            <CreditCard className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              {formatCurrency(remainingBudget)}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              Đủ chi trả cho khoảng 2 - 3 Sprints tiếp theo
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+            {/* CPI (Cost Performance Index) */}
+            <Card>
+              <CardHeader className="p-4 pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    CPI (Hiệu quả chi phí)
+                  </CardTitle>
+                  <Coins className="h-4 w-4 text-emerald-500" />
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 pt-1">
+                <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                  {cpi} <span className="text-xs font-normal text-muted-foreground">(&gt; 1.0)</span>
+                </div>
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-1">
+                  Tiết kiệm chi phí ~7% so với định mức
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  EV: {formatCurrency(earnedValue)} • AC: {formatCurrency(actualCost)}
+                </p>
+              </CardContent>
+            </Card>
 
-      {/* 2. BOSS SPECIAL SECTION: PENDING EXPENSES FOR APPROVAL */}
-      {isOwner && pendingList.length > 0 && (
-        <Card className="border-amber-300 dark:border-amber-800 bg-amber-50/20 dark:bg-amber-950/10 shadow-xs">
-          <CardHeader className="pb-3 border-b border-amber-200/50 dark:border-amber-900/50">
-            <div className="flex items-center justify-between">
+            {/* SPI (Schedule Performance Index) */}
+            <Card>
+              <CardHeader className="p-4 pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    SPI (Hiệu quả tiến độ)
+                  </CardTitle>
+                  <Clock className="h-4 w-4 text-amber-500" />
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 pt-1">
+                <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
+                  {spi} <span className="text-xs font-normal text-muted-foreground">(97%)</span>
+                </div>
+                <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-1">
+                  Bám sát 97% tiến độ kế hoạch ban đầu
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  EV: {formatCurrency(earnedValue)} • PV: {formatCurrency(plannedValue)}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Burn Rate & Runway */}
+            <Card>
+              <CardHeader className="p-4 pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Burn Rate & Runway
+                  </CardTitle>
+                  <Zap className="h-4 w-4 text-rose-500" />
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 pt-1">
+                <div className="text-2xl font-black text-foreground">
+                  {runwaySprints} <span className="text-xs font-normal text-muted-foreground">Sprints còn lại</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Tốc độ chi: ~{Math.round(sprintBurnRate / 1000000)} Tr ₫ / Sprint
+                </p>
+                <Badge variant="outline" className="mt-2 text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
+                  An toàn cho 6 - 8 tuần tiếp theo
+                </Badge>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Interactive ROI & Financial Simulator */}
+          <Card className="border-border">
+            <CardHeader className="pb-3 border-b">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400">
-                  <Inbox className="h-4 w-4" />
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <SlidersHorizontal className="h-4 w-4" />
                 </div>
                 <div>
-                  <CardTitle className="text-base text-amber-950 dark:text-amber-200 flex items-center gap-2">
-                    Yêu cầu chi phí chờ Sếp phê duyệt
-                    <Badge className="bg-amber-600 hover:bg-amber-700 text-xs">
-                      {pendingList.length} yêu cầu
-                    </Badge>
-                  </CardTitle>
-                  <CardDescription className="text-xs text-amber-800/80 dark:text-amber-400/80">
-                    Xem lý do đề xuất của nhân viên và quyết định Duyệt chi hoặc Từ chối.
+                  <CardTitle className="text-base">Mô phỏng Doanh thu & Tỷ suất hoàn vốn (ROI Simulator)</CardTitle>
+                  <CardDescription className="text-xs">
+                    Kéo thanh trượt hoặc nhập doanh thu / giá trị kỳ vọng để tính toán tỷ suất hoàn vốn và điểm hòa vốn.
                   </CardDescription>
                 </div>
               </div>
-            </div>
-          </CardHeader>
+            </CardHeader>
 
-          <CardContent className="p-4 space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {pendingList.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-4 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-background space-y-3 shadow-2xs hover:border-amber-400 transition-all"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <Badge
-                          variant="outline"
-                          className="text-[10px]"
-                          style={{
-                            borderColor: categoryColors[item.category],
-                            color: categoryColors[item.category],
-                          }}
-                        >
-                          {categoryLabels[item.category]}
-                        </Badge>
-                        <span className="text-[11px] font-mono text-muted-foreground">{item.id}</span>
-                        {item.sprint && (
-                          <Badge variant="secondary" className="text-[10px]">
-                            {item.sprint}
-                          </Badge>
-                        )}
-                      </div>
-                      <h4 className="font-semibold text-sm mt-1.5 text-foreground leading-snug">
-                        {item.title}
-                      </h4>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <div className="font-bold text-base text-primary">
-                        {formatCurrency(item.amount)}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">{item.date}</div>
+            <CardContent className="p-6 space-y-6">
+              <div className="grid gap-6 md:grid-cols-2 items-center">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">
+                      Doanh thu kỳ vọng từ sản phẩm (VNĐ):
+                    </Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        value={expectedRevenue}
+                        onChange={(e) => setExpectedRevenue(Number(e.target.value) || 0)}
+                        className="text-sm font-semibold h-11"
+                        step={50000000}
+                      />
                     </div>
                   </div>
 
-                  {/* Requester info */}
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1 border-t">
-                    <User className="h-3.5 w-3.5 text-primary" />
-                    <span className="font-medium text-foreground">{item.requester}</span>
-                    <Badge variant="outline" className="text-[10px] py-0">
-                      {item.requesterRole}
-                    </Badge>
-                    <span>• {item.requesterEmail}</span>
-                  </div>
+                  <input
+                    type="range"
+                    min="500000000"
+                    max="3000000000"
+                    step="50000000"
+                    value={expectedRevenue}
+                    onChange={(e) => setExpectedRevenue(Number(e.target.value))}
+                    className="w-full accent-primary h-2 bg-slate-200 rounded-lg cursor-pointer dark:bg-slate-700"
+                  />
 
-                  {/* PROPOSAL REASON (Crucial User Requirement) */}
-                  <div className="p-2.5 rounded-lg bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/40 text-xs">
-                    <div className="font-semibold text-amber-900 dark:text-amber-300 text-[11px] mb-1 flex items-center gap-1">
-                      <FileText className="h-3 w-3 text-amber-600" /> Lý do đề xuất của nhân viên:
-                    </div>
-                    <p className="text-amber-950/90 dark:text-amber-200/90 italic leading-relaxed text-[11px]">
-                      "{item.reason}"
-                    </p>
-                  </div>
-
-                  {/* Action Buttons for Boss */}
-                  <div className="flex items-center justify-end gap-2 pt-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setRejectExpenseTarget(item);
-                        setIsRejectOpen(true);
-                      }}
-                      className="text-xs h-8 text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30"
-                    >
-                      <X className="h-3.5 w-3.5 mr-1" /> Từ chối
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => handleApproveExpense(item.id)}
-                      className="text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
-                    >
-                      <Check className="h-3.5 w-3.5 mr-1" /> Duyệt chi
-                    </Button>
+                  <div className="flex justify-between text-[11px] text-muted-foreground">
+                    <span>500 Triệu (Hòa vốn)</span>
+                    <span>1.5 Tỷ</span>
+                    <span>3.0 Tỷ (Tối đa)</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+
+                {/* Calculation Summary Card */}
+                <div className="p-4 rounded-xl border bg-muted/20 space-y-3">
+                  <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    Kết quả phân tích đầu tư:
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Tổng ngân sách:</span>
+                      <div className="font-bold text-sm text-foreground mt-0.5">{formatCurrency(totalBudget)}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Lợi nhuận ròng dự kiến:</span>
+                      <div className="font-bold text-sm text-emerald-600 mt-0.5">
+                        {formatCurrency(expectedRevenue - totalBudget)}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Tỷ suất ROI:</span>
+                      <div className="font-extrabold text-base text-primary mt-0.5">+{estimatedRoi}%</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Đánh giá khả thi:</span>
+                      <div className="font-semibold text-emerald-600 mt-0.5">
+                        {estimatedRoi > 100 ? "Rất tiềm năng" : estimatedRoi > 50 ? "Khả thi" : "Cần cân nhắc"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
-      {/* 3. Charts Section */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-        {/* Sprint Burn Bar Chart */}
-        <Card className="lg:col-span-4">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold">Chi tiêu thực tế vs Ngân sách theo Sprint</CardTitle>
-            <CardDescription className="text-xs">Đơn vị: Triệu VNĐ (Dự toán kế hoạch so với thực chi)</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[260px] pl-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={sprintBurnData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} />
-                <YAxis axisLine={false} tickLine={false} fontSize={11} />
-                <Tooltip
-                  formatter={(val: any) => [`${val} Triệu ₫`, ""]}
-                  cursor={{ fill: "rgba(0,0,0,0.04)" }}
-                />
-                <Legend verticalAlign="top" height={32} />
-                <Bar name="Ngân sách kế hoạch" dataKey="budget" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                <Bar name="Chi phí thực tế" dataKey="actual" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+      {/* ======================================================== */}
+      {/* 2. MAIN FINANCIAL OVERVIEW & EXPENSES VIEW               */}
+      {/* ======================================================== */}
+      {(mainView === "overview" || !isOwner) && (
+        <div className="space-y-6">
+          {/* 1. Summary Cards */}
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">Tổng ngân sách cấp</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(totalBudget)}</div>
+                <p className="text-[11px] text-muted-foreground mt-1">Cố định theo hợp đồng dự án</p>
+              </CardContent>
+            </Card>
 
-        {/* Category Breakdown Donut / Pie Chart */}
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold">Cơ cấu danh mục chi phí</CardTitle>
-            <CardDescription className="text-xs">Tỷ lệ phân bổ chi phí toàn dự án</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[170px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData.length > 0 ? pieData : [{ name: "Khác", value: 1, color: "#94a3b8" }]}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={70}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: any) => [formatCurrency(Number(value)), ""]} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-3 text-[11px]">
-              {pieData.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                  <span className="truncate text-muted-foreground">{item.name}</span>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">Đã giải ngân / chi tiêu</CardTitle>
+                <TrendingUp className="h-4 w-4 text-rose-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">
+                  {formatCurrency(totalSpent)}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 4. Expenses Table with Tabs & Filters */}
-      <Card>
-        <CardHeader className="border-b pb-3">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-base font-semibold">Lịch sử các khoản chi & đề xuất</CardTitle>
-                <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 text-xs">
-                  <button
-                    onClick={() => setActiveTab("all")}
-                    className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                      activeTab === "all"
-                        ? "bg-background text-foreground shadow-2xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Tất cả ({expenses.length})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("pending")}
-                    className={`px-2.5 py-1 rounded-md font-medium transition-colors flex items-center gap-1 ${
-                      activeTab === "pending"
-                        ? "bg-background text-foreground shadow-2xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Chờ duyệt
-                    {pendingList.length > 0 && (
-                      <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-500/10 text-amber-600 border-amber-300">
-                        {pendingList.length}
-                      </Badge>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("my")}
-                    className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                      activeTab === "my"
-                        ? "bg-background text-foreground shadow-2xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Đề xuất của tôi ({myExpenses.length})
-                  </button>
+                <div className="mt-2 space-y-1">
+                  <div className="flex justify-between text-[11px] text-muted-foreground">
+                    <span>Tiến độ ngân sách</span>
+                    <span className="font-semibold text-foreground">{spentPercentage}%</span>
+                  </div>
+                  <Progress value={spentPercentage} className="h-1.5" />
                 </div>
-              </div>
-              <CardDescription className="text-xs mt-1">
-                Chi tiết tất cả hóa đơn, dịch vụ và đề xuất chi tiêu phát sinh.
-              </CardDescription>
-            </div>
+              </CardContent>
+            </Card>
 
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-56">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Tìm khoản chi, lý do..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 text-xs h-8"
-                />
-              </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">
+                  {isOwner ? "Chờ Sếp duyệt" : "Đề xuất đang chờ duyệt"}
+                </CardTitle>
+                <AlertCircle className="h-4 w-4 text-amber-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                  {formatCurrency(pendingTotal)}
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-[11px] text-muted-foreground">
+                    {pendingList.length} đề xuất đang chờ
+                  </p>
+                  {isOwner && pendingList.length > 0 && (
+                    <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
+                      Cần xử lý
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-              <Select value={selectedCategory} onValueChange={(val) => setSelectedCategory(val || "all")}>
-                <SelectTrigger className="w-[140px] h-8 text-xs">
-                  <SelectValue placeholder="Danh mục" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả danh mục</SelectItem>
-                  <SelectItem value="personnel">Nhân sự & Lương</SelectItem>
-                  <SelectItem value="infrastructure">Hạ tầng Cloud</SelectItem>
-                  <SelectItem value="licenses">Bản quyền phần mềm</SelectItem>
-                  <SelectItem value="hardware">Thiết bị phần cứng</SelectItem>
-                  <SelectItem value="other">Khác & Dịch vụ</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedStatus} onValueChange={(val) => setSelectedStatus(val || "all")}>
-                <SelectTrigger className="w-[130px] h-8 text-xs">
-                  <SelectValue placeholder="Trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                  <SelectItem value="paid">Đã thanh toán</SelectItem>
-                  <SelectItem value="approved">Đã duyệt</SelectItem>
-                  <SelectItem value="pending">Chờ duyệt</SelectItem>
-                  <SelectItem value="rejected">Bị từ chối</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">Ngân sách còn lại</CardTitle>
+                <CreditCard className="h-4 w-4 text-emerald-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                  {formatCurrency(remainingBudget)}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Đủ chi trả cho khoảng {runwaySprints} Sprints tiếp theo
+                </p>
+              </CardContent>
+            </Card>
           </div>
-        </CardHeader>
 
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-64">Khoản chi & Lý do</TableHead>
-                <TableHead>Danh mục</TableHead>
-                <TableHead>Người đề xuất</TableHead>
-                <TableHead>Ngày gửi</TableHead>
-                <TableHead className="text-right">Số tiền</TableHead>
-                <TableHead className="text-center">Trạng thái</TableHead>
-                <TableHead className="text-right w-28">Thao tác</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredExpenses.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground text-xs">
-                    Không tìm thấy khoản chi nào phù hợp với bộ lọc.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredExpenses.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-semibold text-xs text-foreground">{item.title}</div>
-                        <div className="text-[11px] text-muted-foreground font-mono">{item.id} • {item.sprint || "N/A"}</div>
-                        {/* Reason quote */}
-                        <p className="text-[11px] text-muted-foreground/90 line-clamp-1 italic mt-0.5">
-                          Lý do: "{item.reason}"
+          {/* 2. BOSS SPECIAL SECTION: PENDING EXPENSES FOR APPROVAL */}
+          {isOwner && pendingList.length > 0 && (
+            <Card className="border-amber-300 dark:border-amber-800 bg-amber-50/20 dark:bg-amber-950/10 shadow-xs">
+              <CardHeader className="pb-3 border-b border-amber-200/50 dark:border-amber-900/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400">
+                      <Inbox className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base text-amber-950 dark:text-amber-200 flex items-center gap-2">
+                        Yêu cầu chi phí chờ Sếp phê duyệt
+                        <Badge className="bg-amber-600 hover:bg-amber-700 text-xs">
+                          {pendingList.length} yêu cầu
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription className="text-xs text-amber-800/80 dark:text-amber-400/80">
+                        Xem lý do đề xuất của nhân viên và quyết định Duyệt chi hoặc Từ chối.
+                      </CardDescription>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-4 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {pendingList.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-4 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-background space-y-3 shadow-2xs hover:border-amber-400 transition-all"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px]"
+                              style={{
+                                borderColor: categoryColors[item.category],
+                                color: categoryColors[item.category],
+                              }}
+                            >
+                              {categoryLabels[item.category]}
+                            </Badge>
+                            <span className="text-[11px] font-mono text-muted-foreground">{item.id}</span>
+                            {item.sprint && (
+                              <Badge variant="secondary" className="text-[10px]">
+                                {item.sprint}
+                              </Badge>
+                            )}
+                          </div>
+                          <h4 className="font-semibold text-sm mt-1.5 text-foreground leading-snug">
+                            {item.title}
+                          </h4>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className="font-bold text-base text-primary">
+                            {formatCurrency(item.amount)}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">{item.date}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1 border-t">
+                        <User className="h-3.5 w-3.5 text-primary" />
+                        <span className="font-medium text-foreground">{item.requester}</span>
+                        <Badge variant="outline" className="text-[10px] py-0">
+                          {item.requesterRole}
+                        </Badge>
+                        <span>• {item.requesterEmail}</span>
+                      </div>
+
+                      {/* PROPOSAL REASON */}
+                      <div className="p-2.5 rounded-lg bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/40 text-xs">
+                        <div className="font-semibold text-amber-900 dark:text-amber-300 text-[11px] mb-1 flex items-center gap-1">
+                          <FileText className="h-3 w-3 text-amber-600" /> Lý do đề xuất của nhân viên:
+                        </div>
+                        <p className="text-amber-950/90 dark:text-amber-200/90 italic leading-relaxed text-[11px]">
+                          "{item.reason}"
                         </p>
                       </div>
-                    </TableCell>
 
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className="text-[11px]"
-                        style={{
-                          borderColor: categoryColors[item.category],
-                          color: categoryColors[item.category],
-                        }}
-                      >
-                        {categoryLabels[item.category]}
-                      </Badge>
-                    </TableCell>
-
-                    <TableCell>
-                      <div>
-                        <div className="text-xs font-medium">{item.requester}</div>
-                        <div className="text-[10px] text-muted-foreground">{item.requesterRole}</div>
-                      </div>
-                    </TableCell>
-
-                    <TableCell>
-                      <span className="text-xs text-muted-foreground">{item.date}</span>
-                    </TableCell>
-
-                    <TableCell className="text-right font-semibold text-xs">
-                      {formatCurrency(item.amount)}
-                    </TableCell>
-
-                    <TableCell className="text-center">
-                      {item.status === "paid" && (
-                        <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700 text-[10px]">
-                          <CheckCircle2 className="h-3 w-3 mr-1" /> Đã chi
-                        </Badge>
-                      )}
-                      {item.status === "approved" && (
-                        <Badge variant="secondary" className="text-[10px] bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
-                          <Check className="h-3 w-3 mr-1" /> Đã duyệt
-                        </Badge>
-                      )}
-                      {item.status === "pending" && (
-                        <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-[10px]">
-                          <Clock className="h-3 w-3 mr-1" /> Chờ Sếp duyệt
-                        </Badge>
-                      )}
-                      {item.status === "rejected" && (
-                        <Badge variant="outline" className="text-rose-600 border-rose-300 bg-rose-50 dark:bg-rose-950/30 text-[10px]">
-                          <XCircle className="h-3 w-3 mr-1" /> Bị từ chối
-                        </Badge>
-                      )}
-                    </TableCell>
-
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
+                      {/* Action Buttons for Boss */}
+                      <div className="flex items-center justify-end gap-2 pt-1">
                         <Button
-                          variant="ghost"
                           size="sm"
-                          onClick={() => setReviewingExpense(item)}
-                          className="h-7 text-xs px-2"
+                          variant="outline"
+                          onClick={() => {
+                            setRejectExpenseTarget(item);
+                            setIsRejectOpen(true);
+                          }}
+                          className="text-xs h-8 text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30"
                         >
-                          Chi tiết
+                          <X className="h-3.5 w-3.5 mr-1" /> Từ chối
                         </Button>
-                        {isOwner && item.status === "approved" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleMarkAsPaid(item.id)}
-                            className="h-7 text-[10px] px-1.5 text-emerald-600 hover:text-emerald-700"
-                            title="Xác nhận đã chuyển khoản/thanh toán"
-                          >
-                            Đã chi
-                          </Button>
-                        )}
+                        <Button
+                          size="sm"
+                          onClick={() => handleApproveExpense(item.id)}
+                          className="text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                          <Check className="h-3.5 w-3.5 mr-1" /> Duyệt chi
+                        </Button>
                       </div>
-                    </TableCell>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 3. Charts Section */}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
+            {/* Sprint Burn Bar Chart */}
+            <Card className="lg:col-span-4">
+              <CardHeader>
+                <CardTitle className="text-sm font-semibold">Chi tiêu thực tế vs Ngân sách theo Sprint</CardTitle>
+                <CardDescription className="text-xs">Đơn vị: Triệu VNĐ (Dự toán kế hoạch so với thực chi)</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[260px] pl-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={sprintBurnData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} />
+                    <YAxis axisLine={false} tickLine={false} fontSize={11} />
+                    <Tooltip
+                      formatter={(val: any) => [`${val} Triệu ₫`, ""]}
+                      cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                    />
+                    <Legend verticalAlign="top" height={32} />
+                    <Bar name="Ngân sách kế hoạch" dataKey="budget" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                    <Bar name="Chi phí thực tế" dataKey="actual" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Category Breakdown Donut / Pie Chart */}
+            <Card className="lg:col-span-3">
+              <CardHeader>
+                <CardTitle className="text-sm font-semibold">Cơ cấu danh mục chi phí</CardTitle>
+                <CardDescription className="text-xs">Tỷ lệ phân bổ chi phí toàn dự án</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[170px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData.length > 0 ? pieData : [{ name: "Khác", value: 1, color: "#94a3b8" }]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={70}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: any) => [formatCurrency(Number(value)), ""]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-3 text-[11px]">
+                  {pieData.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      <span className="truncate text-muted-foreground">{item.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 4. Expenses Table with Tabs & Filters */}
+          <Card>
+            <CardHeader className="border-b pb-3">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base font-semibold">Lịch sử các khoản chi & đề xuất</CardTitle>
+                    <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 text-xs">
+                      <button
+                        onClick={() => setActiveTab("all")}
+                        className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                          activeTab === "all"
+                            ? "bg-background text-foreground shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Tất cả ({expenses.length})
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("pending")}
+                        className={`px-2.5 py-1 rounded-md font-medium transition-colors flex items-center gap-1 ${
+                          activeTab === "pending"
+                            ? "bg-background text-foreground shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Chờ duyệt
+                        {pendingList.length > 0 && (
+                          <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-500/10 text-amber-600 border-amber-300">
+                            {pendingList.length}
+                          </Badge>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("my")}
+                        className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                          activeTab === "my"
+                            ? "bg-background text-foreground shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Đề xuất của tôi ({myExpenses.length})
+                      </button>
+                    </div>
+                  </div>
+                  <CardDescription className="text-xs mt-1">
+                    Chi tiết tất cả hóa đơn, dịch vụ và đề xuất chi tiêu phát sinh.
+                  </CardDescription>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:w-56">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Tìm khoản chi, lý do..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-8 text-xs h-8"
+                    />
+                  </div>
+
+                  <Select value={selectedCategory} onValueChange={(val) => setSelectedCategory(val || "all")}>
+                    <SelectTrigger className="w-[140px] h-8 text-xs">
+                      <SelectValue placeholder="Danh mục" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả danh mục</SelectItem>
+                      <SelectItem value="personnel">Nhân sự & Lương</SelectItem>
+                      <SelectItem value="infrastructure">Hạ tầng Cloud</SelectItem>
+                      <SelectItem value="licenses">Bản quyền phần mềm</SelectItem>
+                      <SelectItem value="hardware">Thiết bị phần cứng</SelectItem>
+                      <SelectItem value="other">Khác & Dịch vụ</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={selectedStatus} onValueChange={(val) => setSelectedStatus(val || "all")}>
+                    <SelectTrigger className="w-[130px] h-8 text-xs">
+                      <SelectValue placeholder="Trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                      <SelectItem value="paid">Đã thanh toán</SelectItem>
+                      <SelectItem value="approved">Đã duyệt</SelectItem>
+                      <SelectItem value="pending">Chờ duyệt</SelectItem>
+                      <SelectItem value="rejected">Bị từ chối</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-64">Khoản chi & Lý do</TableHead>
+                    <TableHead>Danh mục</TableHead>
+                    <TableHead>Người đề xuất</TableHead>
+                    <TableHead>Ngày gửi</TableHead>
+                    <TableHead className="text-right">Số tiền</TableHead>
+                    <TableHead className="text-center">Trạng thái</TableHead>
+                    <TableHead className="text-right w-28">Thao tác</TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {filteredExpenses.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground text-xs">
+                        Không tìm thấy khoản chi nào phù hợp với bộ lọc.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredExpenses.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-semibold text-xs text-foreground">{item.title}</div>
+                            <div className="text-[11px] text-muted-foreground font-mono">{item.id} • {item.sprint || "N/A"}</div>
+                            <p className="text-[11px] text-muted-foreground/90 line-clamp-1 italic mt-0.5">
+                              Lý do: "{item.reason}"
+                            </p>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className="text-[11px]"
+                            style={{
+                              borderColor: categoryColors[item.category],
+                              color: categoryColors[item.category],
+                            }}
+                          >
+                            {categoryLabels[item.category]}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell>
+                          <div>
+                            <div className="text-xs font-medium">{item.requester}</div>
+                            <div className="text-[10px] text-muted-foreground">{item.requesterRole}</div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <span className="text-xs text-muted-foreground">{item.date}</span>
+                        </TableCell>
+
+                        <TableCell className="text-right font-semibold text-xs">
+                          {formatCurrency(item.amount)}
+                        </TableCell>
+
+                        <TableCell className="text-center">
+                          {item.status === "paid" && (
+                            <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700 text-[10px]">
+                              <CheckCircle2 className="h-3 w-3 mr-1" /> Đã chi
+                            </Badge>
+                          )}
+                          {item.status === "approved" && (
+                            <Badge variant="secondary" className="text-[10px] bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                              <Check className="h-3 w-3 mr-1" /> Đã duyệt
+                            </Badge>
+                          )}
+                          {item.status === "pending" && (
+                            <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-[10px]">
+                              <Clock className="h-3 w-3 mr-1" /> Chờ Sếp duyệt
+                            </Badge>
+                          )}
+                          {item.status === "rejected" && (
+                            <Badge variant="outline" className="text-rose-600 border-rose-300 bg-rose-50 dark:bg-rose-950/30 text-[10px]">
+                              <XCircle className="h-3 w-3 mr-1" /> Bị từ chối
+                            </Badge>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setReviewingExpense(item)}
+                              className="h-7 text-xs px-2"
+                            >
+                              Chi tiết
+                            </Button>
+                            {isOwner && item.status === "approved" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleMarkAsPaid(item.id)}
+                                className="h-7 text-[10px] px-1.5 text-emerald-600 hover:text-emerald-700"
+                                title="Xác nhận đã chuyển khoản/thanh toán"
+                              >
+                                Đã chi
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* ========================================================= */}
-      {/* 5. ADD / PROPOSE EXPENSE MODAL                            */}
+      {/* 3. ADD / PROPOSE EXPENSE MODAL                            */}
       {/* ========================================================= */}
       <Dialog open={isAddExpenseOpen} onOpenChange={setIsAddExpenseOpen}>
         <DialogContent className="max-w-lg">
@@ -1008,7 +1238,6 @@ export default function ProjectCostPage() {
               />
             </div>
 
-            {/* MANDATORY PROPOSAL REASON */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="reason" className="text-xs font-semibold">
@@ -1041,7 +1270,7 @@ export default function ProjectCostPage() {
       </Dialog>
 
       {/* ========================================================= */}
-      {/* 6. EXPENSE DETAIL & DECISION MODAL (VIEW / APPROVE)       */}
+      {/* 4. EXPENSE DETAIL & DECISION MODAL (VIEW / APPROVE)       */}
       {/* ========================================================= */}
       <Dialog open={!!reviewingExpense} onOpenChange={(open) => !open && setReviewingExpense(null)}>
         {reviewingExpense && (
@@ -1108,7 +1337,6 @@ export default function ProjectCostPage() {
                 </div>
               </div>
 
-              {/* Reason */}
               <div className="space-y-1.5 p-3 rounded-lg border bg-amber-50/40 dark:bg-amber-950/20">
                 <Label className="text-xs font-semibold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
                   <FileText className="h-3.5 w-3.5 text-amber-600" />
@@ -1119,7 +1347,6 @@ export default function ProjectCostPage() {
                 </p>
               </div>
 
-              {/* Review History / Note */}
               {reviewingExpense.reviewedBy && (
                 <div className="space-y-1 p-3 rounded-lg border bg-muted/40">
                   <Label className="text-[11px] font-semibold text-muted-foreground">Phản hồi của Sếp:</Label>
@@ -1136,7 +1363,6 @@ export default function ProjectCostPage() {
                 Đóng
               </Button>
 
-              {/* Boss approval buttons inside detail dialog if pending */}
               {isOwner && reviewingExpense.status === "pending" && (
                 <div className="flex gap-2">
                   <Button
@@ -1163,7 +1389,7 @@ export default function ProjectCostPage() {
       </Dialog>
 
       {/* ========================================================= */}
-      {/* 7. REJECT REASON MODAL FOR BOSS                           */}
+      {/* 5. REJECT REASON MODAL FOR BOSS                           */}
       {/* ========================================================= */}
       <Dialog open={isRejectOpen} onOpenChange={setIsRejectOpen}>
         <DialogContent className="max-w-md">

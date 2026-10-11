@@ -11,7 +11,15 @@ import {
   Search,
   Filter,
   User,
-  ArrowUpDown
+  ArrowUpDown,
+  Bookmark,
+  CheckSquare,
+  Bug,
+  Calendar,
+  Layers,
+  Flame,
+  Check,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +27,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -35,28 +44,33 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useProject } from "../project-context";
+import { useAuth } from "@/lib/auth-context";
 
-interface BoardTask {
+export interface BoardTask {
   id: string;
   title: string;
+  type: "STORY" | "TASK" | "BUG";
+  epic?: string;
   status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
   priority: "Cao" | "Trung bình" | "Thấp";
   points: number;
-  assignee: string;
+  assignee: string; // Avatar initial: "QC", "VA", "TB"
   assigneeName: string;
 }
 
 const COLUMNS = [
-  { id: "TODO", title: "Cần làm (To Do)", color: "border-slate-300 dark:border-slate-700" },
-  { id: "IN_PROGRESS", title: "Đang làm (In Progress)", color: "border-blue-400 dark:border-blue-700" },
-  { id: "REVIEW", title: "Đang duyệt (Review)", color: "border-amber-400 dark:border-amber-700" },
-  { id: "DONE", title: "Hoàn thành (Done)", color: "border-emerald-400 dark:border-emerald-700" },
+  { id: "TODO", title: "Cần làm (To Do)", color: "border-slate-300 dark:border-slate-700", badgeColor: "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+  { id: "IN_PROGRESS", title: "Đang làm (In Progress)", color: "border-blue-400 dark:border-blue-700", badgeColor: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300" },
+  { id: "REVIEW", title: "Đang duyệt (Review)", color: "border-amber-400 dark:border-amber-700", badgeColor: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300" },
+  { id: "DONE", title: "Hoàn thành (Done)", color: "border-emerald-400 dark:border-emerald-700", badgeColor: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" },
 ];
 
 const INITIAL_TASKS: BoardTask[] = [
   {
-    id: "TASK-1",
-    title: "Thiết kế Database Schema PostgreSQL với Prisma",
+    id: "FT-101",
+    title: "Thiết kế Database Schema PostgreSQL với Prisma ORM",
+    type: "TASK",
+    epic: "Kiến trúc Backend",
     status: "TODO",
     priority: "Cao",
     points: 5,
@@ -64,17 +78,21 @@ const INITIAL_TASKS: BoardTask[] = [
     assigneeName: "Trịnh Quyết Chiến",
   },
   {
-    id: "TASK-3",
-    title: "Thiết kế giao diện Đăng nhập & Xác thực JWT",
+    id: "FT-102",
+    title: "Xây dựng luồng Đăng nhập, JWT Refresh Token & Cookie",
+    type: "STORY",
+    epic: "Xác thực & Bảo mật",
     status: "TODO",
-    priority: "Trung bình",
-    points: 2,
+    priority: "Cao",
+    points: 8,
     assignee: "VA",
     assigneeName: "Nguyễn Văn An",
   },
   {
-    id: "TASK-2",
-    title: "Khởi tạo Next.js Turbopack và cấu hình Tailwind",
+    id: "FT-103",
+    title: "Khởi tạo Next.js App Router và tích hợp Shadcn/ui Tailwind",
+    type: "TASK",
+    epic: "Giao diện Cốt lõi",
     status: "IN_PROGRESS",
     priority: "Cao",
     points: 3,
@@ -82,36 +100,54 @@ const INITIAL_TASKS: BoardTask[] = [
     assigneeName: "Nguyễn Văn An",
   },
   {
-    id: "TASK-4",
-    title: "Viết tài liệu Swagger API & Sprint Backlog",
-    status: "REVIEW",
-    priority: "Thấp",
-    points: 1,
+    id: "FT-104",
+    title: "Lỗi vỡ layout khi đổi màn hình di động trên bảng Scrum",
+    type: "BUG",
+    epic: "Giao diện Cốt lõi",
+    status: "IN_PROGRESS",
+    priority: "Cao",
+    points: 2,
     assignee: "TB",
     assigneeName: "Trần Thị Bình",
   },
   {
-    id: "TASK-5",
-    title: "Triển khai Container Docker & CI/CD pipeline",
+    id: "FT-105",
+    title: "Tài liệu Swagger OpenAPI và hướng dẫn API Endpoints",
+    type: "TASK",
+    epic: "Kiến trúc Backend",
+    status: "REVIEW",
+    priority: "Thấp",
+    points: 2,
+    assignee: "TB",
+    assigneeName: "Trần Thị Bình",
+  },
+  {
+    id: "FT-106",
+    title: "Thiết lập Docker Compose Multi-container (NestJS + Postgres)",
+    type: "TASK",
+    epic: "DevOps & CI/CD",
     status: "DONE",
     priority: "Cao",
-    points: 2,
+    points: 5,
     assignee: "QC",
     assigneeName: "Trịnh Quyết Chiến",
   },
   {
-    id: "TASK-6",
-    title: "Kiểm thử API Chi phí và bảo mật quyền hạn",
-    status: "TODO",
-    priority: "Trung bình",
-    points: 3,
-    assignee: "TB",
-    assigneeName: "Trần Thị Bình",
+    id: "FT-107",
+    title: "Cấu hình RBAC Matrix phân quyền động theo nhóm vai trò",
+    type: "STORY",
+    epic: "Xác thực & Bảo mật",
+    status: "DONE",
+    priority: "Cao",
+    points: 8,
+    assignee: "QC",
+    assigneeName: "Trịnh Quyết Chiến",
   },
 ];
 
 export default function BoardPage() {
-  const { project, isOwner } = useProject();
+  const { project } = useProject();
+  const { user } = useAuth();
   const projectId = project?.id || "ftodo-core";
 
   const [tasks, setTasks] = useState<BoardTask[]>(() => {
@@ -128,14 +164,21 @@ export default function BoardPage() {
 
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+
+  // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPriority, setFilterPriority] = useState<string>("ALL");
+  const [filterType, setFilterType] = useState<string>("ALL");
+  const [filterAssignee, setFilterAssignee] = useState<string>("ALL");
+  const [onlyMyTasks, setOnlyMyTasks] = useState<boolean>(false);
 
   // New task dialog
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskStatus, setNewTaskStatus] = useState<"TODO" | "IN_PROGRESS" | "REVIEW" | "DONE">("TODO");
-  const [newTaskPriority, setNewTaskPriority] = useState<"Cao" | "Trung bình" | "Thấp">("Trung bình");
+  const [newTaskType, setNewTaskType] = useState<BoardTask["type"]>("STORY");
+  const [newTaskEpic, setNewTaskEpic] = useState("Xác thực & Bảo mật");
+  const [newTaskStatus, setNewTaskStatus] = useState<BoardTask["status"]>("TODO");
+  const [newTaskPriority, setNewTaskPriority] = useState<BoardTask["priority"]>("Trung bình");
   const [newTaskPoints, setNewTaskPoints] = useState<number>(3);
   const [newTaskAssignee, setNewTaskAssignee] = useState<string>("VA");
 
@@ -168,7 +211,6 @@ export default function BoardPage() {
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
-    // Only reset if leaving the column boundary
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setDragOverColumn(null);
     }
@@ -194,8 +236,10 @@ export default function BoardPage() {
     };
 
     const newTask: BoardTask = {
-      id: `TASK-${tasks.length + 10}`,
+      id: `FT-${tasks.length + 108}`,
       title: newTaskTitle.trim(),
+      type: newTaskType,
+      epic: newTaskEpic,
       status: newTaskStatus,
       priority: newTaskPriority,
       points: Number(newTaskPoints) || 1,
@@ -208,53 +252,118 @@ export default function BoardPage() {
     setIsAddTaskOpen(false);
   };
 
+  // User initials for "Only My Tasks"
+  const currentUserInitial = user?.avatar || (user?.name?.includes("Chiến") ? "QC" : user?.name?.includes("An") ? "VA" : "TB");
+
+  // Filtering
   const filteredTasks = tasks.filter((t) => {
     const matchesSearch =
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.id.toLowerCase().includes(searchQuery.toLowerCase());
+      t.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.epic && t.epic.toLowerCase().includes(searchQuery.toLowerCase()));
+
     const matchesPriority = filterPriority === "ALL" || t.priority === filterPriority;
-    return matchesSearch && matchesPriority;
+    const matchesType = filterType === "ALL" || t.type === filterType;
+    const matchesAssignee = filterAssignee === "ALL" || t.assignee === filterAssignee;
+    const matchesMyTasks = !onlyMyTasks || t.assignee === currentUserInitial;
+
+    return matchesSearch && matchesPriority && matchesType && matchesAssignee && matchesMyTasks;
   });
 
   const totalPoints = tasks.reduce((acc, t) => acc + (t.points || 0), 0);
   const donePoints = tasks
     .filter((t) => t.status === "DONE")
     .reduce((acc, t) => acc + (t.points || 0), 0);
+  const completionRate = totalPoints > 0 ? Math.round((donePoints / totalPoints) * 100) : 0;
 
   return (
     <div className="space-y-4 pb-8 flex flex-col min-h-[calc(100vh-13rem)] select-none">
-      {/* Top Sprint Banner */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold tracking-tight text-foreground">
-              Bảng Scrum Sprint 1: Khởi động dự án
-            </h2>
-            <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/30">
-              Đang diễn ra (Active)
-            </Badge>
+      {/* 1. SPRINT GOAL & PROGRESS HEADER */}
+      <Card className="border bg-gradient-to-r from-slate-50 to-indigo-50/20 dark:from-slate-900/50 dark:to-indigo-950/20 shadow-2xs">
+        <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-base text-foreground tracking-tight flex items-center gap-1.5">
+                <Flame className="h-4 w-4 text-orange-500 shrink-0" />
+                Sprint 1: Xây dựng Nền tảng & Xác thực người dùng
+              </span>
+              <Badge className="bg-emerald-600 hover:bg-emerald-700 text-[10px]">
+                Active Sprint
+              </Badge>
+              <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
+                01/10 - 15/10/2026 (Còn 4 ngày)
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              <strong>Mục tiêu Sprint (Sprint Goal):</strong> Hoàn thành module xác thực JWT, RBAC phân quyền và bảng Scrum kéo thả tương tác thời gian thực.
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Kéo thả các thẻ công việc giữa các cột để cập nhật tiến độ Sprint •{" "}
-            <span className="font-semibold text-foreground">{donePoints} / {totalPoints} Story Points hoàn thành</span>
-          </p>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          {/* Search task */}
-          <div className="relative flex-1 sm:w-48">
-            <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
-            <Input
-              placeholder="Tìm công việc..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="text-xs h-8 pl-8"
-            />
+          {/* Velocity & Story Points Progress */}
+          <div className="flex items-center gap-4 shrink-0 bg-background/80 p-2.5 rounded-xl border">
+            <div className="text-right">
+              <div className="text-xs font-semibold text-foreground">
+                Tiến độ: <span className="text-primary font-bold">{donePoints}</span> / {totalPoints} Story Points
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                Đạt {completionRate}% khối lượng Sprint
+              </div>
+            </div>
+            <div className="w-24">
+              <Progress value={completionRate} className="h-2" />
+            </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* 2. TOOLBAR & AGILE QUICK FILTERS */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        {/* Quick Filter Pill: "Only My Tasks" & Assignee */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 1-Click: "My Tasks" Button */}
+          <Button
+            size="sm"
+            variant={onlyMyTasks ? "default" : "outline"}
+            onClick={() => setOnlyMyTasks(!onlyMyTasks)}
+            className={`text-xs h-8 gap-1.5 rounded-lg ${
+              onlyMyTasks
+                ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <User className="h-3.5 w-3.5" />
+            Việc của tôi {onlyMyTasks && <Check className="h-3 w-3 ml-0.5" />}
+          </Button>
+
+          {/* Filter Assignee */}
+          <Select value={filterAssignee} onValueChange={(val) => setFilterAssignee(val || "ALL")}>
+            <SelectTrigger className="text-xs h-8 w-36">
+              <SelectValue placeholder="Người làm" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tất cả thành viên</SelectItem>
+              <SelectItem value="QC">Trịnh Quyết Chiến (QC)</SelectItem>
+              <SelectItem value="VA">Nguyễn Văn An (VA)</SelectItem>
+              <SelectItem value="TB">Trần Thị Bình (TB)</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Filter Task Type (Story, Task, Bug) */}
+          <Select value={filterType} onValueChange={(val) => setFilterType(val || "ALL")}>
+            <SelectTrigger className="text-xs h-8 w-32">
+              <SelectValue placeholder="Loại công việc" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tất cả loại việc</SelectItem>
+              <SelectItem value="STORY">📘 User Story</SelectItem>
+              <SelectItem value="TASK">📋 Task kỹ thuật</SelectItem>
+              <SelectItem value="BUG">🐞 Bug lỗi</SelectItem>
+            </SelectContent>
+          </Select>
 
           {/* Filter Priority */}
           <Select value={filterPriority} onValueChange={(val) => setFilterPriority(val || "ALL")}>
-            <SelectTrigger className="text-xs h-8 w-28">
+            <SelectTrigger className="text-xs h-8 w-32">
               <SelectValue placeholder="Độ ưu tiên" />
             </SelectTrigger>
             <SelectContent>
@@ -264,25 +373,38 @@ export default function BoardPage() {
               <SelectItem value="Thấp">Ưu tiên Thấp</SelectItem>
             </SelectContent>
           </Select>
+        </div>
 
-          {/* Add task button */}
+        {/* Search & Add task button */}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-44">
+            <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
+            <Input
+              placeholder="Tìm việc, mã, epic..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="text-xs h-8 pl-8"
+            />
+          </div>
+
           <Button
             size="sm"
             onClick={() => {
               setNewTaskStatus("TODO");
               setIsAddTaskOpen(true);
             }}
-            className="text-xs h-8 gap-1.5 shadow-xs"
+            className="text-xs h-8 gap-1.5 shadow-xs shrink-0"
           >
             <Plus className="h-3.5 w-3.5" /> Tạo công việc
           </Button>
         </div>
       </div>
 
-      {/* Kanban Board Columns Container */}
+      {/* 3. KANBAN BOARD COLUMNS CONTAINER */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
         {COLUMNS.map((col) => {
           const colTasks = filteredTasks.filter((t) => t.status === col.id);
+          const colPoints = colTasks.reduce((sum, t) => sum + (t.points || 0), 0);
           const isOver = dragOverColumn === col.id;
 
           return (
@@ -297,14 +419,14 @@ export default function BoardPage() {
                   : "border-border shadow-2xs"
               }`}
             >
-              {/* Column Header */}
+              {/* Column Header: Shows task count AND Story Points */}
               <div className="flex items-center justify-between pb-3 mb-2 border-b">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-xs text-foreground tracking-tight">
                     {col.title}
                   </span>
-                  <Badge variant="secondary" className="text-[10px] font-mono px-1.5 py-0 h-4">
-                    {colTasks.length}
+                  <Badge variant="secondary" className={`text-[10px] font-mono px-1.5 py-0 h-4 ${col.badgeColor}`}>
+                    {colTasks.length} việc • {colPoints} SP
                   </Badge>
                 </div>
 
@@ -332,18 +454,34 @@ export default function BoardPage() {
                       key={task.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, task.id)}
-                      className={`p-3 rounded-lg border bg-card shadow-2xs cursor-grab active:cursor-grabbing transition-all hover:border-primary/50 hover:shadow-xs ${
+                      className={`p-3 rounded-xl border bg-card shadow-2xs cursor-grab active:cursor-grabbing transition-all hover:border-primary/50 hover:shadow-xs space-y-2.5 ${
                         isBeingDragged ? "opacity-40 scale-95 border-dashed border-primary" : ""
                       }`}
                     >
-                      {/* Task ID & Grip */}
-                      <div className="flex items-center justify-between mb-1.5">
+                      {/* Top: Type Icon, Task ID & Priority */}
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-                          <Badge variant="outline" className="text-[10px] font-mono px-1 py-0">
+                          {task.type === "STORY" && (
+                            <span title="User Story" className="text-blue-500">
+                              <Bookmark className="h-3.5 w-3.5 fill-blue-500/20" />
+                            </span>
+                          )}
+                          {task.type === "TASK" && (
+                            <span title="Technical Task" className="text-emerald-500">
+                              <CheckSquare className="h-3.5 w-3.5" />
+                            </span>
+                          )}
+                          {task.type === "BUG" && (
+                            <span title="Defect / Bug" className="text-rose-500">
+                              <Bug className="h-3.5 w-3.5" />
+                            </span>
+                          )}
+                          <span className="text-[10px] font-mono font-bold text-muted-foreground">
                             {task.id}
-                          </Badge>
+                          </span>
                         </div>
+
                         <Badge
                           variant={
                             task.priority === "Cao"
@@ -352,32 +490,42 @@ export default function BoardPage() {
                               ? "default"
                               : "secondary"
                           }
-                          className="text-[9px] px-1 py-0"
+                          className="text-[9px] px-1 py-0 font-normal"
                         >
                           {task.priority}
                         </Badge>
                       </div>
 
+                      {/* Epic Badge */}
+                      {task.epic && (
+                        <div>
+                          <Badge variant="outline" className="text-[9px] font-medium px-1.5 py-0 bg-muted/40 text-muted-foreground border-border">
+                            {task.epic}
+                          </Badge>
+                        </div>
+                      )}
+
                       {/* Task Title */}
-                      <p className="text-xs font-semibold text-foreground leading-snug line-clamp-3 mb-3">
+                      <p className="text-xs font-semibold text-foreground leading-snug line-clamp-3">
                         {task.title}
                       </p>
 
-                      {/* Card Footer: Points & Assignee */}
+                      {/* Card Footer: Story Points (Estimation) & Assignee */}
                       <div className="flex items-center justify-between pt-2 border-t border-border/60">
-                        <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
-                          <span className="h-4 w-4 rounded-full bg-muted flex items-center justify-center font-bold text-foreground">
-                            {task.points}
+                        {/* Story Points estimation */}
+                        <div className="flex items-center gap-1" title="Khối lượng ước lượng (Story Points)">
+                          <span className="h-5 px-1.5 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[10px]">
+                            {task.points} SP
                           </span>
-                          <span>pts</span>
                         </div>
 
+                        {/* Assignee Avatar */}
                         <div className="flex items-center gap-1.5" title={task.assigneeName}>
                           <span className="text-[10px] text-muted-foreground hidden sm:inline truncate max-w-[80px]">
                             {task.assigneeName.split(" ").slice(-1)[0]}
                           </span>
-                          <Avatar className="h-5 w-5 ring-1 ring-border">
-                            <AvatarFallback className="text-[9px] font-bold bg-primary/10 text-primary">
+                          <Avatar className="h-6 w-6 ring-1 ring-border">
+                            <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
                               {task.assignee}
                             </AvatarFallback>
                           </Avatar>
@@ -398,7 +546,7 @@ export default function BoardPage() {
         })}
       </div>
 
-      {/* Create Task Modal */}
+      {/* 4. CREATE TASK MODAL */}
       <Dialog open={isAddTaskOpen} onOpenChange={setIsAddTaskOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -418,37 +566,74 @@ export default function BoardPage() {
                 placeholder="VD: Viết Unit Test cho Module Auth..."
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
-                className="text-xs"
+                className="text-xs h-9"
                 required
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Cột trạng thái</Label>
+                <Label className="text-xs font-semibold">Loại công việc</Label>
                 <Select
-                  value={newTaskStatus}
-                  onValueChange={(val: any) => setNewTaskStatus(val)}
+                  value={newTaskType}
+                  onValueChange={(val: any) => setNewTaskType(val)}
                 >
-                  <SelectTrigger className="text-xs">
+                  <SelectTrigger className="text-xs h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="TODO">Cần làm (To Do)</SelectItem>
-                    <SelectItem value="IN_PROGRESS">Đang làm (In Progress)</SelectItem>
-                    <SelectItem value="REVIEW">Đang duyệt (Review)</SelectItem>
-                    <SelectItem value="DONE">Hoàn thành (Done)</SelectItem>
+                    <SelectItem value="STORY">📘 User Story</SelectItem>
+                    <SelectItem value="TASK">📋 Task kỹ thuật</SelectItem>
+                    <SelectItem value="BUG">🐞 Bug lỗi</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs">Độ ưu tiên</Label>
+                <Label className="text-xs font-semibold">Thuộc Epic / Module</Label>
+                <Select
+                  value={newTaskEpic}
+                  onValueChange={(val) => setNewTaskEpic(val || "Xác thực & Bảo mật")}
+                >
+                  <SelectTrigger className="text-xs h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Xác thực & Bảo mật">Xác thực & Bảo mật</SelectItem>
+                    <SelectItem value="Giao diện Cốt lõi">Giao diện Cốt lõi</SelectItem>
+                    <SelectItem value="Kiến trúc Backend">Kiến trúc Backend</SelectItem>
+                    <SelectItem value="DevOps & CI/CD">DevOps & CI/CD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Trạng thái</Label>
+                <Select
+                  value={newTaskStatus}
+                  onValueChange={(val: any) => setNewTaskStatus(val)}
+                >
+                  <SelectTrigger className="text-xs h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TODO">To Do</SelectItem>
+                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                    <SelectItem value="REVIEW">Review</SelectItem>
+                    <SelectItem value="DONE">Done</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Ưu tiên</Label>
                 <Select
                   value={newTaskPriority}
                   onValueChange={(val: any) => setNewTaskPriority(val)}
                 >
-                  <SelectTrigger className="text-xs">
+                  <SelectTrigger className="text-xs h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -458,50 +643,51 @@ export default function BoardPage() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="t-pts" className="text-xs">Story Points</Label>
-                <Input
-                  id="t-pts"
-                  type="number"
-                  min={1}
-                  max={21}
-                  value={newTaskPoints}
-                  onChange={(e) => setNewTaskPoints(Number(e.target.value))}
-                  className="text-xs"
-                />
-              </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs">Người phụ trách</Label>
+                <Label className="text-xs font-semibold">Story Points</Label>
                 <Select
-                  value={newTaskAssignee}
-                  onValueChange={(val) => setNewTaskAssignee(val || "VA")}
+                  value={String(newTaskPoints)}
+                  onValueChange={(val) => setNewTaskPoints(Number(val) || 3)}
                 >
-                  <SelectTrigger className="text-xs">
+                  <SelectTrigger className="text-xs h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="QC">Trịnh Quyết Chiến (Chủ dự án)</SelectItem>
-                    <SelectItem value="VA">Nguyễn Văn An (DEV)</SelectItem>
-                    <SelectItem value="TB">Trần Thị Bình (QA)</SelectItem>
+                    <SelectItem value="1">1 SP (Rất dễ)</SelectItem>
+                    <SelectItem value="2">2 SP (Dễ)</SelectItem>
+                    <SelectItem value="3">3 SP (Vừa)</SelectItem>
+                    <SelectItem value="5">5 SP (Phức tạp)</SelectItem>
+                    <SelectItem value="8">8 SP (Khó)</SelectItem>
+                    <SelectItem value="13">13 SP (Cần chia nhỏ)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <DialogFooter className="pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsAddTaskOpen(false)}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Người phụ trách</Label>
+              <Select
+                value={newTaskAssignee}
+                onValueChange={(val) => setNewTaskAssignee(val || "VA")}
               >
+                <SelectTrigger className="text-xs h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="QC">Trịnh Quyết Chiến (Chủ dự án)</SelectItem>
+                  <SelectItem value="VA">Nguyễn Văn An (Senior DEV)</SelectItem>
+                  <SelectItem value="TB">Trần Thị Bình (QA Lead)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <DialogFooter className="pt-2 border-t">
+              <Button type="button" variant="outline" onClick={() => setIsAddTaskOpen(false)}>
                 Hủy
               </Button>
               <Button type="submit" disabled={!newTaskTitle.trim()}>
-                Lưu công việc
+                Tạo công việc
               </Button>
             </DialogFooter>
           </form>
