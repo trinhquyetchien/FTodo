@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { 
   Hash, 
   Send, 
@@ -262,6 +262,11 @@ export default function ProjectChatPage() {
   const [inputMessage, setInputMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showRightSidebar, setShowRightSidebar] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [channelMessages, dmMessages, activeChat]);
 
   // Determine current active chat metadata
   const isChannel = activeChat.type === "channel";
@@ -358,11 +363,11 @@ export default function ProjectChatPage() {
   );
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-background">
+    <div className="flex h-full w-full min-h-0 overflow-hidden bg-background">
       {/* ============================================================== */}
       {/* 1. LEFT COLUMN: CHANNELS & DIRECT MESSAGES                     */}
       {/* ============================================================== */}
-      <div className="w-64 border-r bg-slate-50/70 dark:bg-slate-900/40 flex flex-col shrink-0 select-none">
+      <div className="w-64 border-r bg-slate-50/70 dark:bg-slate-900/40 flex flex-col shrink-0 select-none h-full min-h-0 overflow-hidden">
         {/* Header */}
         <div className="p-3.5 border-b flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -462,9 +467,9 @@ export default function ProjectChatPage() {
       {/* ============================================================== */}
       {/* 2. CHAT MAIN AREA                                             */}
       {/* ============================================================== */}
-      <div className="flex-1 flex flex-col min-w-0 bg-background">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden bg-background">
         {/* Top Header */}
-        <div className="h-14 border-b px-5 flex items-center justify-between bg-card/50 backdrop-blur-xs">
+        <div className="h-14 border-b px-5 flex items-center justify-between bg-card/50 backdrop-blur-xs shrink-0 z-10">
           {isChannel ? (
             <div className="flex items-center gap-3 min-w-0">
               <div className="p-2 rounded-lg bg-muted text-foreground">
@@ -549,9 +554,10 @@ export default function ProjectChatPage() {
           </div>
         </div>
 
-        {/* Message Feed */}
-        <ScrollArea className="flex-1 p-5">
-          <div className="space-y-4 max-w-4xl mx-auto">
+        {/* Message Feed (Pinned scrollable area) */}
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+          <ScrollArea className="h-full w-full p-4 sm:p-5">
+            <div className="space-y-4 max-w-4xl mx-auto pb-2">
             {filteredMessages.length === 0 ? (
               <div className="text-center py-16 text-muted-foreground text-sm flex flex-col items-center justify-center gap-2">
                 <MessageCircle className="h-10 w-10 text-muted-foreground/40" />
@@ -657,11 +663,13 @@ export default function ProjectChatPage() {
                 );
               })
             )}
+            <div ref={messagesEndRef} />
           </div>
-        </ScrollArea>
+          </ScrollArea>
+        </div>
 
-        {/* Message Input Box */}
-        <div className="p-3.5 border-t bg-card/40">
+        {/* Message Input Box (Pinned permanently to bottom) */}
+        <div className="p-3.5 border-t bg-card/80 backdrop-blur-xs shrink-0 z-10 mt-auto">
           <form onSubmit={handleSendMessage} className="flex items-center gap-2.5">
             <div className="relative flex-1">
               <Input
@@ -718,7 +726,7 @@ export default function ProjectChatPage() {
       {/* 3. RIGHT SIDEBAR: CONTEXTUAL INFO                              */}
       {/* ============================================================== */}
       {showRightSidebar && (
-        <div className="w-64 border-l bg-slate-50/50 dark:bg-slate-900/30 p-4 hidden xl:flex flex-col shrink-0 select-none">
+        <div className="w-64 border-l bg-slate-50/50 dark:bg-slate-900/30 p-4 hidden xl:flex flex-col shrink-0 select-none h-full min-h-0 overflow-y-auto">
           {isChannel ? (
             <>
               <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">

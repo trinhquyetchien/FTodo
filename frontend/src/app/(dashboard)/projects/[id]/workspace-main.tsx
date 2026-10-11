@@ -10,7 +10,7 @@ export function WorkspaceMain({ children }: { children: React.ReactNode }) {
 
   if (isChat) {
     return (
-      <div className="flex-1 h-full min-w-0 overflow-hidden flex flex-col bg-background">
+      <div className="flex-1 h-full min-w-0 min-h-0 overflow-hidden flex flex-col bg-background">
         {children}
       </div>
     );
