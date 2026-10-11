@@ -24,7 +24,10 @@ import {
   Minimize2,
   Printer,
   X,
-  ShieldCheck
+  ShieldCheck,
+  Bug,
+  Layers,
+  TrendingUp
 } from "lucide-react";
 import { cn } from "cn";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -52,6 +55,9 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
+  BarChart,
+  Bar,
+  ComposedChart,
   XAxis,
   YAxis,
   Tooltip,
@@ -83,6 +89,22 @@ const burndownData = [
   { day: "09/10", ideal: 8, actual: 9 },
   { day: "11/10 (Nay)", ideal: 4, actual: 5 },
   { day: "14/10", ideal: 0, actual: 0 },
+];
+
+const velocityTrendData = [
+  { sprint: "Sprint 1", committed: 24, completed: 21, target: 24 },
+  { sprint: "Sprint 2 (Dự kiến)", committed: 26, completed: 25, target: 24 },
+  { sprint: "Sprint 3", committed: 28, completed: 26, target: 25 },
+  { sprint: "Sprint 4", committed: 30, completed: 28, target: 25 },
+];
+
+const defectTrendData = [
+  { day: "01/10", opened: 4, resolved: 1 },
+  { day: "03/10", opened: 5, resolved: 3 },
+  { day: "05/10", opened: 3, resolved: 5 },
+  { day: "07/10", opened: 2, resolved: 4 },
+  { day: "09/10", opened: 1, resolved: 3 },
+  { day: "11/10 (Nay)", opened: 1, resolved: 2 },
 ];
 
 const INITIAL_REPORTS: SubmittedReport[] = [
@@ -130,6 +152,7 @@ export default function ReportsPage() {
   });
 
   // Modal: Submit report (For member)
+  const [chartTab, setChartTab] = useState<"burndown" | "velocity" | "quality">("burndown");
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
   const [reportTitle, setReportTitle] = useState("");
   const [reportType, setReportType] = useState<"weekly" | "sprint" | "technical" | "incident">("weekly");
@@ -392,49 +415,173 @@ export default function ReportsPage() {
         </CardContent>
       </Card>
 
-      {/* Burndown Chart Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      {/* 3. Comprehensive Software Delivery & Quality Analytics */}
+      <Card className="border shadow-xs">
+        <CardHeader className="pb-3 border-b">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <CardTitle className="text-base font-semibold">Biểu đồ Sprint Burndown (Khối lượng còn lại)</CardTitle>
-              <CardDescription className="text-xs">
-                Theo dõi tiến trình thiêu đốt Story Points theo ngày thực tế trong Sprint 1.
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                {chartTab === "burndown" && "Biểu đồ Sprint Burndown (Khối lượng Story Points còn lại)"}
+                {chartTab === "velocity" && "Biểu đồ Vận tốc qua các Sprint (Velocity Trend & Predictability)"}
+                {chartTab === "quality" && "Biểu đồ Lỗi & Xu hướng Ổn định Chất lượng (Defect Influx vs Resolution)"}
+              </CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                {chartTab === "burndown" && "Theo dõi tiến trình thiêu đốt Story Points theo ngày thực tế so với đường Guideline lý tưởng."}
+                {chartTab === "velocity" && "Đo lường độ ổn định cam kết hoàn thành (Cam kết vs Hoàn thành) và xu hướng năng suất team."}
+                {chartTab === "quality" && "Theo dõi số lượng bug mở mới vs bug đã khắc phục; hệ thống sẵn sàng bàn giao khi Resolved > Opened."}
               </CardDescription>
             </div>
-            <Badge variant="secondary" className="text-xs font-mono">
-              Sprint 1 • 01/10 - 15/10/2026
-            </Badge>
+
+            {/* View Switcher Tabs */}
+            <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 text-xs shrink-0">
+              <button
+                onClick={() => setChartTab("burndown")}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+                  chartTab === "burndown"
+                    ? "bg-background text-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <TrendingDown className="h-3 w-3 text-blue-500" /> Burndown
+              </button>
+              <button
+                onClick={() => setChartTab("velocity")}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+                  chartTab === "velocity"
+                    ? "bg-background text-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Zap className="h-3 w-3 text-amber-500" /> Vận tốc (Velocity)
+              </button>
+              <button
+                onClick={() => setChartTab("quality")}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+                  chartTab === "quality"
+                    ? "bg-background text-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Bug className="h-3 w-3 text-rose-500" /> Lỗi (Defects)
+              </button>
+            </div>
           </div>
         </CardHeader>
-        <CardContent className="h-[280px] pl-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={burndownData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={11} />
-              <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
-              <Tooltip formatter={(value: any) => [`${value} Story Points`, ""]} />
-              <Legend verticalAlign="top" height={36} />
-              <Line
-                type="monotone"
-                dataKey="ideal"
-                name="Đường lý tưởng (Guideline)"
-                stroke="#94a3b8"
-                strokeDasharray="5 5"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="actual"
-                name="Thực tế còn lại (Remaining)"
-                stroke="#3b82f6"
-                strokeWidth={3}
-                dot={{ r: 4, fill: "#3b82f6" }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+
+        <CardContent className="h-[280px] pl-0 pt-4">
+          {chartTab === "burndown" && (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={burndownData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={11} />
+                <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
+                <Tooltip
+                  formatter={(value: any, name: any) => [`${value} Story Points`, name]}
+                  contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
+                />
+                <Legend verticalAlign="top" height={36} iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                <Line
+                  type="monotone"
+                  dataKey="ideal"
+                  name="Đường lý tưởng (Guideline)"
+                  stroke="#94a3b8"
+                  strokeDasharray="5 5"
+                  strokeWidth={2}
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="actual"
+                  name="Thực tế còn lại (Remaining)"
+                  stroke="#3b82f6"
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: "#3b82f6" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+
+          {chartTab === "velocity" && (
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={velocityTrendData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                <XAxis dataKey="sprint" axisLine={false} tickLine={false} fontSize={11} />
+                <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" SP" />
+                <Tooltip
+                  formatter={(val: any, name: any) => [`${val} Story Points`, name]}
+                  contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
+                />
+                <Legend verticalAlign="top" height={36} iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="committed" name="Điểm cam kết (Committed)" fill="#cbd5e1" radius={[4, 4, 0, 0]} barSize={28} />
+                <Bar dataKey="completed" name="Điểm hoàn thành (Completed)" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={28} />
+                <Line
+                  type="monotone"
+                  dataKey="target"
+                  name="Mục tiêu vận tốc (24-25 SP)"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  strokeDasharray="4 4"
+                  dot={{ r: 3, fill: "#10b981" }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
+
+          {chartTab === "quality" && (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={defectTrendData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={11} />
+                <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" bugs" />
+                <Tooltip
+                  formatter={(val: any, name: any) => [`${val} Bugs`, name]}
+                  contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
+                />
+                <Legend verticalAlign="top" height={36} iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="opened" name="Bug mới phát hiện (Opened)" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={24} />
+                <Bar dataKey="resolved" name="Bug đã khắc phục (Resolved)" fill="#10b981" radius={[4, 4, 0, 0]} barSize={24} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
+
+        {/* Footer Sub-stats for PM / Lead */}
+        <CardFooter className="border-t py-2.5 px-4 bg-muted/20 text-xs">
+          {chartTab === "burndown" && (
+            <div className="flex flex-wrap items-center justify-between w-full gap-2">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <TrendingDown className="h-3.5 w-3.5 text-blue-500" />
+                Tiến độ: <strong className="text-foreground">Đúng kế hoạch (-1 SP so với Guideline)</strong>
+              </span>
+              <span className="text-muted-foreground">
+                Còn lại: <strong className="text-blue-600">5 / 24 Story Points</strong> • Kết thúc Sprint: 15/10/2026
+              </span>
+            </div>
+          )}
+          {chartTab === "velocity" && (
+            <div className="flex flex-wrap items-center justify-between w-full gap-2">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Zap className="h-3.5 w-3.5 text-amber-500" />
+                Vận tốc trung bình: <strong className="text-foreground">25 SP / Sprint</strong>
+              </span>
+              <span className="text-muted-foreground">
+                Độ tin cậy cam kết: <strong className="text-emerald-600">92.4% (Rất cao)</strong> • Predictability ổn định
+              </span>
+            </div>
+          )}
+          {chartTab === "quality" && (
+            <div className="flex flex-wrap items-center justify-between w-full gap-2">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Bug className="h-3.5 w-3.5 text-rose-500" />
+                Độ ổn định trước Release: <strong className="text-emerald-600">Đạt chuẩn bàn giao</strong>
+              </span>
+              <span className="text-muted-foreground">
+                Tốc độ xử lý: <strong className="text-foreground">Resolved (18) {">"} Opened (16)</strong> • Không có blocker nghiêm trọng
+              </span>
+            </div>
+          )}
+        </CardFooter>
       </Card>
 
       {/* MODAL 1: GỬI BÁO CÁO CHO SẾP (NHÂN VIÊN) */}

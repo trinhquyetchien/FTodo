@@ -18,7 +18,14 @@ import {
   Check,
   Clock,
   Sparkles,
-  History
+  History,
+  TrendingUp,
+  Zap,
+  BarChart2,
+  Bug,
+  Bookmark,
+  CheckSquare,
+  ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +41,19 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Legend,
+  Cell,
+  Line,
+  ComposedChart
+} from "recharts";
 import { useAuth } from "@/lib/auth-context";
 import { INITIAL_MOCK_PROJECTS_LIST, MockProject } from "@/lib/mock-data";
 import {
@@ -45,19 +64,33 @@ import {
   ProjectActivityLog
 } from "@/lib/activity-invitation-store";
 
-const dataCharts = [
-  { name: "T2", tasks: 4 },
-  { name: "T3", tasks: 7 },
-  { name: "T4", tasks: 2 },
-  { name: "T5", tasks: 5 },
-  { name: "T6", tasks: 8 },
-  { name: "T7", tasks: 3 },
-  { name: "CN", tasks: 1 },
+// 1. Sprint Velocity & Commitment Predictability (Khối lượng & Vận tốc qua các Sprint)
+const sprintVelocityData = [
+  { sprint: "Sprint 1", committed: 24, completed: 22, velocityAvg: 23 },
+  { sprint: "Sprint 2", committed: 28, completed: 26, velocityAvg: 25 },
+  { sprint: "Sprint 3", committed: 26, completed: 28, velocityAvg: 26 },
+  { sprint: "Sprint 4 (Hiện tại)", committed: 28, completed: 18, velocityAvg: 26 },
+];
+
+// 2. Work Breakdown & Technical Debt Quality (Tỷ lệ Tính năng vs Nợ kỹ thuật)
+const workMixData = [
+  { name: "User Stories (Tính năng)", count: 28, points: 64, color: "#3b82f6", pct: 58 },
+  { name: "Technical Tasks (Hạ tầng/DevOps)", count: 12, points: 28, color: "#10b981", pct: 25 },
+  { name: "Bug Fixes (Lỗi & Nợ kỹ thuật)", count: 8, points: 18, color: "#f43f5e", pct: 17 },
+];
+
+// 3. Cross-Project Delivery Health (Tiến độ giao hàng 4 dự án phần mềm)
+const projectDeliveryData = [
+  { name: "FTodo Core", done: 18, remaining: 10, total: 28, pct: 64, color: "#6366f1" },
+  { name: "E-Commerce", done: 9, remaining: 15, total: 24, pct: 38, color: "#f59e0b" },
+  { name: "CRM Enterprise", done: 4, remaining: 14, total: 18, pct: 22, color: "#10b981" },
+  { name: "AI Assistant", done: 6, remaining: 6, total: 12, pct: 50, color: "#ec4899" },
 ];
 
 export default function GlobalDashboard() {
   const { user } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [chartView, setChartView] = useState<"velocity" | "workmix" | "delivery">("velocity");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [allProjects, setAllProjects] = useState<MockProject[]>(INITIAL_MOCK_PROJECTS_LIST);
@@ -292,22 +325,125 @@ export default function GlobalDashboard() {
             </Card>
           </div>
 
-          {/* 2.2 Analytics Chart */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Tần suất hoàn thành công việc theo tuần</CardTitle>
-              <CardDescription className="text-xs">Biểu đồ số lượng tác vụ bạn đã hoàn thành mỗi ngày trong chu kỳ làm việc</CardDescription>
+          {/* 2.2 Software Project Analytics & Velocity Health */}
+          <Card className="border shadow-xs">
+            <CardHeader className="pb-3 border-b">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <BarChart2 className="h-4 w-4 text-primary" />
+                    Chỉ số Vận hành & Năng lực Đội ngũ (Software Delivery Metrics)
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-0.5">
+                    {chartView === "velocity" && "Đo lường độ ổn định cam kết Story Points hoàn thành qua các Sprint (Velocity)."}
+                    {chartView === "workmix" && "Tỷ trọng đầu tư vào Tính năng mới (Stories) vs Hạ tầng (Tasks) vs Nợ kỹ thuật (Bugs)."}
+                    {chartView === "delivery" && "So sánh tiến độ Story Points đã hoàn thành vs còn lại trên toàn bộ các dự án."}
+                  </CardDescription>
+                </div>
+
+                {/* View Switcher Tabs */}
+                <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 text-xs shrink-0">
+                  <button
+                    onClick={() => setChartView("velocity")}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+                      chartView === "velocity"
+                        ? "bg-background text-foreground shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Zap className="h-3 w-3 text-amber-500" /> Vận tốc (Velocity)
+                  </button>
+                  <button
+                    onClick={() => setChartView("workmix")}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+                      chartView === "workmix"
+                        ? "bg-background text-foreground shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Bug className="h-3 w-3 text-rose-500" /> Cơ cấu & Bug
+                  </button>
+                  <button
+                    onClick={() => setChartView("delivery")}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+                      chartView === "delivery"
+                        ? "bg-background text-foreground shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Layers className="h-3 w-3 text-blue-500" /> Dự án
+                  </button>
+                </div>
+              </div>
+
+              {/* Sub-header KPIs */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 text-xs">
+                <div className="p-2 rounded-lg bg-muted/30 border">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Vận tốc TB (Velocity)</span>
+                  <div className="font-bold text-foreground text-sm flex items-center gap-1">
+                    26.5 SP <span className="text-[10px] text-emerald-600 font-normal">/ Sprint</span>
+                  </div>
+                </div>
+                <div className="p-2 rounded-lg bg-muted/30 border">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Độ tin cậy cam kết</span>
+                  <div className="font-bold text-foreground text-sm flex items-center gap-1">
+                    92% <span className="text-[10px] text-emerald-600 font-normal">Predictability</span>
+                  </div>
+                </div>
+                <div className="p-2 rounded-lg bg-muted/30 border">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Tỷ lệ Bug nợ kỹ thuật</span>
+                  <div className="font-bold text-foreground text-sm flex items-center gap-1">
+                    17% <span className="text-[10px] text-emerald-600 font-normal">(Mức an toàn &lt; 20%)</span>
+                  </div>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="pl-0 h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dataCharts} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} />
-                  <YAxis axisLine={false} tickLine={false} fontSize={12} />
-                  <Tooltip cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                  <Bar dataKey="tasks" fill="#0f172a" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+
+            <CardContent className="pt-4 h-[250px] pl-0">
+              {chartView === "velocity" && (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={sprintVelocityData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                    <XAxis dataKey="sprint" axisLine={false} tickLine={false} fontSize={11} />
+                    <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
+                    <Tooltip formatter={(value: any) => [`${value} Story Points`, ""]} />
+                    <Legend verticalAlign="top" height={32} iconSize={10} wrapperStyle={{ fontSize: "11px" }} />
+                    <Bar dataKey="committed" name="Điểm Cam kết (Committed)" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="completed" name="Điểm Hoàn thành (Completed)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Line type="monotone" dataKey="velocityAvg" name="Mức TB (Velocity Target)" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
+
+              {chartView === "workmix" && (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={workMixData} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.3} />
+                    <XAxis type="number" axisLine={false} tickLine={false} fontSize={11} unit="%" />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} fontSize={11} width={180} />
+                    <Tooltip formatter={(val: any, name: any, item: any) => [`${item.payload.pct}% (${item.payload.points} SP - ${item.payload.count} tác vụ)`, "Tỷ trọng"]} />
+                    <Bar dataKey="pct" radius={[0, 6, 6, 0]}>
+                      {workMixData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+
+              {chartView === "delivery" && (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={projectDeliveryData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} />
+                    <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
+                    <Tooltip formatter={(val: any, name: any) => [`${val} Story Points`, name === "done" ? "Đã xong" : "Còn lại"]} />
+                    <Legend verticalAlign="top" height={32} iconSize={10} wrapperStyle={{ fontSize: "11px" }} />
+                    <Bar dataKey="done" name="Đã bàn giao (Done SP)" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="remaining" name="Còn lại (Remaining SP)" stackId="a" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
