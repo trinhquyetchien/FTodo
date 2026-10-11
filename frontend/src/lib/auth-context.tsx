@@ -8,6 +8,7 @@ import { MockUser, MOCK_USERS } from "./mock-data";
 interface AuthContextType {
   user: MockUser | null;
   isLoggedIn: boolean;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<MockUser | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const router = useRouter();
 
   // Load and verify user from real API on initial render
@@ -41,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             };
             setUser(formattedUser);
             setIsLoggedIn(true);
+            setIsLoading(false);
             return;
           }
         } catch {
@@ -55,6 +58,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
           setIsLoggedIn(false);
         }
+      }
+      if (isMounted) {
+        setIsLoading(false);
       }
     }
 
@@ -167,6 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         isLoggedIn,
+        isLoading,
         login,
         register,
         logout,
