@@ -1,7 +1,6 @@
 import * as React from "react";
 import { ProjectProvider } from "./project-context";
 import { ProjectNav } from "./project-nav";
-import { ProjectSubheader } from "@/components/project-subheader";
 import { ProjectSidebar } from "@/components/project-sidebar";
 
 export default function ProjectLayout({
@@ -24,9 +23,8 @@ export default function ProjectLayout({
 
           {/* Right Workspace Main Working Area */}
           <div className="flex-1 overflow-y-auto p-6 min-w-0">
-            {/* Workspace Subheader & Horizontal Tab Bar with Add Page button */}
-            <div className="border-b pb-4 mb-6">
-              <ProjectSubheader />
+            {/* Horizontal Navigation Tab Bar */}
+            <div className="border-b pb-3 mb-6">
               <ProjectNav />
             </div>
 
