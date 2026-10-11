@@ -146,9 +146,9 @@ export default function Login() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="password" className="text-xs font-semibold">Mật khẩu</Label>
-              <a href="#" className="text-xs text-primary hover:underline font-medium">
+              <Link href="/forgot-password" className="text-xs text-primary hover:underline font-medium">
                 Quên mật khẩu?
-              </a>
+              </Link>
             </div>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
