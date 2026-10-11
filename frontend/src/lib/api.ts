@@ -5,14 +5,23 @@ export function getStoredToken(): string | null {
   return localStorage.getItem("ftodo_token");
 }
 
-export function setStoredToken(token: string): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("ftodo_token", token);
+export function getStoredRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("ftodo_refresh_token");
 }
 
-export function removeStoredToken(): void {
+export function setStoredTokens(accessToken: string, refreshToken?: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("ftodo_token", accessToken);
+  if (refreshToken) {
+    localStorage.setItem("ftodo_refresh_token", refreshToken);
+  }
+}
+
+export function removeStoredTokens(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem("ftodo_token");
+  localStorage.removeItem("ftodo_refresh_token");
   localStorage.removeItem("ftodo_user");
 }
 
@@ -25,6 +34,14 @@ export function getStoredUser(): any | null {
 export function setStoredUser(user: any): void {
   if (typeof window === "undefined") return;
   localStorage.setItem("ftodo_user", JSON.stringify(user));
+}
+
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+function onTokenRefreshed(token: string) {
+  refreshSubscribers.forEach((callback) => callback(token));
+  refreshSubscribers = [];
 }
 
 export async function apiFetch<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -44,9 +61,67 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
     headers,
   });
 
+  // Handle 401 Unauthorized with Automatic Refresh Token Rotation
+  if (res.status === 401 && endpoint !== "/auth/login" && endpoint !== "/auth/refresh") {
+    const refreshToken = getStoredRefreshToken();
+    if (refreshToken) {
+      if (!isRefreshing) {
+        isRefreshing = true;
+        try {
+          const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ refreshToken }),
+          });
+
+          if (refreshRes.ok) {
+            const data = await refreshRes.json();
+            setStoredTokens(data.accessToken, data.refreshToken);
+            onTokenRefreshed(data.accessToken);
+            isRefreshing = false;
+
+            // Retry original request with new access token
+            headers.set("Authorization", `Bearer ${data.accessToken}`);
+            const retryRes = await fetch(`${API_BASE_URL}${endpoint}`, {
+              ...options,
+              headers,
+            });
+            if (retryRes.ok) return retryRes.json();
+          } else {
+            removeStoredTokens();
+            isRefreshing = false;
+          }
+        } catch {
+          removeStoredTokens();
+          isRefreshing = false;
+        }
+      } else {
+        // Wait for active token refresh to finish
+        return new Promise<T>((resolve, reject) => {
+          refreshSubscribers.push(async (newToken: string) => {
+            try {
+              headers.set("Authorization", `Bearer ${newToken}`);
+              const retryRes = await fetch(`${API_BASE_URL}${endpoint}`, {
+                ...options,
+                headers,
+              });
+              if (!retryRes.ok) throw new Error(`Lỗi yêu cầu: ${retryRes.status}`);
+              resolve(retryRes.json());
+            } catch (err) {
+              reject(err);
+            }
+          });
+        });
+      }
+    }
+  }
+
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(errorData.message || `Lỗi yêu cầu: ${res.status}`);
+    const msg = Array.isArray(errorData.message)
+      ? errorData.message.join(", ")
+      : errorData.message || `Lỗi yêu cầu: ${res.status}`;
+    throw new Error(msg);
   }
 
   return res.json();
@@ -55,14 +130,29 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
 export const api = {
   auth: {
     login: (credentials: { email: string; password: string }) =>
-      apiFetch<{ message: string; user: any; accessToken: string }>("/auth/login", {
-        method: "POST",
-        body: JSON.stringify(credentials),
-      }),
+      apiFetch<{ message: string; user: any; accessToken: string; refreshToken: string }>(
+        "/auth/login",
+        {
+          method: "POST",
+          body: JSON.stringify(credentials),
+        }
+      ),
     register: (data: { name: string; email: string; password: string }) =>
-      apiFetch<{ message: string; user: any; accessToken: string }>("/auth/register", {
+      apiFetch<{ message: string; user: any; accessToken: string; refreshToken: string }>(
+        "/auth/register",
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+        }
+      ),
+    refresh: (refreshToken: string) =>
+      apiFetch<{ accessToken: string; refreshToken: string }>("/auth/refresh", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify({ refreshToken }),
+      }),
+    logout: () =>
+      apiFetch<{ message: string }>("/auth/logout", {
+        method: "POST",
       }),
     getMe: () => apiFetch<any>("/auth/me"),
   },

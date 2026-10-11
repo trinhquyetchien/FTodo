@@ -1,23 +1,37 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS for frontend
+  // 1. HTTP Security Headers with Helmet
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // Allows Swagger UI inline scripts
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
+
+  // 2. Hardened CORS configuration
   app.enableCors({
     origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
 
-  // Enable global validation pipe
+  // 3. Strict Global Validation Pipe & Mass Assignment Prevention
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
-      transform: true,
+      whitelist: true, // Strips any unknown properties from payloads
+      forbidNonWhitelisted: true, // Throws bad request error if unknown properties are sent
+      transform: true, // Automatically transforms payloads to DTO instances
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
     }),
   );
 

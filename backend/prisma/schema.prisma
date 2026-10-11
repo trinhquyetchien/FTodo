@@ -13,8 +13,10 @@ model User {
   password      String
   name          String
   avatar        String?
-  role          String          @default("USER") // System level role
-  createdAt     DateTime        @default(now())
+  role               String          @default("USER") // System level role
+  hashedRefreshToken String?         // Secure hashed refresh token for token rotation
+  isActive           Boolean         @default(true)
+  createdAt          DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
   ownedProjects Project[]       @relation("ProjectOwner")
