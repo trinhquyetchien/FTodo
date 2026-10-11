@@ -35,7 +35,7 @@ import {
 } from "@/lib/activity-invitation-store";
 
 export function DashboardHeader() {
-  const { user, logout } = useAuth();
+  const { user, logout, quickSwitch } = useAuth();
   const pathname = usePathname();
   const params = useParams();
 
@@ -256,12 +256,43 @@ export function DashboardHeader() {
               <div className="text-[10px] text-muted-foreground leading-none mt-1">{user?.email}</div>
             </div>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuContent align="end" className="w-64">
             <DropdownMenuLabel>
               <div className="text-xs font-semibold">{user?.name}</div>
               <div className="text-[11px] text-muted-foreground font-normal">{user?.email}</div>
               <div className="text-[10px] text-primary mt-0.5 font-medium">{user?.jobTitle}</div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              Đổi vai trò quay Demo
+            </div>
+            <DropdownMenuItem
+              onClick={() => quickSwitch("owner")}
+              className="cursor-pointer text-xs flex items-center justify-between"
+            >
+              <span className="flex items-center gap-1.5">
+                <span>👑</span> Trịnh Quyết Chiến (Chủ dự án)
+              </span>
+              {user?.email === "chien@example.com" && <Check className="h-3.5 w-3.5 text-primary" />}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => quickSwitch("dev")}
+              className="cursor-pointer text-xs flex items-center justify-between"
+            >
+              <span className="flex items-center gap-1.5">
+                <span>💻</span> Nguyễn Văn An (Senior DEV)
+              </span>
+              {user?.email === "an@example.com" && <Check className="h-3.5 w-3.5 text-primary" />}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => quickSwitch("qa")}
+              className="cursor-pointer text-xs flex items-center justify-between"
+            >
+              <span className="flex items-center gap-1.5">
+                <span>🔍</span> Trần Thị Bình (QA Tester)
+              </span>
+              {user?.email === "binh@example.com" && <Check className="h-3.5 w-3.5 text-primary" />}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout} className="text-rose-600 focus:text-rose-600 cursor-pointer text-xs">
               <LogOut className="h-3.5 w-3.5 mr-2" /> Đăng xuất

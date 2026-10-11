@@ -80,6 +80,17 @@ export const INITIAL_MOCK_PROJECTS_LIST: MockProject[] = [
     members: 6,
     createdAt: "28/09/2026",
   },
+  {
+    id: "ai-assistant",
+    name: "Trợ lý AI Tự động hóa Doanh nghiệp",
+    description: "Tích hợp mô hình ngôn ngữ lớn LLM để tự động phân tích logs và tạo báo cáo dự án",
+    ownerId: "u-binh",
+    progress: 50,
+    tasks: 12,
+    completedTasks: 6,
+    members: 4,
+    createdAt: "05/10/2026",
+  },
 ];
 
 export const INITIAL_MOCK_PROJECTS: { owned: MockProject[]; memberOf: MockProject[] } = {
@@ -99,6 +110,7 @@ export const PROJECT_TABS = [
   { id: "components", name: "Hợp phần kiến trúc", path: "/components", icon: "Boxes", description: "Phân rã module (Frontend, Backend, DB)" },
   { id: "cost", name: "Tiền & Chi phí", path: "/cost", icon: "DollarSign", description: "Ngân sách, burn-rate & chi tiêu" },
   { id: "members", name: "Nhân sự & Phân quyền", path: "/members", icon: "Users", description: "Quản lý nhóm quyền & thành viên" },
+  { id: "activity", name: "Lịch sử hoạt động", path: "/activity", icon: "History", description: "Audit trail ghi nhận lịch sử thao tác dự án" },
   { id: "settings", name: "Cài đặt dự án", path: "/settings", icon: "Settings", description: "Đổi tên, cấu hình & xóa dự án" },
 ];
 
@@ -134,6 +146,7 @@ export const DEFAULT_INITIAL_ROLES: MockRole[] = [
       "members",
       "chat",
       "cost",
+      "activity",
       "settings",
     ],
   },
@@ -151,6 +164,7 @@ export const DEFAULT_INITIAL_ROLES: MockRole[] = [
       "releases",
       "components",
       "chat",
+      "activity",
     ],
   },
   {
@@ -165,6 +179,36 @@ export const DEFAULT_INITIAL_ROLES: MockRole[] = [
       "issues",
       "reports",
       "chat",
+      "activity",
+    ],
+  },
+  {
+    id: "r4",
+    name: "Product Designer (UI/UX)",
+    desc: "Thiết kế giao diện Design System, prototype và trải nghiệm người dùng",
+    permissions: [
+      "overview",
+      "board",
+      "backlog",
+      "timeline",
+      "issues",
+      "components",
+      "chat",
+      "activity",
+    ],
+  },
+  {
+    id: "r5",
+    name: "DevOps & SRE Engineer",
+    desc: "Quản trị hạ tầng đám mây, cấu hình CI/CD và phiên bản phát hành",
+    permissions: [
+      "overview",
+      "issues",
+      "releases",
+      "components",
+      "reports",
+      "chat",
+      "activity",
     ],
   },
 ];
@@ -173,4 +217,6 @@ export const DEFAULT_INITIAL_MEMBERS: MockMember[] = [
   { id: "u-chien", name: "Trịnh Quyết Chiến", email: "chien@example.com", roleId: "r1", extraPermissions: [] },
   { id: "u-an", name: "Nguyễn Văn An", email: "an@example.com", roleId: "r2", extraPermissions: ["cost"] },
   { id: "u-binh", name: "Trần Thị Bình", email: "binh@example.com", roleId: "r3", extraPermissions: [] },
+  { id: "u-dung", name: "Lê Hoàng Dũng", email: "dung@example.com", roleId: "r4", extraPermissions: [] },
+  { id: "u-duc", name: "Phạm Minh Đức", email: "duc@example.com", roleId: "r5", extraPermissions: [] },
 ];

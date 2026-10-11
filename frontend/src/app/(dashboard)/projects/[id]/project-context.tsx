@@ -88,6 +88,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         "cost",
         "members",
         "chat",
+        "activity",
         "settings",
       ];
     }
