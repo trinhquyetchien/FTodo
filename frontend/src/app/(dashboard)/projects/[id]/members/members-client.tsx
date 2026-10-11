@@ -50,6 +50,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { DEFAULT_INITIAL_ROLES, DEFAULT_INITIAL_MEMBERS } from "@/lib/mock-data";
 import { useProject } from "../project-context";
 import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
 import {
   getStoredInvitations,
   saveStoredInvitations,
@@ -164,6 +165,58 @@ export function MembersClient() {
     return DEFAULT_INITIAL_MEMBERS;
   });
 
+  // Sync live roles and members from PostgreSQL backend
+  useEffect(() => {
+    let isMounted = true;
+    const loadData = async () => {
+      if (!project?.id) return;
+      try {
+        const [rolesRes, membersRes] = await Promise.allSettled([
+          api.members.getRoles(project.id),
+          api.members.getMembers(project.id),
+        ]);
+
+        if (isMounted && rolesRes.status === "fulfilled" && Array.isArray(rolesRes.value) && rolesRes.value.length > 0) {
+          const mappedRoles = rolesRes.value.map((r: any) => ({
+            id: r.id,
+            name: r.name,
+            description: r.description || `Nhóm quyền ${r.name}`,
+            permissions: r.permissions || [],
+            isDefault: r.isDefault || false,
+          }));
+          setRoles(mappedRoles);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(`ftodo_roles_${projectId}`, JSON.stringify(mappedRoles));
+          }
+        }
+
+        if (isMounted && membersRes.status === "fulfilled" && Array.isArray(membersRes.value) && membersRes.value.length > 0) {
+          const mappedMembers = membersRes.value.map((m: any) => ({
+            id: m.id,
+            userId: m.userId,
+            name: m.name || m.user?.name || "Thành viên",
+            email: m.email || m.user?.email || "",
+            avatar: m.avatar || m.user?.avatar || (m.name?.includes("Chiến") ? "QC" : m.name?.includes("An") ? "VA" : "TB"),
+            roleId: m.roleGroup?.id || m.roleGroupId || "r2",
+            roleName: m.roleGroup?.name || "DEV",
+            extraPermissions: m.extraPermissions || [],
+          }));
+          setMembers(mappedMembers);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(`ftodo_members_${projectId}`, JSON.stringify(mappedMembers));
+          }
+        }
+      } catch (err) {
+        // Fallback to local
+      }
+    };
+
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, [project?.id, projectId]);
+
   // Modals state
   const [isAddRoleOpen, setIsAddRoleOpen] = useState(false);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
@@ -257,12 +310,25 @@ export function MembersClient() {
     setNewRolePerms(["overview"]);
   };
 
-  const handleCreateRole = (e: React.FormEvent) => {
+  const handleCreateRole = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRoleName.trim()) return;
 
+    let createdId = "r-" + Date.now();
+    if (project?.id) {
+      try {
+        const res = await api.members.createRole(project.id, {
+          name: newRoleName.trim(),
+          permissions: newRolePerms,
+        });
+        if (res?.id) createdId = res.id;
+      } catch (err) {
+        console.warn("Lỗi khi tạo vai trò lên server:", err);
+      }
+    }
+
     const newRole = {
-      id: "r-" + Date.now(),
+      id: createdId,
       name: newRoleName.trim(),
       desc: newRoleDesc.trim() || "Nhóm quyền tùy chỉnh",
       permissions: newRolePerms,
@@ -281,22 +347,32 @@ export function MembersClient() {
     setIsAddRoleOpen(false);
   };
 
-  const handleDeleteRole = (roleId: string) => {
-    if (roleId === "r1") return; // Cannot delete Admin
+  const handleDeleteRole = async (roleId: string) => {
+    if (roleId === "r1" || roleId.toLowerCase().includes("admin")) return; // Cannot delete Admin
     const updatedRoles = roles.filter((r: any) => r.id !== roleId);
     setRoles(updatedRoles);
     if (typeof window !== "undefined") {
       localStorage.setItem(`ftodo_roles_${projectId}`, JSON.stringify(updatedRoles));
       window.dispatchEvent(new Event("ftodo_permissions_updated"));
     }
+
+    if (project?.id && !roleId.startsWith("r-")) {
+      try {
+        await api.members.deleteRole(project.id, roleId);
+      } catch (err) {
+        console.warn("Lỗi khi xóa vai trò trên server:", err);
+      }
+    }
   };
 
-  const handleRolePermToggle = (roleId: string, tabId: string) => {
+  const handleRolePermToggle = async (roleId: string, tabId: string) => {
+    let targetPerms: string[] = [];
     const updatedRoles = roles.map((r: any) => {
       if (r.id === roleId) {
         const perms = r.permissions.includes(tabId)
           ? r.permissions.filter((p: string) => p !== tabId)
           : [...r.permissions, tabId];
+        targetPerms = perms;
         return { ...r, permissions: perms };
       }
       return r;
@@ -305,6 +381,14 @@ export function MembersClient() {
     if (typeof window !== "undefined") {
       localStorage.setItem(`ftodo_roles_${projectId}`, JSON.stringify(updatedRoles));
       window.dispatchEvent(new Event("ftodo_permissions_updated"));
+    }
+
+    if (project?.id && !roleId.startsWith("r-")) {
+      try {
+        await api.members.updateRolePermissions(project.id, roleId, targetPerms);
+      } catch (err) {
+        console.warn("Lỗi khi cập nhật quyền vai trò lên server:", err);
+      }
     }
   };
 
@@ -317,7 +401,7 @@ export function MembersClient() {
     setIsEditMemberOpen(true);
   };
 
-  const handleSaveMember = () => {
+  const handleSaveMember = async () => {
     if (!editingMemberId) return;
     const updated = members.map((m: any) => {
       if (m.id === editingMemberId) {
@@ -330,23 +414,57 @@ export function MembersClient() {
       localStorage.setItem(`ftodo_members_${projectId}`, JSON.stringify(updated));
       window.dispatchEvent(new Event("ftodo_permissions_updated"));
     }
+
+    if (project?.id && !editingMemberId.startsWith("u-")) {
+      try {
+        await api.members.updateMember(project.id, editingMemberId, {
+          roleGroupId: editMemberRoleId,
+          extraPermissions: editMemberExtraPerms,
+        });
+      } catch (err) {
+        console.warn("Lỗi khi cập nhật thành viên lên server:", err);
+      }
+    }
+
     setIsEditMemberOpen(false);
   };
 
-  const handleRemoveMember = (id: string) => {
+  const handleRemoveMember = async (id: string) => {
     const updated = members.filter((m: any) => m.id !== id);
     setMembers(updated);
     if (typeof window !== "undefined") {
       localStorage.setItem(`ftodo_members_${projectId}`, JSON.stringify(updated));
       window.dispatchEvent(new Event("ftodo_permissions_updated"));
     }
+
+    if (project?.id && !id.startsWith("u-")) {
+      try {
+        await api.members.removeMember(project.id, id);
+      } catch (err) {
+        console.warn("Lỗi khi xóa thành viên trên server:", err);
+      }
+    }
   };
 
-  const handleAddMember = (e: React.FormEvent) => {
+  const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMemberEmail || !newMemberName || !newMemberRoleId) return;
+
+    let createdId = "u-" + Date.now();
+    if (project?.id) {
+      try {
+        const res = await api.members.addMember(project.id, {
+          email: newMemberEmail.trim(),
+          roleGroupId: newMemberRoleId,
+        });
+        if (res?.id) createdId = res.id;
+      } catch (err) {
+        console.warn("Lỗi khi thêm thành viên lên server:", err);
+      }
+    }
+
     const newMember = {
-      id: "u-" + Date.now(),
+      id: createdId,
       name: newMemberName.trim(),
       email: newMemberEmail.trim(),
       roleId: newMemberRoleId,

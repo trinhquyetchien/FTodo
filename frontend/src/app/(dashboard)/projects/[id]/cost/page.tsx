@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { useProject } from "../project-context";
 import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
 import { addStoredActivityLog } from "@/lib/activity-invitation-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -227,6 +228,46 @@ export default function ProjectCostPage() {
     return initialExpenses;
   });
 
+  // Sync with PostgreSQL backend
+  useEffect(() => {
+    let isMounted = true;
+    const loadCosts = async () => {
+      if (!project?.id) return;
+      try {
+        const res = await api.costs.getCosts(project.id);
+        if (isMounted && res?.costs && Array.isArray(res.costs) && res.costs.length > 0) {
+          const mapped: Expense[] = res.costs.map((c: any) => ({
+            id: c.id,
+            title: c.title,
+            category: (c.category?.toLowerCase() || "other") as Expense["category"],
+            amount: c.amount,
+            date: new Date(c.date || c.createdAt).toLocaleDateString("vi-VN"),
+            requester: c.requester?.name || "Thành viên dự án",
+            requesterRole: c.requester?.id === project.ownerId ? "Chủ dự án" : "DEV",
+            requesterEmail: c.requester?.email || "member@example.com",
+            status: (c.status?.toLowerCase() || "pending") as Expense["status"],
+            sprint: c.sprint?.name || undefined,
+            reason: c.description || "Khoản chi phục vụ tiến độ và mục tiêu Sprint của dự án.",
+            reviewedBy: c.status === "PAID" || c.status === "APPROVED" ? "Trịnh Quyết Chiến" : undefined,
+            reviewedAt: c.status === "PAID" || c.status === "APPROVED" ? new Date().toLocaleDateString("vi-VN") : undefined,
+            reviewNote: c.status === "PAID" ? "Đã duyệt và hoàn tất thanh toán" : c.status === "APPROVED" ? "Đã phê duyệt" : undefined,
+          }));
+          setExpenses(mapped);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(`ftodo_expenses_${projectId}`, JSON.stringify(mapped));
+          }
+        }
+      } catch {
+        // Fallback to local storage
+      }
+    };
+
+    loadCosts();
+    return () => {
+      isMounted = false;
+    };
+  }, [project?.id, projectId]);
+
   const [mainView, setMainView] = useState<"overview" | "strategic_roi">("overview");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -322,15 +363,35 @@ export default function ProjectCostPage() {
     color: categoryColors[cat] || "#94a3b8",
   }));
 
-  const handleAddExpense = (e: React.FormEvent) => {
+  const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newAmount || !newReason.trim()) return;
 
+    const parsedAmount = parseFloat(newAmount);
+    let createdBackendId: string | undefined;
+
+    if (project?.id) {
+      try {
+        const res = await api.costs.createCost(project.id, {
+          title: newTitle.trim(),
+          category: newCategory.toUpperCase(),
+          amount: parsedAmount,
+          description: newReason.trim(),
+          status: isOwner ? "APPROVED" : "PENDING",
+        });
+        if (res?.id) {
+          createdBackendId = res.id;
+        }
+      } catch (err) {
+        console.warn("Lỗi khi gửi khoản chi lên máy chủ:", err);
+      }
+    }
+
     const newExp: Expense = {
-      id: `EXP-00${expenses.length + 1}`,
+      id: createdBackendId || `EXP-00${expenses.length + 1}`,
       title: newTitle.trim(),
       category: newCategory,
-      amount: parseFloat(newAmount),
+      amount: parsedAmount,
       date: new Date().toLocaleDateString("vi-VN"),
       requester: user?.name || "Thành viên dự án",
       requesterRole: isOwner ? "Chủ dự án" : (user?.role === "admin" ? "Admin" : "DEV"),
@@ -350,7 +411,7 @@ export default function ProjectCostPage() {
     setNewReason("");
   };
 
-  const handleApproveExpense = (expenseId: string, note?: string) => {
+  const handleApproveExpense = async (expenseId: string, note?: string) => {
     const targetItem = expenses.find((e) => e.id === expenseId);
     const updated = expenses.map((item) => {
       if (item.id === expenseId) {
@@ -365,6 +426,14 @@ export default function ProjectCostPage() {
       return item;
     });
     saveExpenses(updated);
+
+    if (project?.id) {
+      try {
+        await api.costs.updateCostStatus(project.id, expenseId, "APPROVED");
+      } catch (err) {
+        console.warn("Lỗi khi phê duyệt chi phí lên server:", err);
+      }
+    }
 
     if (targetItem) {
       addStoredActivityLog(projectId, {
@@ -382,10 +451,11 @@ export default function ProjectCostPage() {
     setReviewingExpense(null);
   };
 
-  const handleConfirmReject = () => {
+  const handleConfirmReject = async () => {
     if (!rejectExpenseTarget) return;
+    const targetId = rejectExpenseTarget.id;
     const updated = expenses.map((item) => {
-      if (item.id === rejectExpenseTarget.id) {
+      if (item.id === targetId) {
         return {
           ...item,
           status: "rejected" as const,
@@ -397,13 +467,22 @@ export default function ProjectCostPage() {
       return item;
     });
     saveExpenses(updated);
+
+    if (project?.id) {
+      try {
+        await api.costs.updateCostStatus(project.id, targetId, "REJECTED");
+      } catch (err) {
+        console.warn("Lỗi khi từ chối chi phí lên server:", err);
+      }
+    }
+
     setIsRejectOpen(false);
     setRejectExpenseTarget(null);
     setRejectReason("");
     setReviewingExpense(null);
   };
 
-  const handleMarkAsPaid = (expenseId: string) => {
+  const handleMarkAsPaid = async (expenseId: string) => {
     const updated = expenses.map((item) => {
       if (item.id === expenseId) {
         return {
@@ -414,6 +493,14 @@ export default function ProjectCostPage() {
       return item;
     });
     saveExpenses(updated);
+
+    if (project?.id) {
+      try {
+        await api.costs.updateCostStatus(project.id, expenseId, "PAID");
+      } catch (err) {
+        console.warn("Lỗi khi cập nhật thanh toán lên server:", err);
+      }
+    }
   };
 
   const formatCurrency = (val: number) => {

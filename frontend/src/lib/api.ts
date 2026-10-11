@@ -221,6 +221,11 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    updateTask: (projectId: string, taskId: string, data: any) =>
+      apiFetch<any>(`/projects/${projectId}/tasks/${taskId}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
     updateTaskStatus: (projectId: string, taskId: string, status: string) =>
       apiFetch<any>(`/projects/${projectId}/tasks/${taskId}/status`, {
         method: "PATCH",
@@ -250,6 +255,15 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    updateCostStatus: (projectId: string, costId: string, status: string) =>
+      apiFetch<any>(`/projects/${projectId}/costs/${costId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
+    deleteCost: (projectId: string, costId: string) =>
+      apiFetch<{ message: string }>(`/projects/${projectId}/costs/${costId}`, {
+        method: "DELETE",
+      }),
   },
 
   chat: {
@@ -268,4 +282,20 @@ export const api = {
         body: JSON.stringify(data),
       }),
   },
+
+  reports: {
+    getReports: (projectId: string) =>
+      apiFetch<any[]>(`/projects/${projectId}/reports`),
+    createReport: (projectId: string, data: any) =>
+      apiFetch<any>(`/projects/${projectId}/reports`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    updateStatus: (projectId: string, reportId: string, status: string) =>
+      apiFetch<any>(`/projects/${projectId}/reports/${reportId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
+  },
 };
+

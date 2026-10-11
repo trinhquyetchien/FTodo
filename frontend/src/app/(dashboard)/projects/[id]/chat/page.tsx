@@ -25,6 +25,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useProject } from "../project-context";
+import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -253,7 +256,9 @@ type ActiveChatTarget =
   | { type: "dm"; id: string };
 
 export default function ProjectChatPage() {
-  const [channels] = useState<Channel[]>(initialChannels);
+  const { project } = useProject();
+  const { user } = useAuth();
+  const [channels, setChannels] = useState<Channel[]>(initialChannels);
   const [members] = useState<TeamMember[]>(teamMembers);
   const [activeChat, setActiveChat] = useState<ActiveChatTarget>({ type: "channel", id: "general" });
   const [mobileTab, setMobileTab] = useState<"list" | "chat">("chat");
@@ -265,6 +270,72 @@ export default function ProjectChatPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showRightSidebar, setShowRightSidebar] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Sync channels from PostgreSQL database
+  useEffect(() => {
+    let isMounted = true;
+    const loadChannels = async () => {
+      if (!project?.id) return;
+      try {
+        const data = await api.chat.getChannels(project.id);
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          const mappedChannels: Channel[] = data.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            description: c.description || "",
+            unreadCount: 0,
+          }));
+          setChannels(mappedChannels);
+          // Set active chat to first backend channel if currently default
+          setActiveChat((prev) => (prev.id === "general" ? { type: "channel", id: mappedChannels[0].id } : prev));
+        }
+      } catch (err) {
+        // Fallback to local
+      }
+    };
+
+    loadChannels();
+    return () => {
+      isMounted = false;
+    };
+  }, [project?.id]);
+
+  // Load live messages for the active channel
+  useEffect(() => {
+    let isMounted = true;
+    if (activeChat.type !== "channel" || !activeChat.id) return;
+
+    const loadMessages = async () => {
+      try {
+        const data = await api.chat.getMessages(activeChat.id);
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          const mapped: Message[] = data.map((m: any) => ({
+            id: m.id,
+            sender: {
+              name: m.user?.name || "Thành viên",
+              role: m.user?.id === project?.ownerId ? "Product Owner" : "Dev",
+              avatar: m.user?.avatar || "US",
+              isCurrentUser: m.user?.id === user?.id || m.user?.email === user?.email,
+            },
+            content: m.content,
+            timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            reactions: Array.isArray(m.reactions) ? m.reactions : [],
+            attachment: m.attachment ? { name: m.attachment, size: "1.2 MB", type: "file" } : undefined,
+          }));
+
+          setChannelMessages((prev) => ({
+            ...prev,
+            [activeChat.id]: mapped,
+          }));
+        }
+      } catch {}
+    };
+
+    loadMessages();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeChat.id, activeChat.type, project?.ownerId, user?.id, user?.email]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -284,19 +355,20 @@ export default function ProjectChatPage() {
     ? (channelMessages[activeChat.id] || [])
     : (dmMessages[activeChat.id] || []);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim()) return;
 
+    const trimmed = inputMessage.trim();
     const newMsg: Message = {
       id: "msg-" + Date.now(),
       sender: {
-        name: "Trịnh Quyết Chiến",
-        role: "Product Owner",
-        avatar: "QC",
+        name: user?.name || "Trịnh Quyết Chiến",
+        role: user?.role === "owner" ? "Chủ dự án" : "Thành viên",
+        avatar: user?.avatar || "QC",
         isCurrentUser: true,
       },
-      content: inputMessage.trim(),
+      content: trimmed,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       reactions: [],
     };
@@ -306,6 +378,13 @@ export default function ProjectChatPage() {
         ...prev,
         [activeChat.id]: [...(prev[activeChat.id] || []), newMsg],
       }));
+
+      // Send to backend API
+      try {
+        await api.chat.sendMessage(activeChat.id, { content: trimmed });
+      } catch (err) {
+        console.warn("Lỗi khi gửi tin nhắn lên server:", err);
+      }
     } else {
       setDmMessages((prev) => ({
         ...prev,

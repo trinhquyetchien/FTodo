@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BarChart3,
   TrendingDown,
@@ -66,6 +66,7 @@ import {
 } from "recharts";
 import { useProject } from "../project-context";
 import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
 
 interface SubmittedReport {
   id: string;
@@ -139,17 +140,36 @@ export default function ReportsPage() {
   const { user } = useAuth();
   const projectId = project?.id || "ftodo-core";
 
-  const [reports, setReports] = useState<SubmittedReport[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(`ftodo_reports_${projectId}`);
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {}
+  const [reports, setReports] = useState<SubmittedReport[]>(INITIAL_REPORTS);
+
+  // Load reports from real PostgreSQL database
+  useEffect(() => {
+    let isMounted = true;
+    async function loadReports() {
+      try {
+        const data = await api.reports.getReports(projectId);
+        if (isMounted && data && Array.isArray(data) && data.length > 0) {
+          setReports(data);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(`ftodo_reports_${projectId}`, JSON.stringify(data));
+          }
+        }
+      } catch {
+        if (typeof window !== "undefined") {
+          const saved = localStorage.getItem(`ftodo_reports_${projectId}`);
+          if (saved && isMounted) {
+            try {
+              setReports(JSON.parse(saved));
+            } catch {}
+          }
+        }
       }
     }
-    return INITIAL_REPORTS;
-  });
+    loadReports();
+    return () => {
+      isMounted = false;
+    };
+  }, [projectId]);
 
   // Modal: Submit report (For member)
   const [chartTab, setChartTab] = useState<"burndown" | "velocity" | "quality">("burndown");
@@ -172,24 +192,37 @@ export default function ReportsPage() {
     }
   };
 
-  const handleSendReport = (e: React.FormEvent) => {
+  const handleSendReport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reportTitle.trim() || !reportSummary.trim()) return;
 
-    const newReport: SubmittedReport = {
-      id: "REP-" + String(reports.length + 1).padStart(3, "0"),
-      title: reportTitle.trim(),
-      type: reportType,
-      author: user?.name || "Nhân viên dự án",
-      authorEmail: user?.email || "member@example.com",
-      date: new Date().toLocaleDateString("vi-VN"),
-      status: "sent",
-      summary: reportSummary.trim(),
-      completedTasks: reportCompleted.trim() || "Hoàn thành các tác vụ đúng tiến độ Sprint.",
-      blockers: reportBlockers.trim() || "Không có vướng mắc đáng kể.",
-    };
+    try {
+      const created = await api.reports.createReport(projectId, {
+        title: reportTitle.trim(),
+        type: reportType,
+        summary: reportSummary.trim(),
+        completedTasks: reportCompleted.trim() || "Hoàn thành các tác vụ đúng tiến độ Sprint.",
+        blockers: reportBlockers.trim() || "Không có vướng mắc đáng kể.",
+      });
+      if (created) {
+        setReports((prev) => [created, ...prev]);
+      }
+    } catch {
+      const newReport: SubmittedReport = {
+        id: "REP-" + String(reports.length + 1).padStart(3, "0"),
+        title: reportTitle.trim(),
+        type: reportType,
+        author: user?.name || "Nhân viên dự án",
+        authorEmail: user?.email || "member@example.com",
+        date: new Date().toLocaleDateString("vi-VN"),
+        status: "sent",
+        summary: reportSummary.trim(),
+        completedTasks: reportCompleted.trim() || "Hoàn thành các tác vụ đúng tiến độ Sprint.",
+        blockers: reportBlockers.trim() || "Không có vướng mắc đáng kể.",
+      };
+      saveReports([newReport, ...reports]);
+    }
 
-    saveReports([newReport, ...reports]);
     setReportTitle("");
     setReportSummary("");
     setReportCompleted("");
@@ -197,7 +230,12 @@ export default function ReportsPage() {
     setIsSubmitOpen(false);
   };
 
-  const handleMarkReviewed = (reportId: string) => {
+  const handleMarkReviewed = async (reportId: string) => {
+    try {
+      await api.reports.updateStatus(projectId, reportId, "reviewed");
+    } catch {
+      // ignore
+    }
     const updated = reports.map((r) =>
       r.id === reportId ? { ...r, status: "reviewed" as const } : r
     );

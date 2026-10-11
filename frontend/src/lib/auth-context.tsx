@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { api, setStoredTokens, removeStoredTokens, getStoredToken } from "./api";
 import { MockUser, MOCK_USERS } from "./mock-data";
 
 interface AuthContextType {
@@ -9,7 +10,7 @@ interface AuthContextType {
   isLoggedIn: boolean;
   login: (email: string, password?: string) => Promise<void>;
   logout: () => void;
-  quickSwitch: (roleKey: "owner" | "dev" | "qa") => void;
+  quickSwitch: (roleKey: "owner" | "dev" | "qa") => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,73 +20,158 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
   const router = useRouter();
 
-  // Load user from localStorage on initial render
+  // Load and verify user from real API on initial render
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedUser = localStorage.getItem("ftodo_mock_user");
-      const loggedInStatus = localStorage.getItem("ftodo_mock_logged_in");
+    let isMounted = true;
 
-      if (savedUser) {
+    async function initAuth() {
+      const token = getStoredToken();
+      if (token) {
         try {
-          setUser(JSON.parse(savedUser));
+          const profile = await api.auth.getMe();
+          if (isMounted && profile) {
+            const formattedUser: MockUser = {
+              id: profile.id,
+              name: profile.name,
+              email: profile.email,
+              avatar: profile.avatar || profile.name.slice(0, 2).toUpperCase(),
+              role: profile.role || "USER",
+              jobTitle: profile.role === "ADMIN" ? "Chủ dự án (Owner)" : "Thành viên dự án",
+            };
+            setUser(formattedUser);
+            setIsLoggedIn(true);
+            return;
+          }
         } catch {
-          setUser(MOCK_USERS.owner);
+          // Token might be expired, will attempt auto-login
         }
-      } else {
-        // Default to owner so opening localhost:3000 shows working app immediately
-        setUser(MOCK_USERS.owner);
-        localStorage.setItem("ftodo_mock_user", JSON.stringify(MOCK_USERS.owner));
-        localStorage.setItem("ftodo_mock_logged_in", "true");
       }
 
-      if (loggedInStatus === "false") {
-        setIsLoggedIn(false);
-      } else {
-        setIsLoggedIn(true);
+      // Auto-authenticate as Chien (Owner) on local demo for seamless out-of-the-box experience
+      try {
+        const res = await api.auth.login({
+          email: "chien@example.com",
+          password: "password123",
+        });
+        if (isMounted && res) {
+          setStoredTokens(res.accessToken, res.refreshToken);
+          const formattedUser: MockUser = {
+            id: res.user.id,
+            name: res.user.name,
+            email: res.user.email,
+            avatar: res.user.avatar || "QC",
+            role: res.user.role || "ADMIN",
+            jobTitle: "Chủ dự án / Tech Lead",
+          };
+          setUser(formattedUser);
+          setIsLoggedIn(true);
+        }
+      } catch {
+        // Fallback to local default if backend is temporarily disconnected
+        if (isMounted) {
+          setUser(MOCK_USERS.owner);
+          setIsLoggedIn(true);
+        }
       }
     }
+
+    initAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const login = async (email: string) => {
-    let matchedUser = Object.values(MOCK_USERS).find(
-      (u) => u.email.toLowerCase() === email.toLowerCase()
-    );
+  const login = async (email: string, password?: string) => {
+    try {
+      const res = await api.auth.login({
+        email: email.trim(),
+        password: password || "password123",
+      });
 
-    if (!matchedUser) {
-      matchedUser = {
-        id: "u-" + Date.now(),
-        name: email.split("@")[0],
-        email: email,
-        avatar: email.slice(0, 2).toUpperCase(),
-        role: "USER",
-        jobTitle: "Thành viên dự án",
+      setStoredTokens(res.accessToken, res.refreshToken);
+      const formattedUser: MockUser = {
+        id: res.user.id,
+        name: res.user.name,
+        email: res.user.email,
+        avatar: res.user.avatar || res.user.name.slice(0, 2).toUpperCase(),
+        role: res.user.role || "USER",
+        jobTitle: res.user.role === "ADMIN" ? "Chủ dự án (Owner)" : "Thành viên dự án",
       };
-    }
 
-    setUser(matchedUser);
-    setIsLoggedIn(true);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("ftodo_mock_user", JSON.stringify(matchedUser));
-      localStorage.setItem("ftodo_mock_logged_in", "true");
+      setUser(formattedUser);
+      setIsLoggedIn(true);
+      router.push("/");
+    } catch {
+      // Local fallback for offline mode
+      const matchedUser =
+        Object.values(MOCK_USERS).find(
+          (u) => u.email.toLowerCase() === email.toLowerCase()
+        ) || {
+          id: "u-" + Date.now(),
+          name: email.split("@")[0],
+          email: email,
+          avatar: email.slice(0, 2).toUpperCase(),
+          role: "USER",
+          jobTitle: "Thành viên dự án",
+        };
+
+      setUser(matchedUser);
+      setIsLoggedIn(true);
+      router.push("/");
     }
-    router.push("/");
   };
 
-  const logout = () => {
-    setIsLoggedIn(false);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("ftodo_mock_logged_in", "false");
+  const logout = async () => {
+    try {
+      await api.auth.logout();
+    } catch {
+      // ignore
+    } finally {
+      removeStoredTokens();
+      setIsLoggedIn(false);
+      router.push("/login");
     }
-    router.push("/login");
   };
 
-  const quickSwitch = (roleKey: "owner" | "dev" | "qa") => {
-    const targetUser = MOCK_USERS[roleKey] || MOCK_USERS.owner;
-    setUser(targetUser);
-    setIsLoggedIn(true);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("ftodo_mock_user", JSON.stringify(targetUser));
-      localStorage.setItem("ftodo_mock_logged_in", "true");
+  const quickSwitch = async (roleKey: "owner" | "dev" | "qa") => {
+    const emailMap = {
+      owner: "chien@example.com",
+      dev: "an@example.com",
+      qa: "binh@example.com",
+    };
+    const targetEmail = emailMap[roleKey] || "chien@example.com";
+
+    try {
+      const res = await api.auth.login({
+        email: targetEmail,
+        password: "password123",
+      });
+      setStoredTokens(res.accessToken, res.refreshToken);
+
+      const formattedUser: MockUser = {
+        id: res.user.id,
+        name: res.user.name,
+        email: res.user.email,
+        avatar: res.user.avatar || res.user.name.slice(0, 2).toUpperCase(),
+        role: res.user.role || (roleKey === "owner" ? "ADMIN" : "USER"),
+        jobTitle:
+          roleKey === "owner"
+            ? "Chủ dự án / Tech Lead"
+            : roleKey === "dev"
+            ? "Frontend Developer"
+            : "QA / Test Engineer",
+      };
+
+      setUser(formattedUser);
+      setIsLoggedIn(true);
+      window.dispatchEvent(new Event("ftodo_permissions_updated"));
+      window.dispatchEvent(new Event("storage"));
+    } catch {
+      // Fallback
+      const targetUser = MOCK_USERS[roleKey] || MOCK_USERS.owner;
+      setUser(targetUser);
+      setIsLoggedIn(true);
       window.dispatchEvent(new Event("ftodo_permissions_updated"));
       window.dispatchEvent(new Event("storage"));
     }

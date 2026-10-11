@@ -11,6 +11,7 @@ import { TasksModule } from './tasks/tasks.module';
 import { CostsModule } from './costs/costs.module';
 import { ChatModule } from './chat/chat.module';
 import { UsersModule } from './users/users.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { UsersModule } from './users/users.module';
     CostsModule,
     ChatModule,
     UsersModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [

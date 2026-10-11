@@ -55,6 +55,7 @@ import {
   ComposedChart
 } from "recharts";
 import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
 import { INITIAL_MOCK_PROJECTS_LIST, MockProject } from "@/lib/mock-data";
 import {
   getStoredInvitations,
@@ -99,27 +100,34 @@ export default function GlobalDashboard() {
   const [invitations, setInvitations] = useState<ProjectInvitation[]>([]);
   const [recentActivities, setRecentActivities] = useState<ProjectActivityLog[]>([]);
 
-  // Load from localStorage or initialize
+  // Load projects from PostgreSQL database
   useEffect(() => {
-    const loadData = () => {
-      if (typeof window !== "undefined") {
-        const saved = localStorage.getItem("ftodo_mock_projects");
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            const list = Array.isArray(parsed)
-              ? parsed
-              : [...(parsed.owned || []), ...(parsed.memberOf || [])];
-            setAllProjects(list);
-          } catch {
-            setAllProjects(INITIAL_MOCK_PROJECTS_LIST);
+    let isMounted = true;
+    const loadData = async () => {
+      try {
+        const res = await api.projects.getAll();
+        if (isMounted && res && (res.owned || res.memberOf)) {
+          const list = [...(res.owned || []), ...(res.memberOf || [])];
+          setAllProjects(list);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("ftodo_mock_projects", JSON.stringify(list));
           }
-        } else {
-          localStorage.setItem("ftodo_mock_projects", JSON.stringify(INITIAL_MOCK_PROJECTS_LIST));
+        }
+      } catch {
+        if (typeof window !== "undefined") {
+          const saved = localStorage.getItem("ftodo_mock_projects");
+          if (saved && isMounted) {
+            try {
+              const parsed = JSON.parse(saved);
+              setAllProjects(Array.isArray(parsed) ? parsed : [...(parsed.owned || []), ...(parsed.memberOf || [])]);
+            } catch {}
+          }
         }
       }
-      setInvitations(getStoredInvitations());
-      setRecentActivities(getStoredActivityLogs().slice(0, 5));
+      if (isMounted) {
+        setInvitations(getStoredInvitations());
+        setRecentActivities(getStoredActivityLogs().slice(0, 5));
+      }
     };
 
     loadData();
@@ -127,49 +135,48 @@ export default function GlobalDashboard() {
     window.addEventListener("ftodo_activity_updated", loadData);
     window.addEventListener("storage", loadData);
     return () => {
+      isMounted = false;
       window.removeEventListener("ftodo_invitations_updated", loadData);
       window.removeEventListener("ftodo_activity_updated", loadData);
       window.removeEventListener("storage", loadData);
     };
-  }, []);
+  }, [user]);
 
   const handleInvitationAction = (invId: string, action: "accepted" | "declined") => {
     respondToInvitation(invId, action);
-    // Reload projects list if accepted
-    if (action === "accepted" && typeof window !== "undefined") {
-      const saved = localStorage.getItem("ftodo_mock_projects");
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          const list = Array.isArray(parsed)
-            ? parsed
-            : [...(parsed.owned || []), ...(parsed.memberOf || [])];
-          setAllProjects(list);
-        } catch {}
+    api.projects.getAll().then((res) => {
+      if (res) {
+        setAllProjects([...(res.owned || []), ...(res.memberOf || [])]);
       }
-    }
+    }).catch(() => {});
   };
 
-  const handleCreateProject = (e: React.FormEvent) => {
+  const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    const newProject: MockProject = {
-      id: "proj-" + Date.now(),
-      name: name.trim(),
-      description: description.trim() || "Dự án mới tạo",
-      ownerId: user.id,
-      progress: 0,
-      tasks: 0,
-      completedTasks: 0,
-      members: 1,
-      createdAt: new Date().toLocaleDateString("vi-VN"),
-    };
-
-    const updated = [newProject, ...allProjects];
-    setAllProjects(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("ftodo_mock_projects", JSON.stringify(updated));
+    try {
+      await api.projects.create({
+        name: name.trim(),
+        description: description.trim(),
+      });
+      const res = await api.projects.getAll();
+      if (res) {
+        setAllProjects([...(res.owned || []), ...(res.memberOf || [])]);
+      }
+    } catch {
+      const newProject: MockProject = {
+        id: "proj-" + Date.now(),
+        name: name.trim(),
+        description: description.trim() || "Dự án mới tạo",
+        ownerId: user.id,
+        progress: 0,
+        tasks: 0,
+        completedTasks: 0,
+        members: 1,
+        createdAt: new Date().toLocaleDateString("vi-VN"),
+      };
+      setAllProjects([newProject, ...allProjects]);
     }
 
     setName("");

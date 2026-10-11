@@ -25,6 +25,7 @@ model User {
   messages      Message[]
   costs         Cost[]
   notifications Notification[]
+  reports       Report[]
 }
 
 model Project {
@@ -42,6 +43,7 @@ model Project {
   tasks       Task[]
   costs       Cost[]
   channels    Channel[]
+  reports     Report[]
 }
 
 model RoleGroup {
@@ -164,3 +166,22 @@ model Notification {
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model Report {
+  id             String    @id @default(uuid())
+  title          String
+  type           String    // weekly, sprint, technical, incident
+  authorId       String
+  projectId      String
+  status         String    @default("sent") // sent, reviewed
+  summary        String
+  completedTasks String?
+  blockers       String?
+  pdfUrl         String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  author         User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+

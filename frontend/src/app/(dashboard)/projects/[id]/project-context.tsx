@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
 import { INITIAL_MOCK_PROJECTS, MockProject, DEFAULT_INITIAL_ROLES, DEFAULT_INITIAL_MEMBERS } from "@/lib/mock-data";
 
 export interface ProjectContextType {
@@ -58,6 +59,57 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const currentUserRole: "owner" | "member" = isOwner ? "owner" : "member";
 
   const [permVersion, setPermVersion] = useState(0);
+
+  // Sync with live PostgreSQL backend
+  useEffect(() => {
+    let isMounted = true;
+    const syncProject = async () => {
+      try {
+        const res = await api.projects.getAll();
+        if (!isMounted || !res) return;
+        const all = [...(res.owned || []), ...(res.memberOf || [])];
+        const match = all.find((p: any) => {
+          if (p.id === projectId) return true;
+          const slug = projectId.toLowerCase().replace(/-/g, "");
+          const nameNormalized = (p.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          return nameNormalized.includes(slug) || slug.includes(nameNormalized);
+        });
+
+        if (match) {
+          try {
+            const detail = await api.projects.getOne(match.id);
+            if (isMounted && detail) {
+              setProjectState((prev) => ({
+                ...prev,
+                ...detail,
+                id: detail.id,
+                name: detail.name,
+                description: detail.description,
+                ownerId: detail.ownerId,
+              }));
+              return;
+            }
+          } catch {}
+          if (isMounted) {
+            setProjectState((prev) => ({
+              ...prev,
+              ...match,
+              id: match.id,
+              name: match.name,
+              description: match.description,
+            }));
+          }
+        }
+      } catch (err) {
+        // Fallback to local storage
+      }
+    };
+
+    syncProject();
+    return () => {
+      isMounted = false;
+    };
+  }, [projectId, user?.id]);
 
   useEffect(() => {
     const handlePermUpdate = () => {

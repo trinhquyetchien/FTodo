@@ -46,10 +46,12 @@ import {
 } from "@/components/ui/select";
 import { useProject } from "../project-context";
 import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
 import { addStoredActivityLog } from "@/lib/activity-invitation-store";
 
 export interface BoardTask {
   id: string;
+  backendId?: string;
   title: string;
   type: "STORY" | "TASK" | "BUG";
   epic?: string;
@@ -164,6 +166,70 @@ export default function BoardPage() {
     return INITIAL_TASKS;
   });
 
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Synchronize live tasks from PostgreSQL backend
+  useEffect(() => {
+    let isMounted = true;
+    const loadBackendTasks = async () => {
+      try {
+        setIsLoading(true);
+        const data = await api.tasks.getTasks(project.id);
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          const mapped: BoardTask[] = data.map((t: any) => {
+            const prio = t.priority === "HIGH" ? "Cao" : t.priority === "LOW" ? "Thấp" : "Trung bình";
+            let type: BoardTask["type"] = "TASK";
+            const titleLower = (t.title || "").toLowerCase();
+            if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
+              type = "BUG";
+            } else if (titleLower.includes("xác thực") || titleLower.includes("jwt") || titleLower.includes("hệ thống") || t.points >= 8) {
+              type = "STORY";
+            }
+
+            let epic = "Giao diện Cốt lõi";
+            if (titleLower.includes("jwt") || titleLower.includes("xác thực") || titleLower.includes("bảo mật") || titleLower.includes("rbac")) {
+              epic = "Xác thực & Bảo mật";
+            } else if (titleLower.includes("schema") || titleLower.includes("postgresql") || titleLower.includes("database") || titleLower.includes("docker") || titleLower.includes("backend")) {
+              epic = "Kiến trúc Backend";
+            } else if (titleLower.includes("chi phí") || titleLower.includes("ngân sách")) {
+              epic = "Quản lý Tài chính";
+            } else if (titleLower.includes("chat") || titleLower.includes("thời gian thực")) {
+              epic = "Giao tiếp Đội ngũ";
+            }
+
+            return {
+              id: t.code || `FT-${t.id.slice(0, 4).toUpperCase()}`,
+              backendId: t.id,
+              title: t.title,
+              type,
+              epic,
+              status: (t.status || "TODO") as BoardTask["status"],
+              priority: prio as BoardTask["priority"],
+              points: t.points || 1,
+              assignee: t.assignee?.avatar || (t.assignee?.name?.includes("Chiến") ? "QC" : t.assignee?.name?.includes("An") ? "VA" : "TB"),
+              assigneeName: t.assignee?.name || "Chưa phân công",
+            };
+          });
+          setTasks(mapped);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(`ftodo_board_tasks_${projectId}`, JSON.stringify(mapped));
+          }
+        }
+      } catch {
+        // Fallback gracefully to cached localStorage or initial tasks
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    if (project?.id) {
+      loadBackendTasks();
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [project?.id, projectId]);
+
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
@@ -191,7 +257,7 @@ export default function BoardPage() {
     }
   };
 
-  const moveTask = (taskId: string, targetStatus: string) => {
+  const moveTask = async (taskId: string, targetStatus: string) => {
     const targetCol = COLUMNS.find((c) => c.id === targetStatus);
     const existingTask = tasks.find((t) => t.id === taskId);
     if (!existingTask || existingTask.status === targetStatus) return;
@@ -200,6 +266,16 @@ export default function BoardPage() {
       t.id === taskId ? { ...t, status: targetStatus as any } : t
     );
     saveTasks(updated);
+
+    // Call backend API to persist status change
+    const targetBackendId = existingTask.backendId || (existingTask.id.includes("-") ? undefined : existingTask.id);
+    if (targetBackendId && project?.id) {
+      try {
+        await api.tasks.updateTaskStatus(project.id, targetBackendId, targetStatus);
+      } catch (err) {
+        console.warn("Lỗi khi lưu trạng thái task lên server:", err);
+      }
+    }
 
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -215,12 +291,21 @@ export default function BoardPage() {
     });
   };
 
-  const handleDeleteTask = (taskToDelete: BoardTask) => {
+  const handleDeleteTask = async (taskToDelete: BoardTask) => {
     if (!confirm(`Bạn có chắc muốn xóa công việc "${taskToDelete.id} - ${taskToDelete.title}"?`)) {
       return;
     }
     const updated = tasks.filter((t) => t.id !== taskToDelete.id);
     saveTasks(updated);
+
+    const targetBackendId = taskToDelete.backendId;
+    if (targetBackendId && project?.id) {
+      try {
+        await api.tasks.deleteTask(project.id, targetBackendId);
+      } catch (err) {
+        console.warn("Lỗi khi xóa task từ backend:", err);
+      }
+    }
 
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -265,7 +350,7 @@ export default function BoardPage() {
     moveTask(taskId, targetStatus);
   };
 
-  const handleCreateTask = (e: React.FormEvent) => {
+  const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
 
@@ -275,8 +360,30 @@ export default function BoardPage() {
       TB: "Trần Thị Bình",
     };
 
+    const backendPrio = newTaskPriority === "Cao" ? "HIGH" : newTaskPriority === "Thấp" ? "LOW" : "MEDIUM";
+    let createdBackendId: string | undefined;
+    let createdCode = `FT-${tasks.length + 108}`;
+
+    if (project?.id) {
+      try {
+        const res = await api.tasks.createTask(project.id, {
+          title: newTaskTitle.trim(),
+          status: newTaskStatus,
+          priority: backendPrio,
+          points: Number(newTaskPoints) || 1,
+        });
+        if (res?.id) {
+          createdBackendId = res.id;
+          if (res.code) createdCode = res.code;
+        }
+      } catch (err) {
+        console.warn("Lỗi khi tạo task lên backend, lưu cục bộ:", err);
+      }
+    }
+
     const newTask: BoardTask = {
-      id: `FT-${tasks.length + 108}`,
+      id: createdCode,
+      backendId: createdBackendId,
       title: newTaskTitle.trim(),
       type: newTaskType,
       epic: newTaskEpic,

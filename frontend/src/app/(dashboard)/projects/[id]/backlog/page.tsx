@@ -56,9 +56,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { useProject } from "../project-context";
 import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
 
 export interface BacklogItem {
   id: string;
+  backendId?: string;
   title: string;
   type: "STORY" | "TASK" | "BUG";
   epicId: string;
@@ -238,6 +240,81 @@ export default function BacklogPage() {
     return INITIAL_ITEMS;
   });
 
+  const [activeSprintId, setActiveSprintId] = useState<string | null>(null);
+
+  // Sync live tasks and sprints from PostgreSQL backend
+  useEffect(() => {
+    let isMounted = true;
+    const loadBacklogData = async () => {
+      if (!project?.id) return;
+      try {
+        const [tasksRes, sprintsRes] = await Promise.allSettled([
+          api.tasks.getTasks(project.id),
+          api.sprints.getSprints(project.id),
+        ]);
+
+        let sprintId: string | null = null;
+        if (sprintsRes.status === "fulfilled" && Array.isArray(sprintsRes.value) && sprintsRes.value.length > 0) {
+          sprintId = sprintsRes.value[0].id;
+          if (isMounted) setActiveSprintId(sprintId);
+        }
+
+        if (isMounted && tasksRes.status === "fulfilled" && Array.isArray(tasksRes.value) && tasksRes.value.length > 0) {
+          const mapped: BacklogItem[] = tasksRes.value.map((t: any) => {
+            const prio = t.priority === "HIGH" ? "Cao" : t.priority === "LOW" ? "Thấp" : "Trung bình";
+            let type: BacklogItem["type"] = "TASK";
+            const titleLower = (t.title || "").toLowerCase();
+            if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
+              type = "BUG";
+            } else if (titleLower.includes("xác thực") || titleLower.includes("jwt") || titleLower.includes("hệ thống") || t.points >= 8) {
+              type = "STORY";
+            }
+
+            let epicId = "epic-scrum";
+            let epicName = "Scrum Engine & Board";
+            if (titleLower.includes("jwt") || titleLower.includes("xác thực") || titleLower.includes("bảo mật") || titleLower.includes("schema")) {
+              epicId = "epic-auth";
+              epicName = "Xác thực & Bảo mật";
+            } else if (titleLower.includes("chi phí") || titleLower.includes("ngân sách") || titleLower.includes("roi")) {
+              epicId = "epic-cost";
+              epicName = "Quản trị Tài chính & ROI";
+            } else if (titleLower.includes("báo cáo") || titleLower.includes("pdf")) {
+              epicId = "epic-report";
+              epicName = "Báo cáo & Phê duyệt PDF";
+            }
+
+            return {
+              id: t.code || `FT-${t.id.slice(0, 4).toUpperCase()}`,
+              backendId: t.id,
+              title: t.title,
+              type,
+              epicId,
+              epicName,
+              sprint: t.sprintId ? "SPRINT_1" : "BACKLOG",
+              status: (t.status || "TODO") as BacklogItem["status"],
+              priority: prio as BacklogItem["priority"],
+              points: t.points || 1,
+              assignee: t.assignee?.avatar || (t.assignee?.name?.includes("Chiến") ? "QC" : t.assignee?.name?.includes("An") ? "VA" : "TB"),
+              assigneeName: t.assignee?.name || "Chưa phân công",
+            };
+          });
+
+          setItems(mapped);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(`ftodo_backlog_items_${projectId}`, JSON.stringify(mapped));
+          }
+        }
+      } catch {
+        // Fallback to local
+      }
+    };
+
+    loadBacklogData();
+    return () => {
+      isMounted = false;
+    };
+  }, [project?.id, projectId]);
+
   const [selectedEpicFilter, setSelectedEpicFilter] = useState<string>("ALL");
   const [quickTitleSprint1, setQuickTitleSprint1] = useState("");
   const [quickTitleBacklog, setQuickTitleBacklog] = useState("");
@@ -259,31 +336,80 @@ export default function BacklogPage() {
     }
   };
 
-  const moveToSprint = (id: string, targetSprint: BacklogItem["sprint"]) => {
+  const moveToSprint = async (id: string, targetSprint: BacklogItem["sprint"]) => {
+    const targetItem = items.find((i) => i.id === id);
     const updated = items.map((item) =>
       item.id === id ? { ...item, sprint: targetSprint } : item
     );
     saveItems(updated);
+
+    if (project?.id && targetItem?.backendId) {
+      try {
+        await api.tasks.updateTask(project.id, targetItem.backendId, {
+          sprintId: targetSprint === "SPRINT_1" ? activeSprintId || undefined : undefined,
+        });
+      } catch (err) {
+        console.warn("Lỗi khi chuyển sprint trên server:", err);
+      }
+    }
   };
 
-  const updatePoints = (id: string, points: number) => {
+  const updatePoints = async (id: string, points: number) => {
+    const targetItem = items.find((i) => i.id === id);
     const updated = items.map((item) =>
       item.id === id ? { ...item, points } : item
     );
     saveItems(updated);
+
+    if (project?.id && targetItem?.backendId) {
+      try {
+        await api.tasks.updateTask(project.id, targetItem.backendId, { points });
+      } catch (err) {
+        console.warn("Lỗi khi cập nhật points trên server:", err);
+      }
+    }
   };
 
-  const deleteItem = (id: string) => {
+  const deleteItem = async (id: string) => {
+    const targetItem = items.find((i) => i.id === id);
     const updated = items.filter((item) => item.id !== id);
     saveItems(updated);
+
+    if (project?.id && targetItem?.backendId) {
+      try {
+        await api.tasks.deleteTask(project.id, targetItem.backendId);
+      } catch (err) {
+        console.warn("Lỗi khi xóa task trên server:", err);
+      }
+    }
   };
 
-  const handleQuickAdd = (sprint: BacklogItem["sprint"], title: string, setTitle: (s: string) => void) => {
+  const handleQuickAdd = async (sprint: BacklogItem["sprint"], title: string, setTitle: (s: string) => void) => {
     if (!title.trim()) return;
 
     const epic = INITIAL_EPICS[0];
+    let createdBackendId: string | undefined;
+    let createdCode = `FT-${items.length + 109}`;
+
+    if (project?.id) {
+      try {
+        const res = await api.tasks.createTask(project.id, {
+          title: title.trim(),
+          points: 3,
+          sprintId: sprint === "SPRINT_1" ? activeSprintId || undefined : undefined,
+        });
+        if (res?.id) {
+          createdBackendId = res.id;
+          if (res.code) createdCode = res.code;
+        }
+      } catch (err) {
+        console.warn("Lỗi khi tạo nhanh task lên server:", err);
+      }
+    }
+
     const newItem: BacklogItem = {
-      id: `FT-${items.length + 109}`,
+      id: createdCode,
+      backendId: createdBackendId,
       title: title.trim(),
       type: "STORY",
       epicId: epic.id,
@@ -300,7 +426,7 @@ export default function BacklogPage() {
     setTitle("");
   };
 
-  const handleCreateDetailed = (e: React.FormEvent) => {
+  const handleCreateDetailed = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
@@ -311,8 +437,30 @@ export default function BacklogPage() {
       TB: "Trần Thị Bình",
     };
 
+    const backendPrio = newPriority === "Cao" ? "HIGH" : newPriority === "Thấp" ? "LOW" : "MEDIUM";
+    let createdBackendId: string | undefined;
+    let createdCode = `FT-${items.length + 109}`;
+
+    if (project?.id) {
+      try {
+        const res = await api.tasks.createTask(project.id, {
+          title: newTitle.trim(),
+          points: Number(newPoints) || 1,
+          priority: backendPrio,
+          sprintId: newSprint === "SPRINT_1" ? activeSprintId || undefined : undefined,
+        });
+        if (res?.id) {
+          createdBackendId = res.id;
+          if (res.code) createdCode = res.code;
+        }
+      } catch (err) {
+        console.warn("Lỗi khi tạo task chi tiết lên server:", err);
+      }
+    }
+
     const newItem: BacklogItem = {
-      id: `FT-${items.length + 109}`,
+      id: createdCode,
+      backendId: createdBackendId,
       title: newTitle.trim(),
       type: newType,
       epicId: epic.id,
