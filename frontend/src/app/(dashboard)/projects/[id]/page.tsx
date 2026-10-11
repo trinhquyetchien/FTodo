@@ -100,7 +100,9 @@ export default function ProjectOverview() {
               <Users className="h-4 w-4 text-emerald-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{project?.members || 4} Thành viên</div>
+              <div className="text-2xl font-bold">
+                {Array.isArray(project?.members) ? project.members.length : (typeof project?.members === "number" ? project.members : 1)} Thành viên
+              </div>
               <p className="text-[11px] text-muted-foreground mt-1">Tải phân bổ: 24 / 32 SP (75% Capacity)</p>
               <div className="text-[10px] font-medium text-blue-600 dark:text-blue-400 mt-2">
                 Dư địa tiếp nhận: 8 Story Points

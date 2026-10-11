@@ -561,7 +561,7 @@ export default function GlobalDashboard() {
                             </div>
                             <div className="flex items-center gap-1.5">
                               <Users className="h-3.5 w-3.5" />
-                              <span>{project.members} thành viên</span>
+                              <span>{Array.isArray(project.members) ? project.members.length : (typeof project.members === "number" ? project.members : 1)} thành viên</span>
                             </div>
                           </div>
                         </CardContent>
@@ -635,7 +635,7 @@ export default function GlobalDashboard() {
                             </div>
                             <div className="flex items-center gap-1.5">
                               <Users className="h-3.5 w-3.5" />
-                              <span>{project.members} thành viên</span>
+                              <span>{Array.isArray(project.members) ? project.members.length : (typeof project.members === "number" ? project.members : 1)} thành viên</span>
                             </div>
                           </div>
                         </CardContent>

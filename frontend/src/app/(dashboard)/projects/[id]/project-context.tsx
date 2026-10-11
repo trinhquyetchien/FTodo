@@ -49,18 +49,23 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       try {
         const detail = await api.projects.getOne(projectId);
         if (isMounted && detail) {
+          const memberCount = Array.isArray(detail.members)
+            ? detail.members.length
+            : (typeof detail.members === "number" ? detail.members : 1);
+
           setProjectState({
+            ...detail,
             id: detail.id,
             name: detail.name,
             description: detail.description || "",
             ownerId: detail.ownerId,
             progress: detail.progress || 0,
-            tasks: detail._count?.tasks || detail.tasks?.length || 0,
+            tasks: detail._count?.tasks || (Array.isArray(detail.tasks) ? detail.tasks.length : 0),
             completedTasks: detail.completedTasks || 0,
-            members: detail.members?.length || 1,
+            members: memberCount,
+            membersList: Array.isArray(detail.members) ? detail.members : [],
             role: detail.currentUserRole,
             createdAt: detail.createdAt,
-            ...detail,
           });
           return;
         }
@@ -80,18 +85,23 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
           if (match) {
             const detail = await api.projects.getOne(match.id);
             if (isMounted && detail) {
+              const memberCount = Array.isArray(detail.members)
+                ? detail.members.length
+                : (typeof detail.members === "number" ? detail.members : 1);
+
               setProjectState({
+                ...detail,
                 id: detail.id,
                 name: detail.name,
                 description: detail.description || "",
                 ownerId: detail.ownerId,
                 progress: detail.progress || 0,
-                tasks: detail._count?.tasks || detail.tasks?.length || 0,
+                tasks: detail._count?.tasks || (Array.isArray(detail.tasks) ? detail.tasks.length : 0),
                 completedTasks: detail.completedTasks || 0,
-                members: detail.members?.length || 1,
+                members: memberCount,
+                membersList: Array.isArray(detail.members) ? detail.members : [],
                 role: detail.currentUserRole,
                 createdAt: detail.createdAt,
-                ...detail,
               });
             }
           }
