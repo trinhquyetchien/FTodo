@@ -20,7 +20,8 @@ import {
   CheckSquare,
   BarChart3,
   Rocket,
-  Boxes
+  Boxes,
+  History
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -118,6 +119,13 @@ export function ProjectNav() {
       href: `/projects/${id}/chat`,
       icon: MessageSquare,
       description: "Trao đổi nhóm theo kênh thời gian thực",
+    },
+    {
+      id: "activity",
+      name: "Lịch sử hoạt động",
+      href: `/projects/${id}/activity`,
+      icon: History,
+      description: "Nhật ký kiểm toán công việc, xóa task & duyệt chi",
     },
     {
       id: "settings",

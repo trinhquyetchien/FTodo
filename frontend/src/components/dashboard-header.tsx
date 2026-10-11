@@ -18,17 +18,24 @@ import {
 import {
   Bell,
   LogOut,
-  RefreshCw,
-  Crown,
-  Code2,
-  CheckCircle,
-  UserCheck,
-  FolderKanban
+  FolderKanban,
+  Check,
+  X,
+  Mail,
+  ArrowRight,
+  Sparkles
 } from "lucide-react";
 import { INITIAL_MOCK_PROJECTS } from "@/lib/mock-data";
+import {
+  getStoredInvitations,
+  respondToInvitation,
+  getStoredActivityLogs,
+  ProjectInvitation,
+  ProjectActivityLog
+} from "@/lib/activity-invitation-store";
 
 export function DashboardHeader() {
-  const { user, logout, quickSwitch } = useAuth();
+  const { user, logout } = useAuth();
   const pathname = usePathname();
   const params = useParams();
 
@@ -38,6 +45,26 @@ export function DashboardHeader() {
   const isInsideWorkspace = Boolean(projectId && pathname?.startsWith("/projects/"));
 
   const [currentProject, setCurrentProject] = useState<any>(null);
+  const [invitations, setInvitations] = useState<ProjectInvitation[]>([]);
+  const [recentActivities, setRecentActivities] = useState<ProjectActivityLog[]>([]);
+
+  useEffect(() => {
+    const updateInvAndAct = () => {
+      setInvitations(getStoredInvitations());
+      setRecentActivities(getStoredActivityLogs().slice(0, 4));
+    };
+    updateInvAndAct();
+    window.addEventListener("ftodo_invitations_updated", updateInvAndAct);
+    window.addEventListener("ftodo_activity_updated", updateInvAndAct);
+    window.addEventListener("storage", updateInvAndAct);
+    return () => {
+      window.removeEventListener("ftodo_invitations_updated", updateInvAndAct);
+      window.removeEventListener("ftodo_activity_updated", updateInvAndAct);
+      window.removeEventListener("storage", updateInvAndAct);
+    };
+  }, []);
+
+  const pendingInvitations = invitations.filter((i) => i.status === "pending");
 
   useEffect(() => {
     if (!isInsideWorkspace || !projectId) {
@@ -77,10 +104,6 @@ export function DashboardHeader() {
     };
   }, [isInsideWorkspace, projectId]);
 
-  const isProjectOwner = Boolean(
-    user && (user.id === currentProject?.ownerId || (user.role === "ADMIN" && currentProject?.ownerId === "u-chien"))
-  );
-
   return (
     <header className="h-16 bg-card border-b flex items-center justify-between px-6 shrink-0 z-30">
       {/* Left Area: FTodo Brand Logo on Dashboard vs Project Name inside Workspace */}
@@ -101,80 +124,124 @@ export function DashboardHeader() {
             </div>
           </Link>
         ) : (
-          /* When inside Workspace: Logo is removed, replaced with Project Name! */
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
-                <FolderKanban className="h-5 w-5" />
-              </div>
-              <h2
-                className="text-base sm:text-lg font-bold text-foreground tracking-tight truncate max-w-[200px] sm:max-w-md md:max-w-lg"
-                title={currentProject?.name}
-              >
-                {currentProject?.name || "Dự án Scrum"}
-              </h2>
+          /* When inside Workspace: Logo is removed, replaced cleanly with Project Name only (no role badges) */
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+              <FolderKanban className="h-5 w-5" />
             </div>
-
-            {isProjectOwner ? (
-              <Badge className="text-xs bg-amber-600 hover:bg-amber-700 shrink-0">
-                <Crown className="h-3 w-3 mr-1" /> Chủ dự án (Owner)
-              </Badge>
-            ) : (
-              <Badge variant="secondary" className="text-xs shrink-0">
-                <UserCheck className="h-3 w-3 mr-1" /> Thành viên ({user?.name?.includes("An") ? "DEV" : "QA"})
-              </Badge>
-            )}
+            <h2
+              className="text-base sm:text-lg font-bold text-foreground tracking-tight truncate max-w-[220px] sm:max-w-md md:max-w-lg"
+              title={currentProject?.name}
+            >
+              {currentProject?.name || "Dự án Scrum"}
+            </h2>
           </div>
         )}
       </div>
 
-      {/* Right Area: Demo switcher, Notifications, User Avatar */}
+      {/* Right Area: Notifications Popover & User Avatar */}
       <div className="flex items-center gap-3 shrink-0">
-        {/* Quick Demo Switcher Button */}
+        {/* Interactive Notification Bell with unread badge & dropdown popover */}
         <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-md border bg-slate-50 dark:bg-slate-900 transition-colors cursor-pointer">
-            <RefreshCw className="h-3.5 w-3.5 text-primary" />
-            <span className="hidden sm:inline font-medium">Chuyển vai trò Demo</span>
+          <DropdownMenuTrigger className="relative inline-flex items-center justify-center h-9 w-9 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer outline-none">
+            <Bell className="h-4 w-4" />
+            {pendingInvitations.length > 0 && (
+              <span className="absolute top-1.5 right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs animate-pulse">
+                {pendingInvitations.length}
+              </span>
+            )}
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-60">
-            <DropdownMenuLabel className="text-xs">Chuyển nhanh tài khoản thử nghiệm</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => quickSwitch("owner")}
-              className="text-xs cursor-pointer py-2"
-            >
-              <Crown className="h-4 w-4 mr-2 text-amber-500" />
-              <div>
-                <div className="font-semibold">Trịnh Quyết Chiến (Chủ dự án)</div>
-                <div className="text-[10px] text-muted-foreground">Toàn quyền cấu hình & Cài đặt dự án</div>
+          <DropdownMenuContent align="end" className="w-80 sm:w-96 p-0 shadow-2xl rounded-xl">
+            <div className="p-3 border-b flex items-center justify-between bg-muted/30">
+              <div className="flex items-center gap-2">
+                <Bell className="h-4 w-4 text-primary" />
+                <span className="text-xs font-bold text-foreground">Thông báo & Lời mời dự án</span>
               </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => quickSwitch("dev")}
-              className="text-xs cursor-pointer py-2"
-            >
-              <Code2 className="h-4 w-4 mr-2 text-blue-500" />
-              <div>
-                <div className="font-semibold">Nguyễn Văn An (Thành viên DEV)</div>
-                <div className="text-[10px] text-muted-foreground">Được cấp thêm quyền xem tab Chi phí</div>
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => quickSwitch("qa")}
-              className="text-xs cursor-pointer py-2"
-            >
-              <CheckCircle className="h-4 w-4 mr-2 text-emerald-500" />
-              <div>
-                <div className="font-semibold">Trần Thị Bình (Thành viên QA)</div>
-                <div className="text-[10px] text-muted-foreground">Quyền cơ bản (Không có quyền Chi phí)</div>
-              </div>
-            </DropdownMenuItem>
+              {pendingInvitations.length > 0 && (
+                <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                  {pendingInvitations.length} lời mời mới
+                </Badge>
+              )}
+            </div>
+
+            <div className="max-h-80 overflow-y-auto divide-y">
+              {/* Pending Invitations list */}
+              {pendingInvitations.length > 0 ? (
+                pendingInvitations.map((inv) => (
+                  <div key={inv.id} className="p-3 hover:bg-muted/20 transition-colors space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-semibold text-primary uppercase flex items-center gap-1">
+                          <Mail className="h-3 w-3" /> Lời mời tham gia dự án
+                        </div>
+                        <div className="text-xs font-bold text-foreground mt-0.5 truncate">
+                          {inv.projectName}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">
+                          Từ <strong>{inv.inviterName}</strong> • Vai trò: <strong>{inv.roleGroupName}</strong>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                          {inv.createdAt}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <Button
+                        size="sm"
+                        onClick={() => respondToInvitation(inv.id, "accepted")}
+                        className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1 flex-1 shadow-xs"
+                      >
+                        <Check className="h-3 w-3" /> Chấp nhận
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => respondToInvitation(inv.id, "declined")}
+                        className="h-7 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 gap-1 flex-1"
+                      >
+                        <X className="h-3 w-3" /> Từ chối
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              ) : null}
+
+              {/* Recent System Activity Logs */}
+              {recentActivities.map((act) => (
+                <div key={act.id} className="p-3 text-xs space-y-1 hover:bg-muted/20 transition-colors">
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span className="font-semibold text-foreground flex items-center gap-1">
+                      <span className="h-4 w-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold">
+                        {act.userAvatar}
+                      </span>
+                      {act.userName}
+                    </span>
+                    <span>{act.timeAgo}</span>
+                  </div>
+                  <p className="text-xs text-foreground leading-snug">
+                    <span className="text-muted-foreground">{act.action}:</span> {act.detail}
+                  </p>
+                </div>
+              ))}
+
+              {pendingInvitations.length === 0 && recentActivities.length === 0 && (
+                <div className="p-6 text-center text-xs text-muted-foreground">
+                  Không có thông báo mới nào.
+                </div>
+              )}
+            </div>
+
+            <div className="p-2 border-t text-center bg-muted/10">
+              <Link
+                href="/"
+                className="text-[11px] font-medium text-primary hover:underline inline-flex items-center gap-1"
+              >
+                Xem chi tiết trên Trang chủ <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        <Button variant="ghost" size="icon" className="text-muted-foreground h-9 w-9">
-          <Bell className="h-4 w-4" />
-        </Button>
 
         {/* User Profile & Logout Dropdown */}
         <DropdownMenu>

@@ -128,6 +128,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         "releases",
         "components",
         "chat",
+        "activity",
       ];
       const combined = Array.from(new Set([...rolePerms, ...(member.extraPermissions || [])]));
       return combined.filter((p) => p !== "settings");
@@ -145,6 +146,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         "components",
         "cost",
         "chat",
+        "activity",
       ];
     }
     return [
@@ -157,6 +159,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       "releases",
       "components",
       "chat",
+      "activity",
     ];
   }, [isOwner, user, projectId, permVersion]);
 
@@ -172,9 +175,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       }
     }
     if (isOwner) {
-      return ["overview", "board", "backlog", "timeline", "issues", "reports", "releases", "components", "members", "cost", "settings"];
+      return ["overview", "board", "backlog", "timeline", "issues", "reports", "releases", "components", "members", "cost", "activity", "settings"];
     }
-    return ["overview", "board", "backlog", "timeline"];
+    return ["overview", "board", "backlog", "timeline", "activity"];
   });
 
   // Load saved tabs when user or project or permissions change

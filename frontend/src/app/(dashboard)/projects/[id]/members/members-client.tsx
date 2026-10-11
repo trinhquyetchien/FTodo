@@ -28,7 +28,13 @@ import {
   Lock,
   ChevronRight,
   Info,
-  Shield
+  Shield,
+  Mail,
+  Send,
+  History,
+  Clock,
+  RotateCcw,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +49,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { DEFAULT_INITIAL_ROLES, DEFAULT_INITIAL_MEMBERS } from "@/lib/mock-data";
 import { useProject } from "../project-context";
+import { useAuth } from "@/lib/auth-context";
+import {
+  getStoredInvitations,
+  saveStoredInvitations,
+  addStoredActivityLog,
+  ProjectInvitation
+} from "@/lib/activity-invitation-store";
 import {
   Dialog,
   DialogContent,
@@ -90,6 +103,7 @@ export const TAB_CATEGORIES = [
       { id: "chat", label: "Kênh chat dự án", desc: "Trao đổi nhóm thời gian thực", icon: MessageSquare },
       { id: "cost", label: "Tiền & Chi phí", desc: "Ngân sách, burn-rate & đề xuất chi phí", icon: DollarSign, isSensitive: true },
       { id: "members", label: "Nhân sự & Nhóm quyền", desc: "Quản lý nhóm quyền & phân bổ thành viên", icon: Users, isSensitive: true },
+      { id: "activity", label: "Lịch sử hoạt động", desc: "Nhật ký kiểm toán công việc, xóa task & duyệt chi", icon: History },
     ],
   },
 ];
@@ -121,6 +135,7 @@ const ROLE_PRESETS = [
 ];
 
 export function MembersClient() {
+  const { user } = useAuth();
   const { project, isOwner, hasPermission } = useProject();
   const projectId = project?.id || "ftodo-core";
 
@@ -177,10 +192,27 @@ export function MembersClient() {
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberRoleId, setNewMemberRoleId] = useState("r2");
 
-  // Filters & Search
   const [memberSearch, setMemberSearch] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [selectedRoleDetail, setSelectedRoleDetail] = useState<string | null>(null);
+
+  // Invitations state
+  const [invitations, setInvitations] = useState<ProjectInvitation[]>([]);
+
+  useEffect(() => {
+    const loadInv = () => {
+      setInvitations(getStoredInvitations());
+    };
+    loadInv();
+    window.addEventListener("ftodo_invitations_updated", loadInv);
+    window.addEventListener("storage", loadInv);
+    return () => {
+      window.removeEventListener("ftodo_invitations_updated", loadInv);
+      window.removeEventListener("storage", loadInv);
+    };
+  }, []);
+
+  const sentInvitations = invitations.filter((i) => i.projectId === projectId);
 
   if (!isOwner && !hasPermission("members")) {
     return (
@@ -327,10 +359,81 @@ export function MembersClient() {
       localStorage.setItem(`ftodo_members_${projectId}`, JSON.stringify(updated));
       window.dispatchEvent(new Event("ftodo_permissions_updated"));
     }
+
+    // Also record sent invitation
+    const roleObj = roles.find((r: any) => r.id === newMemberRoleId);
+    const newInvitation: ProjectInvitation = {
+      id: "inv-" + Date.now(),
+      projectId,
+      projectName: project?.name || "Dự án Scrum",
+      projectDescription: project?.description || "Không gian làm việc Scrum FTodo",
+      inviterName: user?.name || "Trịnh Quyết Chiến (Chủ dự án)",
+      inviterEmail: user?.email || "chien@example.com",
+      roleGroupId: newMemberRoleId,
+      roleGroupName: roleObj?.name || "Lập trình viên (DEV)",
+      recipientEmail: newMemberEmail.trim(),
+      recipientName: newMemberName.trim(),
+      createdAt: new Date().toLocaleDateString("vi-VN") + " lúc " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+      status: "pending",
+    };
+    const currentInvs = getStoredInvitations();
+    saveStoredInvitations([newInvitation, ...currentInvs]);
+
+    addStoredActivityLog(projectId, {
+      userName: user?.name || "Chủ dự án",
+      userAvatar: user?.avatar || "QC",
+      userRole: "Chủ dự án (Owner)",
+      category: "member",
+      action: "đã gửi lời mời tham gia dự án",
+      detail: `Gửi lời mời đến ${newMemberName.trim()} (${newMemberEmail.trim()}) với nhóm vai trò '${roleObj?.name}'`,
+      timestamp: new Date().toLocaleDateString("vi-VN") + " lúc " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+      timeAgo: "Vừa xong",
+    });
+
     setIsAddMemberOpen(false);
     setNewMemberEmail("");
     setNewMemberName("");
     setNewMemberRoleId("r2");
+  };
+
+  const handleResendInvitation = (invId: string) => {
+    const current = getStoredInvitations();
+    const updated = current.map((i) =>
+      i.id === invId
+        ? {
+            ...i,
+            status: "pending" as const,
+            createdAt: "Vừa gửi lại (" + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) + ")",
+          }
+        : i
+    );
+    saveStoredInvitations(updated);
+    addStoredActivityLog(projectId, {
+      userName: user?.name || "Chủ dự án",
+      userAvatar: user?.avatar || "QC",
+      userRole: "Chủ dự án (Owner)",
+      category: "member",
+      action: "đã gửi lại lời mời tham gia dự án",
+      detail: `Gửi lại lời mời tham gia cho thành viên`,
+      timestamp: new Date().toLocaleDateString("vi-VN") + " lúc " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+      timeAgo: "Vừa xong",
+    });
+  };
+
+  const handleCancelInvitation = (invId: string) => {
+    const current = getStoredInvitations();
+    const updated = current.filter((i) => i.id !== invId);
+    saveStoredInvitations(updated);
+    addStoredActivityLog(projectId, {
+      userName: user?.name || "Chủ dự án",
+      userAvatar: user?.avatar || "QC",
+      userRole: "Chủ dự án (Owner)",
+      category: "member",
+      action: "đã thu hồi lời mời tham gia dự án",
+      detail: `Thu hồi lời mời của thành viên`,
+      timestamp: new Date().toLocaleDateString("vi-VN") + " lúc " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+      timeAgo: "Vừa xong",
+    });
   };
 
   const editingMember = members.find((m: any) => m.id === editingMemberId);
@@ -756,6 +859,127 @@ export function MembersClient() {
                     </TableRow>
                   );
                 })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* ======================================================== */}
+      {/* SECTION 3: LỜI MỜI ĐÃ GỬI & TRẠNG THÁI PHẢN HỒI (CHO SẾP)*/}
+      {/* ======================================================== */}
+      <Card className="border-primary/20 shadow-xs overflow-hidden">
+        <CardHeader className="border-b pb-3 bg-muted/20">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base font-semibold">
+                  Lời mời tham gia dự án đã gửi
+                </CardTitle>
+                <Badge variant="outline" className="text-xs font-mono">
+                  {sentInvitations.length} lời mời
+                </Badge>
+              </div>
+              <CardDescription className="text-xs mt-1">
+                Theo dõi tình trạng phản hồi (Đang chờ, Đã chấp nhận hoặc Đã từ chối) của nhân sự được mời vào dự án này.
+              </CardDescription>
+            </div>
+
+            <Button
+              size="sm"
+              onClick={() => setIsAddMemberOpen(true)}
+              className="text-xs gap-1.5 shadow-xs"
+            >
+              <Send className="h-3.5 w-3.5" /> Gửi lời mời mới
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/30">
+                <TableHead className="text-xs font-semibold">Người nhận</TableHead>
+                <TableHead className="text-xs font-semibold">Email</TableHead>
+                <TableHead className="text-xs font-semibold">Nhóm quyền chỉ định</TableHead>
+                <TableHead className="text-xs font-semibold">Thời gian gửi</TableHead>
+                <TableHead className="text-xs font-semibold">Trạng thái phản hồi</TableHead>
+                <TableHead className="text-right text-xs font-semibold">Thao tác</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sentInvitations.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-xs text-muted-foreground">
+                    Chưa có lời mời nào được gửi cho dự án này. Nhấn "Gửi lời mời mới" để mời cộng tác viên.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sentInvitations.map((inv) => (
+                  <TableRow key={inv.id} className="hover:bg-muted/10 transition-colors">
+                    <TableCell className="font-medium text-xs text-foreground">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-7 w-7">
+                          <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
+                            {inv.recipientName.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{inv.recipientName}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground font-mono">
+                      {inv.recipientEmail}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs bg-muted/40 font-medium">
+                        {inv.roleGroupName}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {inv.createdAt}
+                    </TableCell>
+                    <TableCell>
+                      {inv.status === "pending" ? (
+                        <Badge variant="outline" className="text-xs border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30 gap-1 font-medium">
+                          <Clock className="h-3 w-3 animate-pulse" /> Đang chờ phản hồi
+                        </Badge>
+                      ) : inv.status === "accepted" ? (
+                        <Badge className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1 font-medium">
+                          <Check className="h-3 w-3" /> Đã chấp nhận tham gia
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs border-rose-400 text-rose-600 bg-rose-50 dark:bg-rose-950/20 gap-1 font-medium">
+                          <X className="h-3 w-3" /> Đã từ chối lời mời
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {inv.status === "pending" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleResendInvitation(inv.id)}
+                            className="h-7 text-xs px-2 gap-1"
+                            title="Gửi lại lời mời"
+                          >
+                            <RotateCcw className="h-3 w-3" /> Gửi lại
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleCancelInvitation(inv.id)}
+                          className="h-7 w-7 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                          title="Hủy lời mời"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>

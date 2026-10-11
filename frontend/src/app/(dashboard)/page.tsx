@@ -12,7 +12,12 @@ import {
   CheckCircle2, 
   Layers,
   Search,
-  X
+  X,
+  Bell,
+  Mail,
+  Check,
+  Clock,
+  Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +36,13 @@ import { Label } from "@/components/ui/label";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useAuth } from "@/lib/auth-context";
 import { INITIAL_MOCK_PROJECTS_LIST, MockProject } from "@/lib/mock-data";
+import {
+  getStoredInvitations,
+  respondToInvitation,
+  getStoredActivityLogs,
+  ProjectInvitation,
+  ProjectActivityLog
+} from "@/lib/activity-invitation-store";
 
 const dataCharts = [
   { name: "T2", tasks: 4 },
@@ -50,10 +62,47 @@ export default function GlobalDashboard() {
   const [allProjects, setAllProjects] = useState<MockProject[]>(INITIAL_MOCK_PROJECTS_LIST);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "owned" | "member">("all");
+  const [invitations, setInvitations] = useState<ProjectInvitation[]>([]);
+  const [recentActivities, setRecentActivities] = useState<ProjectActivityLog[]>([]);
 
   // Load from localStorage or initialize
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    const loadData = () => {
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("ftodo_mock_projects");
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            const list = Array.isArray(parsed)
+              ? parsed
+              : [...(parsed.owned || []), ...(parsed.memberOf || [])];
+            setAllProjects(list);
+          } catch {
+            setAllProjects(INITIAL_MOCK_PROJECTS_LIST);
+          }
+        } else {
+          localStorage.setItem("ftodo_mock_projects", JSON.stringify(INITIAL_MOCK_PROJECTS_LIST));
+        }
+      }
+      setInvitations(getStoredInvitations());
+      setRecentActivities(getStoredActivityLogs().slice(0, 5));
+    };
+
+    loadData();
+    window.addEventListener("ftodo_invitations_updated", loadData);
+    window.addEventListener("ftodo_activity_updated", loadData);
+    window.addEventListener("storage", loadData);
+    return () => {
+      window.removeEventListener("ftodo_invitations_updated", loadData);
+      window.removeEventListener("ftodo_activity_updated", loadData);
+      window.removeEventListener("storage", loadData);
+    };
+  }, []);
+
+  const handleInvitationAction = (invId: string, action: "accepted" | "declined") => {
+    respondToInvitation(invId, action);
+    // Reload projects list if accepted
+    if (action === "accepted" && typeof window !== "undefined") {
       const saved = localStorage.getItem("ftodo_mock_projects");
       if (saved) {
         try {
@@ -62,14 +111,10 @@ export default function GlobalDashboard() {
             ? parsed
             : [...(parsed.owned || []), ...(parsed.memberOf || [])];
           setAllProjects(list);
-        } catch {
-          setAllProjects(INITIAL_MOCK_PROJECTS_LIST);
-        }
-      } else {
-        localStorage.setItem("ftodo_mock_projects", JSON.stringify(INITIAL_MOCK_PROJECTS_LIST));
+        } catch {}
       }
     }
-  }, []);
+  };
 
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,6 +221,156 @@ export default function GlobalDashboard() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* ======================================================== */}
+      {/* 1.5. GLOBAL NOTIFICATIONS & PROJECT INVITATIONS CENTER   */}
+      {/* ======================================================== */}
+      <Card className="border-primary/20 bg-linear-to-r from-blue-50/60 via-card to-indigo-50/40 dark:from-blue-950/20 dark:via-card dark:to-indigo-950/10 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3 border-b border-border/60">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-xs shrink-0">
+                <Bell className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CardTitle className="text-base sm:text-lg font-bold">
+                    Hộp thư Thông báo tổng thể & Lời mời dự án
+                  </CardTitle>
+                  {invitations.filter((i) => i.status === "pending").length > 0 ? (
+                    <Badge variant="destructive" className="text-xs px-2 py-0.5 animate-pulse">
+                      {invitations.filter((i) => i.status === "pending").length} lời mời mới
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-xs text-muted-foreground">
+                      Không có lời mời chờ
+                    </Badge>
+                  )}
+                </div>
+                <CardDescription className="text-xs mt-0.5">
+                  Tiếp nhận, chấp nhận hoặc từ chối lời mời tham gia vào các không gian làm việc Scrum từ các Trưởng dự án (Product Owner).
+                </CardDescription>
+              </div>
+            </div>
+
+            <Badge variant="outline" className="text-[11px] font-medium bg-background gap-1 shrink-0">
+              <Sparkles className="h-3 w-3 text-amber-500" /> Hệ thống thông báo thời gian thực
+            </Badge>
+          </div>
+        </CardHeader>
+
+        <CardContent className="pt-4 space-y-4">
+          {/* List of Invitations */}
+          {invitations.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {invitations.map((inv) => {
+                const isPending = inv.status === "pending";
+                const isAccepted = inv.status === "accepted";
+                const isDeclined = inv.status === "declined";
+
+                return (
+                  <div
+                    key={inv.id}
+                    className={`rounded-xl border p-4 transition-all ${
+                      isPending
+                        ? "bg-card border-primary/30 shadow-xs ring-1 ring-primary/10"
+                        : isAccepted
+                        ? "bg-emerald-50/40 dark:bg-emerald-950/10 border-emerald-300 dark:border-emerald-800/40"
+                        : "bg-muted/30 border-muted opacity-75"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                            LỜI MỜI THAM GIA
+                          </span>
+                          <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> {inv.createdAt}
+                          </span>
+                        </div>
+
+                        <h3 className="text-base font-bold text-foreground mt-1 truncate">
+                          {inv.projectName}
+                        </h3>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                          {inv.projectDescription}
+                        </p>
+
+                        <div className="mt-2.5 pt-2.5 border-t text-xs space-y-1 bg-muted/20 p-2.5 rounded-lg">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-muted-foreground">Người mời:</span>
+                            <strong className="text-foreground">{inv.inviterName} ({inv.inviterEmail})</strong>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-muted-foreground">Nhóm quyền chỉ định:</span>
+                            <Badge variant="outline" className="text-[10px] bg-background">
+                              {inv.roleGroupName}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions based on invitation status */}
+                    <div className="mt-3.5 pt-2 flex items-center justify-between gap-2">
+                      {isPending ? (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => handleInvitationAction(inv.id, "accepted")}
+                            className="text-xs h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex-1 shadow-xs"
+                          >
+                            <Check className="h-3.5 w-3.5" /> Chấp nhận tham gia
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleInvitationAction(inv.id, "declined")}
+                            className="text-xs h-8 gap-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex-1"
+                          >
+                            <X className="h-3.5 w-3.5" /> Từ chối
+                          </Button>
+                        </>
+                      ) : isAccepted ? (
+                        <div className="flex items-center justify-between w-full">
+                          <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1">
+                            <Check className="h-3 w-3" /> Đã chấp nhận tham gia
+                          </Badge>
+                          <Link href={`/projects/${inv.projectId}`}>
+                            <Button size="sm" variant="outline" className="text-xs h-7 gap-1">
+                              Vào dự án <ArrowRight className="h-3 w-3" />
+                            </Button>
+                          </Link>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between w-full">
+                          <Badge variant="outline" className="text-xs border-rose-400 text-rose-600 bg-rose-50 dark:bg-rose-950/20 gap-1">
+                            <X className="h-3 w-3" /> Đã từ chối lời mời này
+                          </Badge>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleInvitationAction(inv.id, "accepted")}
+                            className="text-[11px] h-7 text-muted-foreground hover:text-foreground"
+                          >
+                            Đổi ý: Chấp nhận
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-8 text-center text-xs text-muted-foreground border rounded-xl border-dashed bg-muted/10">
+              <Mail className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+              Bạn chưa có lời mời tham gia dự án nào đang chờ xử lý.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* 2. Key Metrics Summary Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">

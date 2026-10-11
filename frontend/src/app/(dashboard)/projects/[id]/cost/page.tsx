@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { useProject } from "../project-context";
 import { useAuth } from "@/lib/auth-context";
+import { addStoredActivityLog } from "@/lib/activity-invitation-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -350,6 +351,7 @@ export default function ProjectCostPage() {
   };
 
   const handleApproveExpense = (expenseId: string, note?: string) => {
+    const targetItem = expenses.find((e) => e.id === expenseId);
     const updated = expenses.map((item) => {
       if (item.id === expenseId) {
         return {
@@ -363,6 +365,20 @@ export default function ProjectCostPage() {
       return item;
     });
     saveExpenses(updated);
+
+    if (targetItem) {
+      addStoredActivityLog(projectId, {
+        userName: user?.name || "Trịnh Quyết Chiến",
+        userAvatar: user?.avatar || "QC",
+        userRole: "Chủ dự án (Owner)",
+        category: "cost",
+        action: "đã phê duyệt đề xuất chi phí",
+        detail: `Khoản chi: ${targetItem.title} (${targetItem.amount.toLocaleString()} đ - Đề xuất bởi ${targetItem.requester})`,
+        timestamp: new Date().toLocaleDateString("vi-VN") + " lúc " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+        timeAgo: "Vừa xong",
+      });
+    }
+
     setReviewingExpense(null);
   };
 

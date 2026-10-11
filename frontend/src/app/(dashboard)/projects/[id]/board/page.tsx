@@ -19,7 +19,8 @@ import {
   Layers,
   Flame,
   Check,
-  ChevronDown
+  ChevronDown,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,7 @@ import {
 } from "@/components/ui/select";
 import { useProject } from "../project-context";
 import { useAuth } from "@/lib/auth-context";
+import { addStoredActivityLog } from "@/lib/activity-invitation-store";
 
 export interface BoardTask {
   id: string;
@@ -190,10 +192,48 @@ export default function BoardPage() {
   };
 
   const moveTask = (taskId: string, targetStatus: string) => {
+    const targetCol = COLUMNS.find((c) => c.id === targetStatus);
+    const existingTask = tasks.find((t) => t.id === taskId);
+    if (!existingTask || existingTask.status === targetStatus) return;
+
     const updated = tasks.map((t) =>
       t.id === taskId ? { ...t, status: targetStatus as any } : t
     );
     saveTasks(updated);
+
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    addStoredActivityLog(projectId, {
+      userName: user?.name || "Người dùng",
+      userAvatar: user?.avatar || "US",
+      userRole: user?.role === "owner" ? "Chủ dự án" : "Thành viên",
+      category: "task",
+      action: `đã chuyển công việc ${existingTask.id} sang "${targetCol?.title.split(" (")[0] || targetStatus}"`,
+      detail: `Cập nhật trạng thái của "${existingTask.title}" lúc ${timeStr}.`,
+      timestamp: `${timeStr} - Hôm nay`,
+      timeAgo: "Vừa xong",
+    });
+  };
+
+  const handleDeleteTask = (taskToDelete: BoardTask) => {
+    if (!confirm(`Bạn có chắc muốn xóa công việc "${taskToDelete.id} - ${taskToDelete.title}"?`)) {
+      return;
+    }
+    const updated = tasks.filter((t) => t.id !== taskToDelete.id);
+    saveTasks(updated);
+
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    addStoredActivityLog(projectId, {
+      userName: user?.name || "Người dùng",
+      userAvatar: user?.avatar || "US",
+      userRole: user?.role === "owner" ? "Chủ dự án" : "Thành viên",
+      category: "task",
+      action: `đã xóa công việc ${taskToDelete.id} (${taskToDelete.title})`,
+      detail: `Đã loại bỏ Story Points: ${taskToDelete.points} SP khỏi Sprint lúc ${timeStr}.`,
+      timestamp: `${timeStr} - Hôm nay`,
+      timeAgo: "Vừa xong",
+    });
   };
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -248,6 +288,20 @@ export default function BoardPage() {
     };
 
     saveTasks([...tasks, newTask]);
+
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    addStoredActivityLog(projectId, {
+      userName: user?.name || "Người dùng",
+      userAvatar: user?.avatar || "US",
+      userRole: user?.role === "owner" ? "Chủ dự án" : "Thành viên",
+      category: "task",
+      action: `đã tạo công việc mới ${newTask.id} (${newTask.title})`,
+      detail: `Loại: ${newTask.type}, Ước tính: ${newTask.points} SP, Người nhận: ${newTask.assigneeName} lúc ${timeStr}.`,
+      timestamp: `${timeStr} - Hôm nay`,
+      timeAgo: "Vừa xong",
+    });
+
     setNewTaskTitle("");
     setIsAddTaskOpen(false);
   };
@@ -482,18 +536,31 @@ export default function BoardPage() {
                           </span>
                         </div>
 
-                        <Badge
-                          variant={
-                            task.priority === "Cao"
-                              ? "destructive"
-                              : task.priority === "Trung bình"
-                              ? "default"
-                              : "secondary"
-                          }
-                          className="text-[9px] px-1 py-0 font-normal"
-                        >
-                          {task.priority}
-                        </Badge>
+                        <div className="flex items-center gap-1">
+                          <Badge
+                            variant={
+                              task.priority === "Cao"
+                                ? "destructive"
+                                : task.priority === "Trung bình"
+                                ? "default"
+                                : "secondary"
+                            }
+                            className="text-[9px] px-1 py-0 font-normal"
+                          >
+                            {task.priority}
+                          </Badge>
+                          <button
+                            type="button"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-muted-foreground/60 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteTask(task);
+                            }}
+                            title="Xóa công việc khỏi Sprint"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Epic Badge */}
