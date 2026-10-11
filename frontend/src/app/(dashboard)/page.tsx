@@ -169,7 +169,7 @@ export default function GlobalDashboard() {
         id: "proj-" + Date.now(),
         name: name.trim(),
         description: description.trim() || "Dự án mới tạo",
-        ownerId: user.id,
+        ownerId: user?.id || "u-chien",
         progress: 0,
         tasks: 0,
         completedTasks: 0,
@@ -184,8 +184,8 @@ export default function GlobalDashboard() {
     setIsCreateOpen(false);
   };
 
-  const ownedProjects = allProjects.filter((p) => p.ownerId === user.id);
-  const memberProjects = allProjects.filter((p) => p.ownerId !== user.id);
+  const ownedProjects = allProjects.filter((p) => p.ownerId === user?.id || p.role === "owner");
+  const memberProjects = allProjects.filter((p) => p.ownerId !== user?.id && p.role !== "owner");
   const totalProjects = allProjects.length;
   const totalTasks = allProjects.reduce((sum, p) => sum + (p.tasks || 0), 0);
   const completedTasks = allProjects.reduce((sum, p) => sum + (p.completedTasks || 0), 0);

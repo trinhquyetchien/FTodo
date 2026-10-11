@@ -21,7 +21,7 @@ import {
 
 export default function Register() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { register } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,22 +29,32 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim() || !email.trim() || !password) return;
+    if (password.length < 6) {
+      setError("Mật khẩu phải có ít nhất 6 ký tự.");
+      return;
+    }
+
     setIsLoading(true);
-    setTimeout(() => {
-      login(email || "chien@example.com");
+    setError("");
+    try {
+      await register(name.trim(), email.trim(), password);
       router.push("/");
-    }, 350);
+    } catch (err: any) {
+      setError(err.message || "Đăng ký không thành công. Vui lòng thử lại.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSocialRegister = (provider: "google" | "github") => {
-    setIsLoading(true);
-    setTimeout(() => {
-      login("chien@example.com");
-      router.push("/");
-    }, 300);
+    setName(provider === "google" ? "Google User" : "GitHub Developer");
+    setEmail(`user.${provider}@example.com`);
+    setPassword("password123");
   };
 
   return (
@@ -126,6 +136,12 @@ export default function Register() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
+          {error && (
+            <div className="p-3 text-xs font-medium text-rose-700 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-900 rounded-xl">
+              {error}
+            </div>
+          )}
+
           <div className="space-y-1">
             <Label htmlFor="name" className="text-xs font-semibold">Họ và tên</Label>
             <div className="relative">

@@ -43,6 +43,7 @@ export interface MockProject {
   tasks: number;
   completedTasks: number;
   members: number;
+  role?: string;
   createdAt: string;
 }
 

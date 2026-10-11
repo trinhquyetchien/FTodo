@@ -6,9 +6,10 @@ import { api, setStoredTokens, removeStoredTokens, getStoredToken } from "./api"
 import { MockUser, MOCK_USERS } from "./mock-data";
 
 interface AuthContextType {
-  user: MockUser;
+  user: MockUser | null;
   isLoggedIn: boolean;
-  login: (email: string, password?: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   quickSwitch: (roleKey: "owner" | "dev" | "qa") => Promise<void>;
 }
@@ -16,8 +17,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<MockUser>(MOCK_USERS.owner);
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
+  const [user, setUser] = useState<MockUser | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const router = useRouter();
 
   // Load and verify user from real API on initial render
@@ -43,34 +44,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
           }
         } catch {
-          // Token might be expired, will attempt auto-login
+          removeStoredTokens();
+          if (isMounted) {
+            setUser(null);
+            setIsLoggedIn(false);
+          }
         }
-      }
-
-      // Auto-authenticate as Chien (Owner) on local demo for seamless out-of-the-box experience
-      try {
-        const res = await api.auth.login({
-          email: "chien@example.com",
-          password: "password123",
-        });
-        if (isMounted && res) {
-          setStoredTokens(res.accessToken, res.refreshToken);
-          const formattedUser: MockUser = {
-            id: res.user.id,
-            name: res.user.name,
-            email: res.user.email,
-            avatar: res.user.avatar || "QC",
-            role: res.user.role || "ADMIN",
-            jobTitle: "Chủ dự án / Tech Lead",
-          };
-          setUser(formattedUser);
-          setIsLoggedIn(true);
-        }
-      } catch {
-        // Fallback to local default if backend is temporarily disconnected
+      } else {
         if (isMounted) {
-          setUser(MOCK_USERS.owner);
-          setIsLoggedIn(true);
+          setUser(null);
+          setIsLoggedIn(false);
         }
       }
     }
@@ -82,44 +65,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const login = async (email: string, password?: string) => {
-    try {
-      const res = await api.auth.login({
-        email: email.trim(),
-        password: password || "password123",
-      });
+  const login = async (email: string, password: string) => {
+    const res = await api.auth.login({
+      email: email.trim(),
+      password: password,
+    });
 
-      setStoredTokens(res.accessToken, res.refreshToken);
-      const formattedUser: MockUser = {
-        id: res.user.id,
-        name: res.user.name,
-        email: res.user.email,
-        avatar: res.user.avatar || res.user.name.slice(0, 2).toUpperCase(),
-        role: res.user.role || "USER",
-        jobTitle: res.user.role === "ADMIN" ? "Chủ dự án (Owner)" : "Thành viên dự án",
-      };
+    setStoredTokens(res.accessToken, res.refreshToken);
+    const formattedUser: MockUser = {
+      id: res.user.id,
+      name: res.user.name,
+      email: res.user.email,
+      avatar: res.user.avatar || res.user.name.slice(0, 2).toUpperCase(),
+      role: res.user.role || "USER",
+      jobTitle: res.user.role === "ADMIN" ? "Chủ dự án (Owner)" : "Thành viên dự án",
+    };
 
-      setUser(formattedUser);
-      setIsLoggedIn(true);
-      router.push("/");
-    } catch {
-      // Local fallback for offline mode
-      const matchedUser =
-        Object.values(MOCK_USERS).find(
-          (u) => u.email.toLowerCase() === email.toLowerCase()
-        ) || {
-          id: "u-" + Date.now(),
-          name: email.split("@")[0],
-          email: email,
-          avatar: email.slice(0, 2).toUpperCase(),
-          role: "USER",
-          jobTitle: "Thành viên dự án",
-        };
+    setUser(formattedUser);
+    setIsLoggedIn(true);
+  };
 
-      setUser(matchedUser);
-      setIsLoggedIn(true);
-      router.push("/");
-    }
+  const register = async (name: string, email: string, password: string) => {
+    const res = await api.auth.register({
+      name: name.trim(),
+      email: email.trim(),
+      password,
+    });
+
+    setStoredTokens(res.accessToken, res.refreshToken);
+    const formattedUser: MockUser = {
+      id: res.user.id,
+      name: res.user.name,
+      email: res.user.email,
+      avatar: res.user.avatar || res.user.name.slice(0, 2).toUpperCase(),
+      role: res.user.role || "USER",
+      jobTitle: "Thành viên dự án",
+    };
+
+    setUser(formattedUser);
+    setIsLoggedIn(true);
   };
 
   const logout = async () => {
@@ -130,6 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       removeStoredTokens();
       setIsLoggedIn(false);
+      setUser(null);
       router.push("/login");
     }
   };
@@ -183,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isLoggedIn,
         login,
+        register,
         logout,
         quickSwitch,
       }}

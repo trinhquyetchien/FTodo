@@ -25,22 +25,31 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password) return;
     setIsLoading(true);
-    setTimeout(() => {
-      login(email || "chien@example.com");
+    setError("");
+    try {
+      await login(email.trim(), password);
       router.push("/");
-    }, 350);
+    } catch (err: any) {
+      setError(err.message || "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fillSampleAccount = (sampleEmail: string) => {
+    setEmail(sampleEmail);
+    setPassword("password123");
+    setError("");
   };
 
   const handleSocialLogin = (provider: "google" | "github") => {
-    setIsLoading(true);
-    setTimeout(() => {
-      login("chien@example.com");
-      router.push("/");
-    }, 300);
+    fillSampleAccount("chien@example.com");
   };
 
   return (
@@ -125,6 +134,12 @@ export default function Login() {
 
         {/* 2. EMAIL & PASSWORD FORM */}
         <form onSubmit={handleSubmit} className="space-y-3.5">
+          {error && (
+            <div className="p-3 text-xs font-medium text-rose-700 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-900 rounded-xl">
+              {error}
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <Label htmlFor="email" className="text-xs font-semibold">Email công việc</Label>
             <div className="relative">
@@ -197,6 +212,36 @@ export default function Login() {
             )}
           </Button>
         </form>
+
+        {/* Quick Demo Accounts Banner */}
+        <div className="pt-2 border-t border-dashed">
+          <p className="text-[11px] font-semibold text-muted-foreground mb-1.5 text-center">
+            Tài khoản mẫu có sẵn trong PostgreSQL:
+          </p>
+          <div className="flex flex-wrap gap-1.5 justify-center">
+            <button
+              type="button"
+              onClick={() => fillSampleAccount("chien@example.com")}
+              className="px-2 py-1 text-[10px] font-medium rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-colors"
+            >
+              Chủ dự án (chien@example.com)
+            </button>
+            <button
+              type="button"
+              onClick={() => fillSampleAccount("an@example.com")}
+              className="px-2 py-1 text-[10px] font-medium rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition-colors"
+            >
+              DEV (an@example.com)
+            </button>
+            <button
+              type="button"
+              onClick={() => fillSampleAccount("binh@example.com")}
+              className="px-2 py-1 text-[10px] font-medium rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition-colors"
+            >
+              QA (binh@example.com)
+            </button>
+          </div>
+        </div>
       </CardContent>
 
       <CardFooter className="flex flex-col space-y-2 border-t pt-4">

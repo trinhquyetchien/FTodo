@@ -165,6 +165,16 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    if (!user) {
+      return [
+        "overview",
+        "board",
+        "backlog",
+        "timeline",
+        "issues",
+      ];
+    }
+
     const member = membersList.find(
       (m: any) => m.email?.toLowerCase() === user.email?.toLowerCase() || m.id === user.id
     );

@@ -246,31 +246,46 @@ export function DashboardHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* User Profile & Logout Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center gap-2 outline-none cursor-pointer">
-            <Avatar className="h-8 w-8 ring-1 ring-border">
-              <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
-                {user?.avatar || "QC"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="text-left hidden md:block">
-              <div className="text-xs font-semibold leading-none">{user?.name}</div>
-              <div className="text-[10px] text-muted-foreground leading-none mt-1">{user?.email}</div>
-            </div>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>
-              <div className="text-xs font-semibold">{user?.name}</div>
-              <div className="text-[11px] text-muted-foreground font-normal">{user?.email}</div>
-              <div className="text-[10px] text-primary mt-0.5 font-medium">{user?.jobTitle}</div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout} className="text-rose-600 focus:text-rose-600 cursor-pointer text-xs">
-              <LogOut className="h-3.5 w-3.5 mr-2" /> Đăng xuất
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* User Profile & Logout Dropdown or Login / Register buttons */}
+        {user ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex items-center gap-2 outline-none cursor-pointer">
+              <Avatar className="h-8 w-8 ring-1 ring-border">
+                <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+                  {user.avatar || (user.name ? user.name.slice(0, 2).toUpperCase() : "US")}
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-left hidden md:block">
+                <div className="text-xs font-semibold leading-none">{user.name}</div>
+                <div className="text-[10px] text-muted-foreground leading-none mt-1">{user.email}</div>
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                <div className="text-xs font-semibold">{user.name}</div>
+                <div className="text-[11px] text-muted-foreground font-normal">{user.email}</div>
+                <div className="text-[10px] text-primary mt-0.5 font-medium">{user.jobTitle}</div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={logout} className="text-rose-600 focus:text-rose-600 cursor-pointer text-xs">
+                <LogOut className="h-3.5 w-3.5 mr-2" /> Đăng xuất
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Link href="/login">
+              <Button variant="ghost" size="sm" className="text-xs font-semibold h-8">
+                Đăng nhập
+              </Button>
+            </Link>
+            <Link href="/register">
+              <Button size="sm" className="text-xs font-semibold h-8 rounded-lg">
+                Đăng ký
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
     </header>
   );
