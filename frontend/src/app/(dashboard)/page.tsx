@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { 
   Plus, 
@@ -56,7 +56,7 @@ import {
 } from "recharts";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
-import { INITIAL_MOCK_PROJECTS_LIST, MockProject } from "@/lib/mock-data";
+import { MockProject } from "@/lib/mock-data";
 import {
   getStoredInvitations,
   respondToInvitation,
@@ -80,13 +80,7 @@ const workMixData = [
   { name: "Bug Fixes (Lỗi & Nợ kỹ thuật)", count: 8, points: 18, color: "#f43f5e", pct: 17 },
 ];
 
-// 3. Cross-Project Delivery Health (Tiến độ giao hàng 4 dự án phần mềm)
-const projectDeliveryData = [
-  { name: "FTodo Core", done: 18, remaining: 10, total: 28, pct: 64, color: "#6366f1" },
-  { name: "E-Commerce", done: 9, remaining: 15, total: 24, pct: 38, color: "#f59e0b" },
-  { name: "CRM Enterprise", done: 4, remaining: 14, total: 18, pct: 22, color: "#10b981" },
-  { name: "AI Assistant", done: 6, remaining: 6, total: 12, pct: 50, color: "#ec4899" },
-];
+
 
 export default function GlobalDashboard() {
   const { user } = useAuth();
@@ -94,7 +88,8 @@ export default function GlobalDashboard() {
   const [chartView, setChartView] = useState<"velocity" | "workmix" | "delivery">("velocity");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [allProjects, setAllProjects] = useState<MockProject[]>(INITIAL_MOCK_PROJECTS_LIST);
+  const [allProjects, setAllProjects] = useState<MockProject[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "owned" | "member">("all");
   const [invitations, setInvitations] = useState<ProjectInvitation[]>([]);
@@ -105,24 +100,16 @@ export default function GlobalDashboard() {
     let isMounted = true;
     const loadData = async () => {
       try {
+        setIsLoadingProjects(true);
         const res = await api.projects.getAll();
-        if (isMounted && res && (res.owned || res.memberOf)) {
+        if (isMounted && res) {
           const list = [...(res.owned || []), ...(res.memberOf || [])];
           setAllProjects(list);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("ftodo_mock_projects", JSON.stringify(list));
-          }
         }
-      } catch {
-        if (typeof window !== "undefined") {
-          const saved = localStorage.getItem("ftodo_mock_projects");
-          if (saved && isMounted) {
-            try {
-              const parsed = JSON.parse(saved);
-              setAllProjects(Array.isArray(parsed) ? parsed : [...(parsed.owned || []), ...(parsed.memberOf || [])]);
-            } catch {}
-          }
-        }
+      } catch (err) {
+        console.error("Lỗi khi tải dự án từ PostgreSQL:", err);
+      } finally {
+        if (isMounted) setIsLoadingProjects(false);
       }
       if (isMounted) {
         setInvitations(getStoredInvitations());
@@ -164,24 +151,12 @@ export default function GlobalDashboard() {
       if (res) {
         setAllProjects([...(res.owned || []), ...(res.memberOf || [])]);
       }
-    } catch {
-      const newProject: MockProject = {
-        id: "proj-" + Date.now(),
-        name: name.trim(),
-        description: description.trim() || "Dự án mới tạo",
-        ownerId: user?.id || "u-chien",
-        progress: 0,
-        tasks: 0,
-        completedTasks: 0,
-        members: 1,
-        createdAt: new Date().toLocaleDateString("vi-VN"),
-      };
-      setAllProjects([newProject, ...allProjects]);
+      setName("");
+      setDescription("");
+      setIsCreateOpen(false);
+    } catch (err: any) {
+      alert(err.message || "Lỗi khi tạo dự án. Vui lòng thử lại.");
     }
-
-    setName("");
-    setDescription("");
-    setIsCreateOpen(false);
   };
 
   const ownedProjects = allProjects.filter((p) => p.ownerId === user?.id || p.role === "owner");
@@ -209,6 +184,24 @@ export default function GlobalDashboard() {
     const q = searchQuery.toLowerCase();
     return p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
   });
+
+  const dynamicProjectDeliveryData = useMemo(() => {
+    if (allProjects.length === 0) return [];
+    const colors = ["#6366f1", "#f59e0b", "#10b981", "#ec4899", "#8b5cf6", "#06b6d4"];
+    return allProjects.slice(0, 6).map((p, idx) => {
+      const done = p.completedTasks || 0;
+      const total = p.tasks || 0;
+      const remaining = Math.max(0, total - done);
+      return {
+        name: p.name.length > 18 ? p.name.slice(0, 16) + "..." : p.name,
+        done,
+        remaining,
+        total,
+        pct: p.progress || 0,
+        color: colors[idx % colors.length],
+      };
+    });
+  }, [allProjects]);
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-12 max-w-7xl mx-auto p-3 sm:p-6 md:p-8 w-full">
@@ -440,7 +433,7 @@ export default function GlobalDashboard() {
 
               {chartView === "delivery" && (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={projectDeliveryData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                  <BarChart data={dynamicProjectDeliveryData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} />
                     <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
@@ -527,7 +520,11 @@ export default function GlobalDashboard() {
                   </Badge>
                 </div>
 
-                {filteredOwned.length === 0 ? (
+                {isLoadingProjects ? (
+                  <div className="p-8 border border-dashed rounded-xl text-center text-muted-foreground text-sm bg-card animate-pulse">
+                    Đang tải danh sách dự án từ cơ sở dữ liệu...
+                  </div>
+                ) : filteredOwned.length === 0 ? (
                   <div className="p-8 border border-dashed rounded-xl text-center text-muted-foreground text-sm bg-card">
                     {searchQuery
                       ? "Không có dự án làm chủ nào khớp với tìm kiếm."
@@ -597,7 +594,11 @@ export default function GlobalDashboard() {
                   </Badge>
                 </div>
 
-                {filteredMember.length === 0 ? (
+                {isLoadingProjects ? (
+                  <div className="p-8 border border-dashed rounded-xl text-center text-muted-foreground text-sm bg-card animate-pulse">
+                    Đang tải danh sách dự án từ cơ sở dữ liệu...
+                  </div>
+                ) : filteredMember.length === 0 ? (
                   <div className="p-8 border border-dashed rounded-xl text-center text-muted-foreground text-sm bg-card">
                     {searchQuery
                       ? "Không có dự án tham gia nào khớp với tìm kiếm."

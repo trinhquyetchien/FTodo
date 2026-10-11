@@ -47,7 +47,6 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { DEFAULT_INITIAL_ROLES, DEFAULT_INITIAL_MEMBERS } from "@/lib/mock-data";
 import { useProject } from "../project-context";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
@@ -139,31 +138,9 @@ export function MembersClient() {
   const { project, isOwner, hasPermission } = useProject();
   const projectId = project?.id || "ftodo-core";
 
-  // Persistent Roles
-  const [roles, setRoles] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(`ftodo_roles_${projectId}`);
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {}
-      }
-    }
-    return DEFAULT_INITIAL_ROLES;
-  });
-
-  // Persistent Members
-  const [members, setMembers] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(`ftodo_members_${projectId}`);
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {}
-      }
-    }
-    return DEFAULT_INITIAL_MEMBERS;
-  });
+  // Roles and Members loaded strictly from PostgreSQL
+  const [roles, setRoles] = useState<any[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
 
   // Sync live roles and members from PostgreSQL backend
   useEffect(() => {
@@ -176,7 +153,7 @@ export function MembersClient() {
           api.members.getMembers(project.id),
         ]);
 
-        if (isMounted && rolesRes.status === "fulfilled" && Array.isArray(rolesRes.value) && rolesRes.value.length > 0) {
+        if (isMounted && rolesRes.status === "fulfilled" && Array.isArray(rolesRes.value)) {
           const mappedRoles = rolesRes.value.map((r: any) => ({
             id: r.id,
             name: r.name,
@@ -185,12 +162,9 @@ export function MembersClient() {
             isDefault: r.isDefault || false,
           }));
           setRoles(mappedRoles);
-          if (typeof window !== "undefined") {
-            localStorage.setItem(`ftodo_roles_${projectId}`, JSON.stringify(mappedRoles));
-          }
         }
 
-        if (isMounted && membersRes.status === "fulfilled" && Array.isArray(membersRes.value) && membersRes.value.length > 0) {
+        if (isMounted && membersRes.status === "fulfilled" && Array.isArray(membersRes.value)) {
           const mappedMembers = membersRes.value.map((m: any) => ({
             id: m.id,
             userId: m.userId,
@@ -202,12 +176,9 @@ export function MembersClient() {
             extraPermissions: m.extraPermissions || [],
           }));
           setMembers(mappedMembers);
-          if (typeof window !== "undefined") {
-            localStorage.setItem(`ftodo_members_${projectId}`, JSON.stringify(mappedMembers));
-          }
         }
       } catch (err) {
-        // Fallback to local
+        // Backend error handled cleanly
       }
     };
 
@@ -337,7 +308,6 @@ export function MembersClient() {
     const updatedRoles = [...roles, newRole];
     setRoles(updatedRoles);
     if (typeof window !== "undefined") {
-      localStorage.setItem(`ftodo_roles_${projectId}`, JSON.stringify(updatedRoles));
       window.dispatchEvent(new Event("ftodo_permissions_updated"));
     }
 
@@ -352,7 +322,6 @@ export function MembersClient() {
     const updatedRoles = roles.filter((r: any) => r.id !== roleId);
     setRoles(updatedRoles);
     if (typeof window !== "undefined") {
-      localStorage.setItem(`ftodo_roles_${projectId}`, JSON.stringify(updatedRoles));
       window.dispatchEvent(new Event("ftodo_permissions_updated"));
     }
 
@@ -379,7 +348,6 @@ export function MembersClient() {
     });
     setRoles(updatedRoles);
     if (typeof window !== "undefined") {
-      localStorage.setItem(`ftodo_roles_${projectId}`, JSON.stringify(updatedRoles));
       window.dispatchEvent(new Event("ftodo_permissions_updated"));
     }
 
@@ -411,7 +379,6 @@ export function MembersClient() {
     });
     setMembers(updated);
     if (typeof window !== "undefined") {
-      localStorage.setItem(`ftodo_members_${projectId}`, JSON.stringify(updated));
       window.dispatchEvent(new Event("ftodo_permissions_updated"));
     }
 
@@ -433,7 +400,6 @@ export function MembersClient() {
     const updated = members.filter((m: any) => m.id !== id);
     setMembers(updated);
     if (typeof window !== "undefined") {
-      localStorage.setItem(`ftodo_members_${projectId}`, JSON.stringify(updated));
       window.dispatchEvent(new Event("ftodo_permissions_updated"));
     }
 
@@ -473,7 +439,6 @@ export function MembersClient() {
     const updated = [...members, newMember];
     setMembers(updated);
     if (typeof window !== "undefined") {
-      localStorage.setItem(`ftodo_members_${projectId}`, JSON.stringify(updated));
       window.dispatchEvent(new Event("ftodo_permissions_updated"));
     }
 

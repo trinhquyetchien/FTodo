@@ -99,101 +99,6 @@ export interface Expense {
   reviewedAt?: string;
 }
 
-const initialExpenses: Expense[] = [
-  {
-    id: "EXP-001",
-    title: "AWS Cloud Hosting & RDS PostgreSQL (Tháng 10)",
-    category: "infrastructure",
-    amount: 14500000,
-    date: "05/10/2026",
-    requester: "Nguyễn Văn An",
-    requesterRole: "DEV",
-    requesterEmail: "an@example.com",
-    status: "paid",
-    sprint: "Sprint 1",
-    reason: "Gia hạn máy chủ EC2 c5.xlarge và database RDS PostgreSQL Multi-AZ để phục vụ môi trường chạy thử nghiệm và staging cho Sprint 1.",
-    reviewedBy: "Trịnh Quyết Chiến",
-    reviewedAt: "05/10/2026",
-    reviewNote: "Đã duyệt và thanh toán thẻ tín dụng công ty.",
-  },
-  {
-    id: "EXP-002",
-    title: "Lương Sprint 1 - Core Dev & QA Team",
-    category: "personnel",
-    amount: 140000000,
-    date: "01/10/2026",
-    requester: "Trịnh Quyết Chiến",
-    requesterRole: "Chủ dự án",
-    requesterEmail: "chien@example.com",
-    status: "paid",
-    sprint: "Sprint 1",
-    reason: "Chi trả lương đợt 1 cho 5 nhân sự full-time theo hợp đồng phát triển dự án FTodo giai đoạn Alpha.",
-  },
-  {
-    id: "EXP-003",
-    title: "GitHub Enterprise & JetBrains Licenses (1 năm)",
-    category: "licenses",
-    amount: 32000000,
-    date: "28/09/2026",
-    requester: "Trần Thị Bình",
-    requesterRole: "QA",
-    requesterEmail: "binh@example.com",
-    status: "paid",
-    reason: "Mua gói GitHub Team Enterprise tích hợp CI/CD Actions và bản quyền IDE WebStorm/CLion cho các lập trình viên nòng cốt.",
-    reviewedBy: "Trịnh Quyết Chiến",
-    reviewedAt: "29/09/2026",
-  },
-  {
-    id: "EXP-004",
-    title: "Figma Team Subscription & Miro Board",
-    category: "licenses",
-    amount: 9000000,
-    date: "02/10/2026",
-    requester: "Lê Hoàng Dũng",
-    requesterRole: "UI/UX Designer",
-    requesterEmail: "dung@example.com",
-    status: "approved",
-    sprint: "Sprint 1",
-    reason: "Gia hạn tài khoản Figma Professional cho 3 designer để hoàn thiện hệ thống Design System và Prototype giao diện.",
-    reviewedBy: "Trịnh Quyết Chiến",
-    reviewedAt: "03/10/2026",
-    reviewNote: "Đã duyệt, phòng tài chính sẽ giải ngân vào thứ hai tới.",
-  },
-  {
-    id: "EXP-005",
-    title: "Kiểm thử bảo mật Pentest bên thứ ba (Đợt 1)",
-    category: "other",
-    amount: 40000000,
-    date: "08/10/2026",
-    requester: "Nguyễn Văn An",
-    requesterRole: "DEV",
-    requesterEmail: "an@example.com",
-    status: "pending",
-    sprint: "Sprint 2",
-    reason: "Cần thuê đơn vị an ninh mạng độc lập kiểm thử thâm nhập (Black-box pentest) các API xác thực JWT và cơ chế mã hóa mật khẩu trước khi release bản Beta.",
-  },
-  {
-    id: "EXP-006",
-    title: "Đăng ký dịch vụ SMS OTP và SendGrid Email Marketing",
-    category: "infrastructure",
-    amount: 6500000,
-    date: "10/10/2026",
-    requester: "Trần Thị Bình",
-    requesterRole: "QA",
-    requesterEmail: "binh@example.com",
-    status: "pending",
-    sprint: "Sprint 2",
-    reason: "Cần tích hợp dịch vụ SMS Brandname gửi mã xác thực 2FA cho người dùng đăng ký và gửi thông báo task tự động qua email.",
-  },
-];
-
-const sprintBurnData = [
-  { name: "Sprint 1", budget: 180, actual: 163.5 },
-  { name: "Sprint 2", budget: 170, actual: 72.0 },
-  { name: "Sprint 3 (Dự kiến)", budget: 160, actual: 0 },
-  { name: "Sprint 4 (Dự kiến)", budget: 150, actual: 0 },
-];
-
 const categoryColors: Record<string, string> = {
   personnel: "#3b82f6",
   infrastructure: "#10b981",
@@ -215,18 +120,8 @@ export default function ProjectCostPage() {
   const { user } = useAuth();
   const projectId = project?.id || "ftodo-core";
 
-  // Persistent expenses state
-  const [expenses, setExpenses] = useState<Expense[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(`ftodo_expenses_${projectId}`);
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {}
-      }
-    }
-    return initialExpenses;
-  });
+  // Real expenses state from PostgreSQL
+  const [expenses, setExpenses] = useState<Expense[]>([]);
 
   // Sync with PostgreSQL backend
   useEffect(() => {
@@ -235,7 +130,7 @@ export default function ProjectCostPage() {
       if (!project?.id) return;
       try {
         const res = await api.costs.getCosts(project.id);
-        if (isMounted && res?.costs && Array.isArray(res.costs) && res.costs.length > 0) {
+        if (isMounted && res?.costs && Array.isArray(res.costs)) {
           const mapped: Expense[] = res.costs.map((c: any) => ({
             id: c.id,
             title: c.title,
@@ -253,12 +148,9 @@ export default function ProjectCostPage() {
             reviewNote: c.status === "PAID" ? "Đã duyệt và hoàn tất thanh toán" : c.status === "APPROVED" ? "Đã phê duyệt" : undefined,
           }));
           setExpenses(mapped);
-          if (typeof window !== "undefined") {
-            localStorage.setItem(`ftodo_expenses_${projectId}`, JSON.stringify(mapped));
-          }
         }
       } catch {
-        // Fallback to local storage
+        // Backend error handled cleanly
       }
     };
 
@@ -267,6 +159,28 @@ export default function ProjectCostPage() {
       isMounted = false;
     };
   }, [project?.id, projectId]);
+
+  // Dynamic sprint burn rate calculated from real expenses
+  const sprintBurnData = React.useMemo(() => {
+    const sprintMap: Record<string, { budget: number; actual: number }> = {
+      "Sprint 1": { budget: 180, actual: 0 },
+      "Sprint 2": { budget: 170, actual: 0 },
+    };
+    expenses.forEach((e) => {
+      const sName = e.sprint || "Sprint 1";
+      if (!sprintMap[sName]) {
+        sprintMap[sName] = { budget: 150, actual: 0 };
+      }
+      if (e.status === "paid" || e.status === "approved") {
+        sprintMap[sName].actual += e.amount / 1000000;
+      }
+    });
+    return Object.entries(sprintMap).map(([name, val]) => ({
+      name,
+      budget: val.budget,
+      actual: Number(val.actual.toFixed(1)),
+    }));
+  }, [expenses]);
 
   const [mainView, setMainView] = useState<"overview" | "strategic_roi">("overview");
   const [searchTerm, setSearchTerm] = useState("");
@@ -293,10 +207,6 @@ export default function ProjectCostPage() {
 
   const saveExpenses = (updatedList: Expense[]) => {
     setExpenses(updatedList);
-    if (typeof window !== "undefined") {
-      localStorage.setItem(`ftodo_expenses_${projectId}`, JSON.stringify(updatedList));
-      window.dispatchEvent(new Event("ftodo_permissions_updated"));
-    }
   };
 
   if (!isOwner && !hasPermission("cost")) {

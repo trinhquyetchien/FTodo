@@ -69,104 +69,13 @@ const COLUMNS = [
   { id: "DONE", title: "Hoàn thành (Done)", color: "border-emerald-400 dark:border-emerald-700", badgeColor: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" },
 ];
 
-const INITIAL_TASKS: BoardTask[] = [
-  {
-    id: "FT-101",
-    title: "Thiết kế Database Schema PostgreSQL với Prisma ORM",
-    type: "TASK",
-    epic: "Kiến trúc Backend",
-    status: "TODO",
-    priority: "Cao",
-    points: 5,
-    assignee: "QC",
-    assigneeName: "Trịnh Quyết Chiến",
-  },
-  {
-    id: "FT-102",
-    title: "Xây dựng luồng Đăng nhập, JWT Refresh Token & Cookie",
-    type: "STORY",
-    epic: "Xác thực & Bảo mật",
-    status: "TODO",
-    priority: "Cao",
-    points: 8,
-    assignee: "VA",
-    assigneeName: "Nguyễn Văn An",
-  },
-  {
-    id: "FT-103",
-    title: "Khởi tạo Next.js App Router và tích hợp Shadcn/ui Tailwind",
-    type: "TASK",
-    epic: "Giao diện Cốt lõi",
-    status: "IN_PROGRESS",
-    priority: "Cao",
-    points: 3,
-    assignee: "VA",
-    assigneeName: "Nguyễn Văn An",
-  },
-  {
-    id: "FT-104",
-    title: "Lỗi vỡ layout khi đổi màn hình di động trên bảng Scrum",
-    type: "BUG",
-    epic: "Giao diện Cốt lõi",
-    status: "IN_PROGRESS",
-    priority: "Cao",
-    points: 2,
-    assignee: "TB",
-    assigneeName: "Trần Thị Bình",
-  },
-  {
-    id: "FT-105",
-    title: "Tài liệu Swagger OpenAPI và hướng dẫn API Endpoints",
-    type: "TASK",
-    epic: "Kiến trúc Backend",
-    status: "REVIEW",
-    priority: "Thấp",
-    points: 2,
-    assignee: "TB",
-    assigneeName: "Trần Thị Bình",
-  },
-  {
-    id: "FT-106",
-    title: "Thiết lập Docker Compose Multi-container (NestJS + Postgres)",
-    type: "TASK",
-    epic: "DevOps & CI/CD",
-    status: "DONE",
-    priority: "Cao",
-    points: 5,
-    assignee: "QC",
-    assigneeName: "Trịnh Quyết Chiến",
-  },
-  {
-    id: "FT-107",
-    title: "Cấu hình RBAC Matrix phân quyền động theo nhóm vai trò",
-    type: "STORY",
-    epic: "Xác thực & Bảo mật",
-    status: "DONE",
-    priority: "Cao",
-    points: 8,
-    assignee: "QC",
-    assigneeName: "Trịnh Quyết Chiến",
-  },
-];
-
 export default function BoardPage() {
   const { project } = useProject();
   const { user } = useAuth();
-  const projectId = project?.id || "ftodo-core";
+  const projectId = project?.id || "";
 
-  const [tasks, setTasks] = useState<BoardTask[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(`ftodo_board_tasks_${projectId}`);
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {}
-      }
-    }
-    return INITIAL_TASKS;
-  });
-
-  const [isLoading, setIsLoading] = useState(false);
+  const [tasks, setTasks] = useState<BoardTask[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Synchronize live tasks from PostgreSQL backend
   useEffect(() => {
@@ -175,48 +84,49 @@ export default function BoardPage() {
       try {
         setIsLoading(true);
         const data = await api.tasks.getTasks(project.id);
-        if (isMounted && Array.isArray(data) && data.length > 0) {
-          const mapped: BoardTask[] = data.map((t: any) => {
-            const prio = t.priority === "HIGH" ? "Cao" : t.priority === "LOW" ? "Thấp" : "Trung bình";
-            let type: BoardTask["type"] = "TASK";
-            const titleLower = (t.title || "").toLowerCase();
-            if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
-              type = "BUG";
-            } else if (titleLower.includes("xác thực") || titleLower.includes("jwt") || titleLower.includes("hệ thống") || t.points >= 8) {
-              type = "STORY";
-            }
+        if (isMounted) {
+          if (Array.isArray(data)) {
+            const mapped: BoardTask[] = data.map((t: any) => {
+              const prio = t.priority === "HIGH" ? "Cao" : t.priority === "LOW" ? "Thấp" : "Trung bình";
+              let type: BoardTask["type"] = "TASK";
+              const titleLower = (t.title || "").toLowerCase();
+              if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
+                type = "BUG";
+              } else if (titleLower.includes("xác thực") || titleLower.includes("jwt") || titleLower.includes("hệ thống") || (t.points && t.points >= 8)) {
+                type = "STORY";
+              }
 
-            let epic = "Giao diện Cốt lõi";
-            if (titleLower.includes("jwt") || titleLower.includes("xác thực") || titleLower.includes("bảo mật") || titleLower.includes("rbac")) {
-              epic = "Xác thực & Bảo mật";
-            } else if (titleLower.includes("schema") || titleLower.includes("postgresql") || titleLower.includes("database") || titleLower.includes("docker") || titleLower.includes("backend")) {
-              epic = "Kiến trúc Backend";
-            } else if (titleLower.includes("chi phí") || titleLower.includes("ngân sách")) {
-              epic = "Quản lý Tài chính";
-            } else if (titleLower.includes("chat") || titleLower.includes("thời gian thực")) {
-              epic = "Giao tiếp Đội ngũ";
-            }
+              let epic = "Kiến trúc Cốt lõi";
+              if (titleLower.includes("jwt") || titleLower.includes("xác thực") || titleLower.includes("bảo mật") || titleLower.includes("rbac")) {
+                epic = "Xác thực & Bảo mật";
+              } else if (titleLower.includes("schema") || titleLower.includes("postgresql") || titleLower.includes("database") || titleLower.includes("docker") || titleLower.includes("backend")) {
+                epic = "Kiến trúc Backend";
+              } else if (titleLower.includes("chi phí") || titleLower.includes("ngân sách")) {
+                epic = "Quản lý Tài chính";
+              } else if (titleLower.includes("chat") || titleLower.includes("thời gian thực")) {
+                epic = "Giao tiếp Đội ngũ";
+              }
 
-            return {
-              id: t.code || `FT-${t.id.slice(0, 4).toUpperCase()}`,
-              backendId: t.id,
-              title: t.title,
-              type,
-              epic,
-              status: (t.status || "TODO") as BoardTask["status"],
-              priority: prio as BoardTask["priority"],
-              points: t.points || 1,
-              assignee: t.assignee?.avatar || (t.assignee?.name?.includes("Chiến") ? "QC" : t.assignee?.name?.includes("An") ? "VA" : "TB"),
-              assigneeName: t.assignee?.name || "Chưa phân công",
-            };
-          });
-          setTasks(mapped);
-          if (typeof window !== "undefined") {
-            localStorage.setItem(`ftodo_board_tasks_${projectId}`, JSON.stringify(mapped));
+              return {
+                id: t.code || `FT-${t.id.slice(0, 4).toUpperCase()}`,
+                backendId: t.id,
+                title: t.title,
+                type,
+                epic,
+                status: (t.status || "TODO") as BoardTask["status"],
+                priority: prio as BoardTask["priority"],
+                points: t.points || 1,
+                assignee: t.assignee?.avatar || (t.assignee?.name ? t.assignee.name.slice(0, 2).toUpperCase() : "US"),
+                assigneeName: t.assignee?.name || "Chưa phân công",
+              };
+            });
+            setTasks(mapped);
+          } else {
+            setTasks([]);
           }
         }
-      } catch {
-        // Fallback gracefully to cached localStorage or initial tasks
+      } catch (err) {
+        console.error("Lỗi khi tải task từ PostgreSQL:", err);
       } finally {
         if (isMounted) setIsLoading(false);
       }

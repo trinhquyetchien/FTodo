@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   CheckSquare,
   Search,
@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useProject } from "../project-context";
+import { api } from "@/lib/api";
 
 interface Issue {
   id: string;
@@ -58,93 +59,66 @@ interface Issue {
   sprint: string;
 }
 
-const INITIAL_ISSUES: Issue[] = [
-  {
-    id: "iss-1",
-    key: "FT-101",
-    summary: "Thiết kế cơ sở dữ liệu PostgreSQL và Prisma schema",
-    type: "task",
-    status: "done",
-    priority: "high",
-    points: 5,
-    assignee: "Trần Thị Bình",
-    sprint: "Sprint 1",
-  },
-  {
-    id: "iss-2",
-    key: "FT-102",
-    summary: "Xây dựng hệ thống Xác thực JWT và Phân quyền theo nhóm",
-    type: "story",
-    status: "in_progress",
-    priority: "highest",
-    points: 8,
-    assignee: "Nguyễn Văn An",
-    sprint: "Sprint 1",
-  },
-  {
-    id: "iss-3",
-    key: "FT-103",
-    summary: "Xây dựng giao diện Bảng Scrum kéo thả dnd-kit",
-    type: "story",
-    status: "in_progress",
-    priority: "high",
-    points: 8,
-    assignee: "Trịnh Quyết Chiến",
-    sprint: "Sprint 1",
-  },
-  {
-    id: "iss-4",
-    key: "FT-104",
-    summary: "Quản lý Chi phí, Hóa đơn và Phân quyền xem tab Cost",
-    type: "story",
-    status: "review",
-    priority: "medium",
-    points: 5,
-    assignee: "Nguyễn Văn An",
-    sprint: "Sprint 1",
-  },
-  {
-    id: "iss-5",
-    key: "FT-105",
-    summary: "Lỗi đồng bộ WebSocket khi gửi tin nhắn nhanh",
-    type: "bug",
-    status: "todo",
-    priority: "highest",
-    points: 3,
-    assignee: "Nguyễn Văn An",
-    sprint: "Sprint 1",
-  },
-  {
-    id: "iss-6",
-    key: "FT-106",
-    summary: "Tích hợp biểu đồ Recharts cho burndown và velocity",
-    type: "task",
-    status: "done",
-    priority: "medium",
-    points: 3,
-    assignee: "Trịnh Quyết Chiến",
-    sprint: "Sprint 1",
-  },
-  {
-    id: "iss-7",
-    key: "FT-107",
-    summary: "Thiết lập pipeline CI/CD với Docker Compose",
-    type: "task",
-    status: "todo",
-    priority: "low",
-    points: 5,
-    assignee: "Trịnh Quyết Chiến",
-    sprint: "Sprint 2",
-  },
-];
-
 export default function IssuesPage() {
   const { project } = useProject();
-  const [issues, setIssues] = useState<Issue[]>(INITIAL_ISSUES);
+  const [issues, setIssues] = useState<Issue[]>([]);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  // Sync issues live from PostgreSQL database
+  useEffect(() => {
+    let isMounted = true;
+    const loadIssues = async () => {
+      if (!project?.id) return;
+      try {
+        const tasks = await api.tasks.getTasks(project.id);
+        if (isMounted && Array.isArray(tasks)) {
+          const mapped: Issue[] = tasks.map((t: any) => {
+            const prio = (t.priority || "MEDIUM").toLowerCase();
+            const priority: Issue["priority"] = 
+              prio === "urgent" ? "highest" :
+              prio === "high" ? "high" :
+              prio === "low" ? "low" : "medium";
+
+            let type: Issue["type"] = "task";
+            const titleLower = (t.title || "").toLowerCase();
+            if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
+              type = "bug";
+            } else if (titleLower.includes("jwt") || titleLower.includes("xác thực") || t.points >= 5) {
+              type = "story";
+            }
+
+            const stat = (t.status || "TODO").toLowerCase();
+            const status: Issue["status"] = 
+              stat === "done" ? "done" :
+              stat === "in_progress" ? "in_progress" :
+              stat === "review" ? "review" : "todo";
+
+            return {
+              id: t.id,
+              key: t.code || `FT-${t.id.slice(0, 4).toUpperCase()}`,
+              summary: t.title,
+              type,
+              status,
+              priority,
+              points: t.points || 1,
+              assignee: t.assignee?.name || "Chưa phân công",
+              sprint: t.sprint?.name || (t.sprintId ? "Sprint 1" : "Backlog"),
+            };
+          });
+          setIssues(mapped);
+        }
+      } catch (err) {
+        // Backend error handled cleanly
+      }
+    };
+    loadIssues();
+    return () => {
+      isMounted = false;
+    };
+  }, [project?.id]);
 
   // New Issue Form
   const [newSummary, setNewSummary] = useState("");
@@ -162,20 +136,39 @@ export default function IssuesPage() {
     return matchesSearch && matchesType && matchesStatus;
   });
 
-  const handleCreateIssue = (e: React.FormEvent) => {
+  const handleCreateIssue = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSummary.trim()) return;
 
+    let createdId = "iss-" + Date.now();
+    let createdKey = `FT-${100 + issues.length + 1}`;
+
+    if (project?.id) {
+      try {
+        const res = await api.tasks.createTask(project.id, {
+          title: newSummary.trim(),
+          points: parseInt(newPoints) || 1,
+          priority: newPriority === "highest" ? "HIGH" : newPriority === "high" ? "HIGH" : newPriority === "low" ? "LOW" : "MEDIUM",
+        });
+        if (res?.id) {
+          createdId = res.id;
+          if (res.code) createdKey = res.code;
+        }
+      } catch (err) {
+        console.warn("Lỗi khi tạo issue lên server:", err);
+      }
+    }
+
     const newIss: Issue = {
-      id: "iss-" + Date.now(),
-      key: `FT-${100 + issues.length + 1}`,
+      id: createdId,
+      key: createdKey,
       summary: newSummary.trim(),
       type: newType,
       status: "todo",
       priority: newPriority,
       points: parseInt(newPoints) || 1,
       assignee: "Chưa phân công",
-      sprint: "Sprint 1",
+      sprint: "Backlog",
     };
 
     setIssues([newIss, ...issues]);

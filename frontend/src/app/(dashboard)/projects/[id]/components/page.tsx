@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Boxes,
   Plus,
@@ -35,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useProject } from "../project-context";
+import { api } from "@/lib/api";
 
 interface ArchitectureComponent {
   id: string;
@@ -52,8 +53,8 @@ const INITIAL_COMPONENTS: ArchitectureComponent[] = [
     name: "Frontend Web UI (Next.js 16 & Tailwind)",
     description: "Toàn bộ giao diện người dùng, shadcn/ui components và luồng thao tác kéo thả Scrum.",
     lead: "Trịnh Quyết Chiến",
-    issuesCount: 8,
-    completedCount: 6,
+    issuesCount: 0,
+    completedCount: 0,
     iconType: "frontend",
   },
   {
@@ -61,8 +62,8 @@ const INITIAL_COMPONENTS: ArchitectureComponent[] = [
     name: "Backend Core & Auth API (NestJS)",
     description: "Kiến trúc máy chủ NestJS, xác thực JWT, guards phân quyền và nghiệp vụ Sprint/Task.",
     lead: "Nguyễn Văn An",
-    issuesCount: 7,
-    completedCount: 5,
+    issuesCount: 0,
+    completedCount: 0,
     iconType: "backend",
   },
   {
@@ -70,8 +71,8 @@ const INITIAL_COMPONENTS: ArchitectureComponent[] = [
     name: "Database & ORM (PostgreSQL & Prisma)",
     description: "Mô hình quan hệ dữ liệu, migrations, quan hệ dự án, thành viên và chi phí.",
     lead: "Trần Thị Bình",
-    issuesCount: 4,
-    completedCount: 4,
+    issuesCount: 0,
+    completedCount: 0,
     iconType: "database",
   },
   {
@@ -79,8 +80,8 @@ const INITIAL_COMPONENTS: ArchitectureComponent[] = [
     name: "Realtime Chat & Events (Socket.io)",
     description: "Kênh trao đổi nội bộ thời gian thực theo từng dự án, broadcast sự kiện cập nhật task.",
     lead: "Nguyễn Văn An",
-    issuesCount: 5,
-    completedCount: 2,
+    issuesCount: 0,
+    completedCount: 0,
     iconType: "realtime",
   },
   {
@@ -88,8 +89,8 @@ const INITIAL_COMPONENTS: ArchitectureComponent[] = [
     name: "DevOps & Cloud (Docker Compose & AWS)",
     description: "Containerization hệ thống, thiết lập PostgreSQL container và CI/CD tự động.",
     lead: "Trịnh Quyết Chiến",
-    issuesCount: 3,
-    completedCount: 2,
+    issuesCount: 0,
+    completedCount: 0,
     iconType: "devops",
   },
 ];
@@ -97,6 +98,61 @@ const INITIAL_COMPONENTS: ArchitectureComponent[] = [
 export default function ComponentsPage() {
   const { project, isOwner } = useProject();
   const [components, setComponents] = useState<ArchitectureComponent[]>(INITIAL_COMPONENTS);
+
+  // Sync component statistics live from real PostgreSQL tasks
+  useEffect(() => {
+    let isMounted = true;
+    const loadTaskStats = async () => {
+      if (!project?.id) return;
+      try {
+        const tasks = await api.tasks.getTasks(project.id);
+        if (isMounted && Array.isArray(tasks)) {
+          const stats = {
+            frontend: { total: 0, done: 0 },
+            backend: { total: 0, done: 0 },
+            database: { total: 0, done: 0 },
+            realtime: { total: 0, done: 0 },
+            devops: { total: 0, done: 0 },
+          };
+
+          tasks.forEach((t: any) => {
+            const title = (t.title || "").toLowerCase();
+            const isDone = t.status === "DONE";
+            if (title.includes("giao diện") || title.includes("ui") || title.includes("bảng") || title.includes("board")) {
+              stats.frontend.total++;
+              if (isDone) stats.frontend.done++;
+            } else if (title.includes("db") || title.includes("database") || title.includes("postgres") || title.includes("prisma")) {
+              stats.database.total++;
+              if (isDone) stats.database.done++;
+            } else if (title.includes("chat") || title.includes("realtime") || title.includes("socket")) {
+              stats.realtime.total++;
+              if (isDone) stats.realtime.done++;
+            } else if (title.includes("docker") || title.includes("ci/cd") || title.includes("deploy") || title.includes("cloud")) {
+              stats.devops.total++;
+              if (isDone) stats.devops.done++;
+            } else {
+              stats.backend.total++;
+              if (isDone) stats.backend.done++;
+            }
+          });
+
+          setComponents((prev) =>
+            prev.map((c) => ({
+              ...c,
+              issuesCount: stats[c.iconType]?.total ?? c.issuesCount,
+              completedCount: stats[c.iconType]?.done ?? c.completedCount,
+            }))
+          );
+        }
+      } catch (err) {
+        // Backend error handled cleanly
+      }
+    };
+    loadTaskStats();
+    return () => {
+      isMounted = false;
+    };
+  }, [project?.id]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");

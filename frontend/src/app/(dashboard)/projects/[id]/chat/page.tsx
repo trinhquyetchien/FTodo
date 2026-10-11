@@ -61,196 +61,6 @@ interface TeamMember {
   unreadCount?: number;
 }
 
-const initialChannels: Channel[] = [
-  { id: "general", name: "chung", description: "Kênh thảo luận chung cho toàn bộ dự án", unreadCount: 0 },
-  { id: "dev", name: "phat-trien", description: "Thảo luận kỹ thuật, PR, backend và frontend", unreadCount: 2 },
-  { id: "sprint-1", name: "sprint-1-goals", description: "Bàn luận mục tiêu và tiến độ Sprint 1", unreadCount: 0 },
-  { id: "announcements", name: "thong-bao", description: "Thông báo chính thức từ Product Owner & Scrum Master", unreadCount: 1 },
-];
-
-const teamMembers: TeamMember[] = [
-  { id: "u2", name: "Nguyễn Văn An", role: "Scrum Master", status: "online", avatar: "VA", email: "an.nguyen@ftodo.vn", unreadCount: 1 },
-  { id: "u3", name: "Trần Thị Bình", role: "Senior Dev", status: "busy", avatar: "TB", email: "binh.tran@ftodo.vn" },
-  { id: "u4", name: "Lê Hoàng Dũng", role: "Frontend Dev", status: "online", avatar: "HD", email: "dung.le@ftodo.vn" },
-  { id: "u5", name: "Phạm Minh Trang", role: "QA Engineer", status: "online", avatar: "MT", email: "trang.pham@ftodo.vn" },
-];
-
-const initialChannelMessages: Record<string, Message[]> = {
-  general: [
-    {
-      id: "m1",
-      sender: { name: "Hệ thống", role: "BOT", avatar: "BOT" },
-      content: "Sprint 1 đã chính thức bắt đầu với 14 User Stories được chọn vào Backlog.",
-      timestamp: "09:00",
-      reactions: [{ emoji: "🚀", count: 4, users: ["u1", "u2", "u3", "u5"] }],
-      isSystem: true,
-    },
-    {
-      id: "m2",
-      sender: { name: "Trịnh Quyết Chiến", role: "Product Owner", avatar: "QC", isCurrentUser: true },
-      content: "Chào cả team! Mục tiêu tuần này là hoàn thiện luồng Xác thực JWT, Bảng Scrum kéo thả và Hệ thống Phân quyền nhé.",
-      timestamp: "09:05",
-      reactions: [
-        { emoji: "👍", count: 3, users: ["u2", "u3", "u5"] },
-        { emoji: "🔥", count: 2, users: ["u2", "u4"] },
-      ],
-    },
-    {
-      id: "m3",
-      sender: { name: "Nguyễn Văn An", role: "Scrum Master", avatar: "VA" },
-      content: "Daily Scrum sẽ diễn ra vào 9:30 hàng ngày trên Google Meet. Các bạn chuẩn bị cập nhật 3 câu hỏi nhé!",
-      timestamp: "09:12",
-      reactions: [{ emoji: "🙌", count: 3, users: ["u1", "u3", "u4"] }],
-    },
-    {
-      id: "m4",
-      sender: { name: "Trần Thị Bình", role: "Senior Dev", avatar: "TB" },
-      content: "API specs cho module Auth và Projects đã cập nhật xong trên Swagger. Mọi người có thể xem tài liệu đính kèm bên dưới:",
-      timestamp: "09:20",
-      reactions: [{ emoji: "❤️", count: 2, users: ["u1", "u4"] }],
-      attachment: { name: "API_Swagger_v1.1.pdf", size: "1.4 MB", type: "pdf" },
-    },
-  ],
-  dev: [
-    {
-      id: "d1",
-      sender: { name: "Lê Hoàng Dũng", role: "Frontend Dev", avatar: "HD" },
-      content: "Phần UI phân quyền nhóm và cấp quyền tab đã chạy mượt trên Next.js 15 rồi nhé!",
-      timestamp: "10:15",
-      reactions: [{ emoji: "🎉", count: 3, users: ["u1", "u2", "u3"] }],
-    },
-    {
-      id: "d2",
-      sender: { name: "Trần Thị Bình", role: "Senior Dev", avatar: "TB" },
-      content: "Nhớ dùng TanStack Query để cache permissions ở frontend nhé, tránh fetch lặp lại nhiều lần.",
-      timestamp: "10:18",
-      reactions: [{ emoji: "👌", count: 2, users: ["u4", "u1"] }],
-    },
-  ],
-  "sprint-1": [
-    {
-      id: "s1",
-      sender: { name: "Nguyễn Văn An", role: "Scrum Master", avatar: "VA" },
-      content: "Burndown chart hôm nay đang đi đúng tiến độ. Cố gắng giữ velocity 28 points nhé mọi người!",
-      timestamp: "08:45",
-      reactions: [{ emoji: "💪", count: 4, users: ["u1", "u2", "u3", "u4"] }],
-    },
-  ],
-  announcements: [
-    {
-      id: "a1",
-      sender: { name: "Trịnh Quyết Chiến", role: "Product Owner", avatar: "QC", isCurrentUser: true },
-      content: "📢 Dự kiến Demo Sprint Review vào chiều thứ Sáu lúc 15:30. Khách hàng sẽ tham gia để nghiệm thu luồng Quản lý Dự án.",
-      timestamp: "08:00",
-      reactions: [{ emoji: "👀", count: 5, users: ["u1", "u2", "u3", "u4", "u5"] }],
-    },
-  ],
-};
-
-const initialDmMessages: Record<string, Message[]> = {
-  u2: [
-    {
-      id: "dm-u2-1",
-      sender: { name: "Nguyễn Văn An", role: "Scrum Master", avatar: "VA" },
-      content: "Chào Chiến! Tiến độ Sprint 1 hôm nay: Team đã hoàn thành 18/28 Story Points rồi nhé.",
-      timestamp: "09:15",
-      reactions: [{ emoji: "🔥", count: 1, users: ["me"] }],
-    },
-    {
-      id: "dm-u2-2",
-      sender: { name: "Trịnh Quyết Chiến", role: "Product Owner", avatar: "QC", isCurrentUser: true },
-      content: "Tuyệt vời An ơi! Có blocker hay trở ngại nào bên phía hạ tầng cần mình hỗ trợ không?",
-      timestamp: "09:17",
-      reactions: [{ emoji: "👍", count: 1, users: ["u2"] }],
-    },
-    {
-      id: "dm-u2-3",
-      sender: { name: "Nguyễn Văn An", role: "Scrum Master", avatar: "VA" },
-      content: "Hiện tại các API bên backend đã đồng bộ Swagger đầy đủ, không có điểm nghẽn nào lớn. Chiều nay mình sẽ chủ trì Daily Scrum lúc 14:00 nhé.",
-      timestamp: "09:20",
-      reactions: [],
-    },
-    {
-      id: "dm-u2-4",
-      sender: { name: "Nguyễn Văn An", role: "Scrum Master", avatar: "VA" },
-      content: "Mình gửi file tổng hợp Velocity của các Sprint trước để Chiến xem qua làm báo cáo nhé:",
-      timestamp: "09:21",
-      reactions: [],
-      attachment: { name: "Sprint_Velocity_Report_Q4.pdf", size: "1.8 MB", type: "pdf" },
-    },
-  ],
-  u3: [
-    {
-      id: "dm-u3-1",
-      sender: { name: "Trần Thị Bình", role: "Senior Dev", avatar: "TB" },
-      content: "Anh Chiến ơi, em đã cấu hình xong Swagger API docs trên NestJS tại đường dẫn /api/docs rồi ạ.",
-      timestamp: "08:30",
-      reactions: [{ emoji: "👏", count: 1, users: ["me"] }],
-    },
-    {
-      id: "dm-u3-2",
-      sender: { name: "Trịnh Quyết Chiến", role: "Product Owner", avatar: "QC", isCurrentUser: true },
-      content: "Tốt quá Bình. Các endpoint Auth JWT và Projects đã bổ sung schema đầy đủ chưa em?",
-      timestamp: "08:32",
-      reactions: [],
-    },
-    {
-      id: "dm-u3-3",
-      sender: { name: "Trần Thị Bình", role: "Senior Dev", avatar: "TB" },
-      content: "Dạ đã có đầy đủ DTO và Bearer Auth để FE có thể authorize và test trực tiếp trên Swagger UI luôn anh nhé!",
-      timestamp: "08:35",
-      reactions: [{ emoji: "🚀", count: 1, users: ["me"] }],
-    },
-  ],
-  u4: [
-    {
-      id: "dm-u4-1",
-      sender: { name: "Lê Hoàng Dũng", role: "Frontend Dev", avatar: "HD" },
-      content: "Anh Chiến test thử Bảng Scrum kéo thả với Dark Mode em vừa push lên nhé, hiệu ứng thả card rất mượt ạ.",
-      timestamp: "10:05",
-      reactions: [{ emoji: "✨", count: 1, users: ["me"] }],
-    },
-    {
-      id: "dm-u4-2",
-      sender: { name: "Trịnh Quyết Chiến", role: "Product Owner", avatar: "QC", isCurrentUser: true },
-      content: "Anh vừa test qua rồi, kéo thả thẻ task cập nhật trạng thái rất êm. Đừng quên responsive trên màn hình laptop nhỏ nha Dũng.",
-      timestamp: "10:08",
-      reactions: [],
-    },
-    {
-      id: "dm-u4-3",
-      sender: { name: "Lê Hoàng Dũng", role: "Frontend Dev", avatar: "HD" },
-      content: "Dạ vâng anh, em đã dùng container queries và cuộn ngang mềm nên hiển thị tốt trên cả màn 13-inch ạ!",
-      timestamp: "10:10",
-      reactions: [{ emoji: "👌", count: 1, users: ["me"] }],
-    },
-  ],
-  u5: [
-    {
-      id: "dm-u5-1",
-      sender: { name: "Phạm Minh Trang", role: "QA Engineer", avatar: "MT" },
-      content: "Em đã cập nhật bộ Test Cases kiểm thử chức năng Lời mời dự án & Lịch sử hoạt động Audit Log.",
-      timestamp: "11:00",
-      reactions: [{ emoji: "👍", count: 1, users: ["me"] }],
-    },
-    {
-      id: "dm-u5-2",
-      sender: { name: "Trịnh Quyết Chiến", role: "Product Owner", avatar: "QC", isCurrentUser: true },
-      content: "Cảm ơn Trang! Luồng chấp nhận/từ chối lời mời có gặp lỗi nào không em?",
-      timestamp: "11:03",
-      reactions: [],
-    },
-    {
-      id: "dm-u5-3",
-      sender: { name: "Phạm Minh Trang", role: "QA Engineer", avatar: "MT" },
-      content: "Mọi case Đang chờ, Chấp nhận và Từ chối đều hoạt động chuẩn xác theo nghiệp vụ rồi anh ạ. Em đính kèm checklist chi tiết ở dưới nhé!",
-      timestamp: "11:05",
-      reactions: [{ emoji: "🎉", count: 1, users: ["me"] }],
-      attachment: { name: "QA_Audit_Log_Checklist.pdf", size: "850 KB", type: "pdf" },
-    },
-  ],
-};
-
 type ActiveChatTarget = 
   | { type: "channel"; id: string }
   | { type: "dm"; id: string };
@@ -258,43 +68,60 @@ type ActiveChatTarget =
 export default function ProjectChatPage() {
   const { project } = useProject();
   const { user } = useAuth();
-  const [channels, setChannels] = useState<Channel[]>(initialChannels);
-  const [members] = useState<TeamMember[]>(teamMembers);
-  const [activeChat, setActiveChat] = useState<ActiveChatTarget>({ type: "channel", id: "general" });
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [activeChat, setActiveChat] = useState<ActiveChatTarget>({ type: "channel", id: "" });
   const [mobileTab, setMobileTab] = useState<"list" | "chat">("chat");
   
-  const [channelMessages, setChannelMessages] = useState<Record<string, Message[]>>(initialChannelMessages);
-  const [dmMessages, setDmMessages] = useState<Record<string, Message[]>>(initialDmMessages);
+  const [channelMessages, setChannelMessages] = useState<Record<string, Message[]>>({});
+  const [dmMessages, setDmMessages] = useState<Record<string, Message[]>>({});
   
   const [inputMessage, setInputMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showRightSidebar, setShowRightSidebar] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Sync channels from PostgreSQL database
+  // Sync channels and team members from PostgreSQL database
   useEffect(() => {
     let isMounted = true;
-    const loadChannels = async () => {
+    const loadChatData = async () => {
       if (!project?.id) return;
       try {
-        const data = await api.chat.getChannels(project.id);
-        if (isMounted && Array.isArray(data) && data.length > 0) {
-          const mappedChannels: Channel[] = data.map((c: any) => ({
+        const [channelsRes, membersRes] = await Promise.allSettled([
+          api.chat.getChannels(project.id),
+          api.members.getMembers(project.id),
+        ]);
+
+        if (isMounted && channelsRes.status === "fulfilled" && Array.isArray(channelsRes.value)) {
+          const mappedChannels: Channel[] = channelsRes.value.map((c: any) => ({
             id: c.id,
             name: c.name,
             description: c.description || "",
             unreadCount: 0,
           }));
           setChannels(mappedChannels);
-          // Set active chat to first backend channel if currently default
-          setActiveChat((prev) => (prev.id === "general" ? { type: "channel", id: mappedChannels[0].id } : prev));
+          if (mappedChannels.length > 0) {
+            setActiveChat((prev) => (prev.id ? prev : { type: "channel", id: mappedChannels[0].id }));
+          }
+        }
+
+        if (isMounted && membersRes.status === "fulfilled" && Array.isArray(membersRes.value)) {
+          const mappedMembers: TeamMember[] = membersRes.value.map((m: any) => ({
+            id: m.userId || m.id,
+            name: m.name || m.user?.name || "Thành viên",
+            role: m.roleGroup?.name || "DEV",
+            status: "online",
+            avatar: m.avatar || m.user?.avatar || (m.name?.includes("Chiến") ? "QC" : m.name?.includes("An") ? "VA" : "US"),
+            email: m.email || m.user?.email || "",
+          }));
+          setMembers(mappedMembers);
         }
       } catch (err) {
-        // Fallback to local
+        // Backend error handled cleanly
       }
     };
 
-    loadChannels();
+    loadChatData();
     return () => {
       isMounted = false;
     };
@@ -308,13 +135,13 @@ export default function ProjectChatPage() {
     const loadMessages = async () => {
       try {
         const data = await api.chat.getMessages(activeChat.id);
-        if (isMounted && Array.isArray(data) && data.length > 0) {
+        if (isMounted && Array.isArray(data)) {
           const mapped: Message[] = data.map((m: any) => ({
             id: m.id,
             sender: {
               name: m.user?.name || "Thành viên",
               role: m.user?.id === project?.ownerId ? "Product Owner" : "Dev",
-              avatar: m.user?.avatar || "US",
+              avatar: m.user?.avatar || (m.user?.name?.includes("Chiến") ? "QC" : m.user?.name?.includes("An") ? "VA" : "US"),
               isCurrentUser: m.user?.id === user?.id || m.user?.email === user?.email,
             },
             content: m.content,
@@ -856,8 +683,8 @@ export default function ProjectChatPage() {
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2 p-1.5 rounded-lg text-xs">
-                      <Avatar className="h-5 w-5 text-[9px]"><AvatarFallback>QC</AvatarFallback></Avatar>
-                      <span className="font-medium truncate">Trịnh Quyết Chiến (Bạn)</span>
+                      <Avatar className="h-5 w-5 text-[9px]"><AvatarFallback>{user?.avatar || "QC"}</AvatarFallback></Avatar>
+                      <span className="font-medium truncate">{user?.name || "Bạn"} (Bạn)</span>
                     </div>
                     {members.map((m) => (
                       <div key={m.id} className="flex items-center gap-2 p-1.5 rounded-lg text-xs">

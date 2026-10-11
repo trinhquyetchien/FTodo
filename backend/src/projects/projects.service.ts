@@ -20,7 +20,21 @@ export class ProjectsService {
     const adminRole = await this.prisma.roleGroup.create({
       data: {
         name: 'Admin',
-        permissions: ['overview', 'board', 'backlog', 'members', 'chat', 'cost', 'settings'],
+        permissions: [
+          'overview',
+          'board',
+          'backlog',
+          'timeline',
+          'issues',
+          'reports',
+          'releases',
+          'components',
+          'members',
+          'chat',
+          'cost',
+          'activity',
+          'settings',
+        ],
         isDefault: false,
         projectId: project.id,
       },
@@ -188,7 +202,21 @@ export class ProjectsService {
     // Compute effective permissions for current user
     let effectivePermissions: string[] = [];
     if (isOwner) {
-      effectivePermissions = ['overview', 'board', 'backlog', 'members', 'chat', 'cost', 'settings'];
+      effectivePermissions = [
+        'overview',
+        'board',
+        'backlog',
+        'timeline',
+        'issues',
+        'reports',
+        'releases',
+        'components',
+        'members',
+        'chat',
+        'cost',
+        'activity',
+        'settings',
+      ];
     } else if (memberRecord) {
       const basePerms = memberRecord.roleGroup?.permissions || [];
       const extraPerms = memberRecord.extraPermissions || [];

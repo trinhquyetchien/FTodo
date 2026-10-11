@@ -26,7 +26,7 @@ import {
   Sparkles,
   Menu
 } from "lucide-react";
-import { INITIAL_MOCK_PROJECTS } from "@/lib/mock-data";
+import { api } from "@/lib/api";
 import { Logo } from "@/components/logo";
 import {
   getStoredInvitations,
@@ -76,25 +76,26 @@ export function DashboardHeader() {
       return;
     }
 
-    const loadProject = () => {
-      let found: any = null;
-      if (typeof window !== "undefined") {
-        const saved = localStorage.getItem("ftodo_mock_projects");
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            const list = Array.isArray(parsed)
-              ? parsed
-              : [...(parsed.owned || []), ...(parsed.memberOf || [])];
-            found = list.find((p: any) => p.id === projectId);
-          } catch {}
+    let isMounted = true;
+    const loadProject = async () => {
+      try {
+        const detail = await api.projects.getOne(projectId);
+        if (isMounted && detail) {
+          setCurrentProject(detail);
+          return;
         }
+      } catch {
+        try {
+          const res = await api.projects.getAll();
+          if (isMounted && res) {
+            const list = [...(res.owned || []), ...(res.memberOf || [])];
+            const found = list.find((p: any) => p.id === projectId);
+            if (found) {
+              setCurrentProject(found);
+            }
+          }
+        } catch {}
       }
-      if (!found) {
-        const defaultList = [...INITIAL_MOCK_PROJECTS.owned, ...INITIAL_MOCK_PROJECTS.memberOf];
-        found = defaultList.find((p) => p.id === projectId) || defaultList[0];
-      }
-      setCurrentProject(found);
     };
 
     loadProject();
@@ -103,6 +104,7 @@ export function DashboardHeader() {
     window.addEventListener("ftodo_permissions_updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
     return () => {
+      isMounted = false;
       window.removeEventListener("ftodo_permissions_updated", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
     };

@@ -108,39 +108,12 @@ const defectTrendData = [
   { day: "11/10 (Nay)", opened: 1, resolved: 2 },
 ];
 
-const INITIAL_REPORTS: SubmittedReport[] = [
-  {
-    id: "REP-001",
-    title: "Báo cáo Sprint 1: Hoàn tất Module Auth & Tối ưu Database",
-    type: "sprint",
-    author: "Nguyễn Văn An",
-    authorEmail: "an@example.com",
-    date: "10/10/2026",
-    status: "reviewed",
-    summary: "Đã hoàn thành 85% khối lượng công việc Sprint 1. Hệ thống JWT và phân quyền đã kiểm thử thành công.",
-    completedTasks: "- Thiết kế schema Prisma PostgreSQL\n- Xây dựng API Login, Register, Refresh Token\n- Tích hợp bảo mật RBAC",
-    blockers: "Đang chờ cấu hình DNS cho môi trường Staging.",
-  },
-  {
-    id: "REP-002",
-    title: "Báo cáo Tuần 2: Tiến độ Kiểm thử & Báo cáo Lỗi hệ thống",
-    type: "weekly",
-    author: "Trần Thị Bình",
-    authorEmail: "binh@example.com",
-    date: "11/10/2026",
-    status: "sent",
-    summary: "Đã thực hiện kiểm thử tự động 24 test cases. Phát hiện 2 lỗi giao diện đã được chuyển cho team DEV khắc phục.",
-    completedTasks: "- Viết Test Suite cho luồng đăng nhập\n- Kiểm thử ma trận phân quyền theo vai trò",
-    blockers: "Cần môi trường test có dữ liệu mẫu lớn hơn.",
-  },
-];
-
 export default function ReportsPage() {
   const { project, isOwner } = useProject();
   const { user } = useAuth();
   const projectId = project?.id || "ftodo-core";
 
-  const [reports, setReports] = useState<SubmittedReport[]>(INITIAL_REPORTS);
+  const [reports, setReports] = useState<SubmittedReport[]>([]);
 
   // Load reports from real PostgreSQL database
   useEffect(() => {
@@ -148,21 +121,11 @@ export default function ReportsPage() {
     async function loadReports() {
       try {
         const data = await api.reports.getReports(projectId);
-        if (isMounted && data && Array.isArray(data) && data.length > 0) {
+        if (isMounted && data && Array.isArray(data)) {
           setReports(data);
-          if (typeof window !== "undefined") {
-            localStorage.setItem(`ftodo_reports_${projectId}`, JSON.stringify(data));
-          }
         }
       } catch {
-        if (typeof window !== "undefined") {
-          const saved = localStorage.getItem(`ftodo_reports_${projectId}`);
-          if (saved && isMounted) {
-            try {
-              setReports(JSON.parse(saved));
-            } catch {}
-          }
-        }
+        // Backend error handled cleanly
       }
     }
     loadReports();
@@ -187,9 +150,6 @@ export default function ReportsPage() {
 
   const saveReports = (newList: SubmittedReport[]) => {
     setReports(newList);
-    if (typeof window !== "undefined") {
-      localStorage.setItem(`ftodo_reports_${projectId}`, JSON.stringify(newList));
-    }
   };
 
   const handleSendReport = async (e: React.FormEvent) => {

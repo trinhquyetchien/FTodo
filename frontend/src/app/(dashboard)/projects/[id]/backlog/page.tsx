@@ -87,158 +87,15 @@ const INITIAL_EPICS: WbsEpic[] = [
   { id: "epic-report", name: "Báo cáo & Phê duyệt PDF", color: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300", description: "Báo cáo tuần, PDF viewer, Ký duyệt" },
 ];
 
-const INITIAL_ITEMS: BacklogItem[] = [
-  // Sprint 1 Items (Active)
-  {
-    id: "FT-101",
-    title: "Thiết kế Database Schema PostgreSQL với Prisma ORM",
-    type: "TASK",
-    epicId: "epic-auth",
-    epicName: "Xác thực & Bảo mật",
-    sprint: "SPRINT_1",
-    status: "TODO",
-    priority: "Cao",
-    points: 5,
-    assignee: "QC",
-    assigneeName: "Trịnh Quyết Chiến",
-  },
-  {
-    id: "FT-102",
-    title: "Xây dựng luồng Đăng nhập, JWT Refresh Token & Cookie an toàn",
-    type: "STORY",
-    epicId: "epic-auth",
-    epicName: "Xác thực & Bảo mật",
-    sprint: "SPRINT_1",
-    status: "TODO",
-    priority: "Cao",
-    points: 8,
-    assignee: "VA",
-    assigneeName: "Nguyễn Văn An",
-  },
-  {
-    id: "FT-103",
-    title: "Khởi tạo Next.js App Router và tích hợp Shadcn/ui Tailwind",
-    type: "TASK",
-    epicId: "epic-scrum",
-    epicName: "Scrum Engine & Board",
-    sprint: "SPRINT_1",
-    status: "IN_PROGRESS",
-    priority: "Cao",
-    points: 3,
-    assignee: "VA",
-    assigneeName: "Nguyễn Văn An",
-  },
-  {
-    id: "FT-104",
-    title: "Lỗi vỡ layout khi đổi màn hình di động trên bảng Scrum",
-    type: "BUG",
-    epicId: "epic-scrum",
-    epicName: "Scrum Engine & Board",
-    sprint: "SPRINT_1",
-    status: "IN_PROGRESS",
-    priority: "Cao",
-    points: 2,
-    assignee: "TB",
-    assigneeName: "Trần Thị Bình",
-  },
-  {
-    id: "FT-105",
-    title: "Tài liệu Swagger OpenAPI và hướng dẫn API Endpoints",
-    type: "TASK",
-    epicId: "epic-auth",
-    epicName: "Xác thực & Bảo mật",
-    sprint: "SPRINT_1",
-    status: "REVIEW",
-    priority: "Thấp",
-    points: 2,
-    assignee: "TB",
-    assigneeName: "Trần Thị Bình",
-  },
-  {
-    id: "FT-106",
-    title: "Thiết lập Docker Compose Multi-container (NestJS + Postgres)",
-    type: "TASK",
-    epicId: "epic-auth",
-    epicName: "Xác thực & Bảo mật",
-    sprint: "SPRINT_1",
-    status: "DONE",
-    priority: "Cao",
-    points: 5,
-    assignee: "QC",
-    assigneeName: "Trịnh Quyết Chiến",
-  },
+// Backlog items are fetched live from PostgreSQL via api.tasks.getTasks
 
-  // Backlog Items (Future Sprints)
-  {
-    id: "FT-201",
-    title: "Mô hình tính toán ROI và EVM (Earned Value) tự động theo chi phí thực tế",
-    type: "STORY",
-    epicId: "epic-cost",
-    epicName: "Quản trị Tài chính & ROI",
-    sprint: "BACKLOG",
-    status: "TODO",
-    priority: "Cao",
-    points: 5,
-    assignee: "QC",
-    assigneeName: "Trịnh Quyết Chiến",
-  },
-  {
-    id: "FT-202",
-    title: "Hệ thống xuất hóa đơn và tài liệu chứng từ PDF có đóng dấu điện tử",
-    type: "STORY",
-    epicId: "epic-report",
-    epicName: "Báo cáo & Phê duyệt PDF",
-    sprint: "BACKLOG",
-    status: "TODO",
-    priority: "Trung bình",
-    points: 8,
-    assignee: "VA",
-    assigneeName: "Nguyễn Văn An",
-  },
-  {
-    id: "FT-203",
-    title: "Kiểm thử tải tự động 500 CCU đồng thời với k6 load testing",
-    type: "TASK",
-    epicId: "epic-auth",
-    epicName: "Xác thực & Bảo mật",
-    sprint: "BACKLOG",
-    status: "TODO",
-    priority: "Cao",
-    points: 3,
-    assignee: "TB",
-    assigneeName: "Trần Thị Bình",
-  },
-  {
-    id: "FT-204",
-    title: "Tích hợp Webhook thông báo Slack / Telegram khi có đề xuất chi phí mới",
-    type: "TASK",
-    epicId: "epic-cost",
-    epicName: "Quản trị Tài chính & ROI",
-    sprint: "BACKLOG",
-    status: "TODO",
-    priority: "Thấp",
-    points: 2,
-    assignee: "VA",
-    assigneeName: "Nguyễn Văn An",
-  },
-];
 
 export default function BacklogPage() {
   const { project, isOwner } = useProject();
   const { user } = useAuth();
-  const projectId = project?.id || "ftodo-core";
+  const projectId = project?.id || "";
 
-  const [items, setItems] = useState<BacklogItem[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(`ftodo_backlog_items_${projectId}`);
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {}
-      }
-    }
-    return INITIAL_ITEMS;
-  });
+  const [items, setItems] = useState<BacklogItem[]>([]);
 
   const [activeSprintId, setActiveSprintId] = useState<string | null>(null);
 
@@ -259,7 +116,7 @@ export default function BacklogPage() {
           if (isMounted) setActiveSprintId(sprintId);
         }
 
-        if (isMounted && tasksRes.status === "fulfilled" && Array.isArray(tasksRes.value) && tasksRes.value.length > 0) {
+        if (isMounted && tasksRes.status === "fulfilled" && Array.isArray(tasksRes.value)) {
           const mapped: BacklogItem[] = tasksRes.value.map((t: any) => {
             const prio = t.priority === "HIGH" ? "Cao" : t.priority === "LOW" ? "Thấp" : "Trung bình";
             let type: BacklogItem["type"] = "TASK";
@@ -300,12 +157,9 @@ export default function BacklogPage() {
           });
 
           setItems(mapped);
-          if (typeof window !== "undefined") {
-            localStorage.setItem(`ftodo_backlog_items_${projectId}`, JSON.stringify(mapped));
-          }
         }
       } catch {
-        // Fallback to local
+        // Backend error handled cleanly
       }
     };
 
@@ -331,9 +185,6 @@ export default function BacklogPage() {
 
   const saveItems = (updated: BacklogItem[]) => {
     setItems(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem(`ftodo_backlog_items_${projectId}`, JSON.stringify(updated));
-    }
   };
 
   const moveToSprint = async (id: string, targetSprint: BacklogItem["sprint"]) => {

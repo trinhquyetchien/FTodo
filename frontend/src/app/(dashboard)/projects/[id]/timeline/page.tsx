@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   CalendarRange,
   Layers,
@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProject } from "../project-context";
+import { api } from "@/lib/api";
 
 interface Epic {
   id: string;
@@ -69,93 +70,56 @@ const calcGanttPos = (startStr: string, endStr: string) => {
   };
 };
 
-const INITIAL_EPICS: Epic[] = [
-  {
-    id: "ep-1",
-    key: "EPIC-01",
-    title: "Kiến trúc Xác thực JWT & Phân quyền Chủ/Thành viên",
-    status: "done",
-    startDate: "2026-10-01",
-    endDate: "2026-10-08",
-    startDisplay: "01/10/2026",
-    endDisplay: "08/10/2026",
-    ...calcGanttPos("2026-10-01", "2026-10-08"),
-    progress: 100,
-    points: 13,
-    assignee: "Trịnh Quyết Chiến",
-    color: "bg-emerald-500",
-  },
-  {
-    id: "ep-2",
-    key: "EPIC-02",
-    title: "Bảng Scrum Kéo Thả (Kanban DnD) & Sprint 1",
-    status: "in_progress",
-    startDate: "2026-10-05",
-    endDate: "2026-10-18",
-    startDisplay: "05/10/2026",
-    endDisplay: "18/10/2026",
-    ...calcGanttPos("2026-10-05", "2026-10-18"),
-    progress: 85,
-    points: 21,
-    assignee: "Nguyễn Văn An",
-    color: "bg-blue-500",
-  },
-  {
-    id: "ep-3",
-    key: "EPIC-03",
-    title: "Quản lý Chi phí: Đề xuất chi tiêu & Sếp phê duyệt",
-    status: "in_progress",
-    startDate: "2026-10-10",
-    endDate: "2026-10-25",
-    startDisplay: "10/10/2026",
-    endDisplay: "25/10/2026",
-    ...calcGanttPos("2026-10-10", "2026-10-25"),
-    progress: 55,
-    points: 16,
-    assignee: "Nguyễn Văn An",
-    color: "bg-violet-500",
-  },
-  {
-    id: "ep-4",
-    key: "EPIC-04",
-    title: "Kênh Chat Realtime & Xuất báo cáo PDF cho Sếp",
-    status: "in_progress",
-    startDate: "2026-10-12",
-    endDate: "2026-10-28",
-    startDisplay: "12/10/2026",
-    endDisplay: "28/10/2026",
-    ...calcGanttPos("2026-10-12", "2026-10-28"),
-    progress: 40,
-    points: 18,
-    assignee: "Trần Thị Bình",
-    color: "bg-amber-500",
-  },
-  {
-    id: "ep-5",
-    key: "EPIC-05",
-    title: "Triển khai Cloud Server, Tự động hóa CI/CD & Production",
-    status: "planned",
-    startDate: "2026-10-26",
-    endDate: "2026-11-12",
-    startDisplay: "26/10/2026",
-    endDisplay: "12/11/2026",
-    ...calcGanttPos("2026-10-26", "2026-11-12"),
-    progress: 0,
-    points: 15,
-    assignee: "Trịnh Quyết Chiến",
-    color: "bg-slate-400 dark:bg-slate-600",
-  },
-];
-
-// Today line calculation: 11/10/2026
-const TODAY = new Date("2026-10-11");
+// Today line calculation
+const TODAY = new Date();
 const TODAY_OFFSET_PERCENT =
   ((TODAY.getTime() - TIMELINE_START.getTime()) / (1000 * 3600 * 24) / TOTAL_DAYS) * 100;
 
 export default function TimelinePage() {
   const { project, isOwner } = useProject();
-  const [epics, setEpics] = useState<Epic[]>(INITIAL_EPICS);
+  const [epics, setEpics] = useState<Epic[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+
+  // Sync timeline epics & sprints live from PostgreSQL
+  useEffect(() => {
+    let isMounted = true;
+    const loadTimelineData = async () => {
+      if (!project?.id) return;
+      try {
+        const sprints = await api.sprints.getSprints(project.id);
+        if (isMounted && Array.isArray(sprints) && sprints.length > 0) {
+          const mapped: Epic[] = sprints.map((s: any, idx: number) => {
+            const startStr = s.startDate ? new Date(s.startDate).toISOString().slice(0, 10) : "2026-10-01";
+            const endStr = s.endDate ? new Date(s.endDate).toISOString().slice(0, 10) : "2026-10-25";
+            return {
+              id: s.id,
+              key: `SPRINT-0${idx + 1}`,
+              title: s.name + (s.goal ? `: ${s.goal}` : ""),
+              status: s.status === "ACTIVE" ? "in_progress" : s.status === "COMPLETED" ? "done" : "planned",
+              startDate: startStr,
+              endDate: endStr,
+              startDisplay: new Date(startStr).toLocaleDateString("vi-VN"),
+              endDisplay: new Date(endStr).toLocaleDateString("vi-VN"),
+              ...calcGanttPos(startStr, endStr),
+              progress: s.status === "COMPLETED" ? 100 : s.status === "ACTIVE" ? 65 : 0,
+              points: 20,
+              assignee: "Toàn đội",
+              color: s.status === "COMPLETED" ? "bg-emerald-500" : s.status === "ACTIVE" ? "bg-blue-500" : "bg-slate-400",
+            };
+          });
+          setEpics(mapped);
+        } else if (isMounted && Array.isArray(sprints) && sprints.length === 0) {
+          setEpics([]);
+        }
+      } catch (err) {
+        // Backend error handled cleanly
+      }
+    };
+    loadTimelineData();
+    return () => {
+      isMounted = false;
+    };
+  }, [project?.id]);
 
   // Add Epic modal
   const [isAddEpicOpen, setIsAddEpicOpen] = useState(false);

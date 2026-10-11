@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Rocket,
   Plus,
@@ -27,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useProject } from "../project-context";
+import { api } from "@/lib/api";
 
 interface ReleaseVersion {
   id: string;
@@ -59,9 +60,9 @@ const INITIAL_VERSIONS: ReleaseVersion[] = [
     description: "Bổ sung Bảng Scrum kéo thả, phân quyền nhóm linh hoạt cho thành viên và kênh chat realtime.",
     status: "in_progress",
     releaseDate: "25/10/2026",
-    progress: 65,
-    completedIssues: 13,
-    totalIssues: 20,
+    progress: 0,
+    completedIssues: 0,
+    totalIssues: 0,
   },
   {
     id: "v-3",
@@ -79,6 +80,40 @@ const INITIAL_VERSIONS: ReleaseVersion[] = [
 export default function ReleasesPage() {
   const { project, isOwner } = useProject();
   const [versions, setVersions] = useState<ReleaseVersion[]>(INITIAL_VERSIONS);
+
+  // Sync release version task metrics from PostgreSQL
+  useEffect(() => {
+    let isMounted = true;
+    const loadTaskStats = async () => {
+      if (!project?.id) return;
+      try {
+        const tasks = await api.tasks.getTasks(project.id);
+        if (isMounted && Array.isArray(tasks)) {
+          const total = tasks.length;
+          const completed = tasks.filter((t: any) => t.status === "DONE").length;
+          const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+          setVersions((prev) =>
+            prev.map((v) => {
+              if (v.status === "in_progress") {
+                return {
+                  ...v,
+                  totalIssues: total,
+                  completedIssues: completed,
+                  progress: pct,
+                };
+              }
+              return v;
+            })
+          );
+        }
+      } catch (err) {}
+    };
+    loadTaskStats();
+    return () => {
+      isMounted = false;
+    };
+  }, [project?.id]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newVersion, setNewVersion] = useState("");
   const [newName, setNewName] = useState("");

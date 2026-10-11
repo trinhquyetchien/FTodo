@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, setStoredTokens, removeStoredTokens, getStoredToken } from "./api";
-import { MockUser, MOCK_USERS } from "./mock-data";
+import { MockUser } from "./mock-data";
 
 interface AuthContextType {
   user: MockUser | null;
@@ -158,13 +158,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoggedIn(true);
       window.dispatchEvent(new Event("ftodo_permissions_updated"));
       window.dispatchEvent(new Event("storage"));
-    } catch {
-      // Fallback
-      const targetUser = MOCK_USERS[roleKey] || MOCK_USERS.owner;
-      setUser(targetUser);
-      setIsLoggedIn(true);
-      window.dispatchEvent(new Event("ftodo_permissions_updated"));
-      window.dispatchEvent(new Event("storage"));
+    } catch (err) {
+      console.error("Lỗi khi chuyển tài khoản qua API:", err);
     }
   };
 
