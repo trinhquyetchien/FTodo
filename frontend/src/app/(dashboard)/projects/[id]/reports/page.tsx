@@ -201,7 +201,7 @@ export default function ReportsPage() {
             </h2>
             {isOwner ? (
               <Badge className="bg-amber-600 hover:bg-amber-700 text-xs">
-                Giao diện Sếp (Quản trị & Xem báo cáo PDF)
+                Giao diện Sếp (Quản trị & Đọc báo cáo)
               </Badge>
             ) : (
               <Badge variant="secondary" className="text-xs">
@@ -211,7 +211,7 @@ export default function ReportsPage() {
           </div>
           <p className="text-xs text-muted-foreground mt-1">
             {isOwner
-              ? "Theo dõi chỉ số Burndown, tiếp nhận và đọc báo cáo tài liệu PDF từ các thành viên gửi lên."
+              ? "Theo dõi chỉ số Burndown, tiếp nhận và đọc báo cáo từ các thành viên gửi lên."
               : "Theo dõi tiến độ Sprint của nhóm và gửi báo cáo công việc định kỳ lên Chủ dự án."}
           </p>
         </div>
@@ -291,12 +291,12 @@ export default function ReportsPage() {
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <FileText className="h-4 w-4 text-primary" />
                 {isOwner
-                  ? "Báo cáo từ Nhân viên gửi lên Sếp (Hộp thư nhận & đọc PDF)"
+                  ? "Báo cáo từ Nhân viên gửi lên Sếp (Hộp thư nhận & đọc báo cáo)"
                   : "Báo cáo của bạn gửi lên Sếp (Tiến độ & Kết quả)"}
               </CardTitle>
               <CardDescription className="text-xs">
                 {isOwner
-                  ? "Nhấp vào \"Đọc báo cáo / Xem PDF\" để duyệt nội dung định dạng văn bản chính thức của nhân viên."
+                  ? "Nhấp vào \"Đọc báo cáo\" để duyệt nội dung báo cáo chính thức của nhân viên."
                   : "Các báo cáo định kỳ đã gửi cho Sếp Trịnh Quyết Chiến xem và duyệt."}
               </CardDescription>
             </div>
@@ -372,7 +372,7 @@ export default function ReportsPage() {
                       onClick={() => handleOpenPdf(report)}
                       className="text-xs h-8 gap-1.5 border-primary/40 text-primary hover:bg-primary/5"
                     >
-                      <Eye className="h-3.5 w-3.5" /> Đọc báo cáo (Xem PDF)
+                      <Eye className="h-3.5 w-3.5" /> Đọc báo cáo
                     </Button>
 
                     {isOwner && !isReviewed && (
@@ -544,23 +544,23 @@ export default function ReportsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 2: XEM BÁO CÁO ĐỊNH DẠNG PDF CHÍNH THỨC (CHO SẾP & NHÂN VIÊN ĐỌC) */}
+      {/* MODAL 2: XEM BÁO CÁO CHÍNH THỨC (CHO SẾP & NHÂN VIÊN ĐỌC) */}
       <Dialog open={isPdfOpen} onOpenChange={setIsPdfOpen}>
         <DialogContent
           showCloseButton={false}
           className={cn(
-            "p-0 border bg-card shadow-2xl transition-all duration-200 flex flex-col overflow-hidden",
+            "!p-0 !border !bg-card !shadow-2xl transition-all duration-200 !flex !flex-col !overflow-hidden z-50",
             isPdfFullscreen
-              ? "!fixed !inset-0 !top-0 !left-0 !translate-x-0 !translate-y-0 !w-screen !h-screen !max-w-none !max-h-none !rounded-none z-50"
-              : "w-[96vw] max-w-6xl sm:max-w-4xl md:max-w-5xl lg:max-w-6xl xl:max-w-7xl max-h-[92vh] rounded-2xl"
+              ? "!fixed !inset-0 !top-0 !left-0 !translate-x-0 !translate-y-0 !w-screen !h-screen !max-w-none !max-h-none !rounded-none"
+              : "!fixed !top-1/2 !left-1/2 !-translate-x-1/2 !-translate-y-1/2 !w-[96vw] !max-w-[1440px] !h-[94vh] !max-h-[94vh] !sm:max-w-none !rounded-2xl"
           )}
         >
           {selectedReport && (
             <div className="flex flex-col h-full overflow-hidden">
               {/* Sticky Top Document Viewer Toolbar */}
-              <div className="shrink-0 bg-background/95 backdrop-blur-md border-b px-5 py-3 flex items-center justify-between gap-3 z-10 shadow-xs">
+              <div className="shrink-0 bg-background/95 backdrop-blur-md border-b px-5 py-3.5 flex items-center justify-between gap-3 z-10 shadow-xs">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+                  <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
                     <FileText className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
@@ -569,7 +569,7 @@ export default function ReportsPage() {
                         {selectedReport.title}
                       </h3>
                       <Badge variant="outline" className="text-[10px] uppercase font-mono shrink-0 hidden sm:inline-flex">
-                        PDF v1.4
+                        Văn bản chính thức
                       </Badge>
                       {selectedReport.status === "reviewed" ? (
                         <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] shrink-0">
@@ -586,7 +586,7 @@ export default function ReportsPage() {
                       <span>•</span>
                       <span>Tác giả: <strong className="text-foreground">{selectedReport.author}</strong></span>
                       <span>•</span>
-                      <span>Ngày: {selectedReport.date}</span>
+                      <span>Ngày gửi: {selectedReport.date}</span>
                     </div>
                   </div>
                 </div>
@@ -599,7 +599,7 @@ export default function ReportsPage() {
                       onClick={() => handleMarkReviewed(selectedReport.id)}
                       className="text-xs h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
                     >
-                      <Check className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Phê duyệt văn bản</span><span className="sm:hidden">Duyệt</span>
+                      <Check className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Phê duyệt báo cáo</span><span className="sm:hidden">Duyệt</span>
                     </Button>
                   )}
 
@@ -616,11 +616,11 @@ export default function ReportsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => alert(`Đang tải tệp PDF "${selectedReport.title}.pdf" về máy tính...`)}
+                    onClick={() => alert(`Đang tải tệp báo cáo "${selectedReport.title}.pdf" về máy tính...`)}
                     className="text-xs h-8 gap-1.5"
-                    title="Tải văn bản PDF"
+                    title="Tải văn bản báo cáo"
                   >
-                    <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Tải PDF</span>
+                    <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Tải về</span>
                   </Button>
 
                   <Button
@@ -646,8 +646,8 @@ export default function ReportsPage() {
               </div>
 
               {/* Scrollable Document Desk & A4 Paper Container */}
-              <div className="flex-1 overflow-y-auto bg-slate-100/80 dark:bg-slate-950/90 p-4 sm:p-8 md:p-12">
-                <div className="w-full max-w-4xl mx-auto bg-white dark:bg-slate-900 border shadow-2xl rounded-xl p-8 sm:p-12 md:p-16 space-y-8 font-sans text-foreground">
+              <div className="flex-1 overflow-y-auto bg-slate-200/80 dark:bg-slate-950/90 p-4 sm:p-8 md:p-12">
+                <div className="w-full max-w-5xl mx-auto bg-white dark:bg-slate-900 border shadow-2xl rounded-2xl p-8 sm:p-12 md:p-16 space-y-8 font-sans text-foreground">
                   {/* Official Vietnam National Header */}
                   <div className="border-b pb-6 flex flex-col sm:flex-row justify-between items-start gap-4">
                     <div className="space-y-1">

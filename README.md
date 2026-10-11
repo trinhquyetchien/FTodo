@@ -92,7 +92,7 @@ FTodo/
 │   │   │   │       ├── backlog/  # WBS & Kế hoạch Sprint
 │   │   │   │       ├── timeline/ # Lộ trình Gantt Chart
 │   │   │   │       ├── cost/     # Ngân sách, ROI & Duyệt chi phí
-│   │   │   │       ├── reports/  # Báo cáo Burndown & Xem PDF
+│   │   │   │       ├── reports/  # Báo cáo Burndown & Đọc báo cáo
 │   │   │   │       ├── members/  # Quản lý Nhân sự & Nhóm quyền
 │   │   │   │       ├── issues/   # Tất cả tác vụ
 │   │   │   │       ├── releases/ # Phiên bản phát hành
