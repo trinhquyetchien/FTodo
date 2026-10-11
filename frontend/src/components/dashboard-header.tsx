@@ -23,7 +23,8 @@ import {
   X,
   Mail,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Menu
 } from "lucide-react";
 import { INITIAL_MOCK_PROJECTS } from "@/lib/mock-data";
 import { Logo } from "@/components/logo";
@@ -108,22 +109,31 @@ export function DashboardHeader() {
   }, [isInsideWorkspace, projectId]);
 
   return (
-    <header className="h-16 bg-card border-b flex items-center justify-between px-6 shrink-0 z-30">
+    <header className="h-16 bg-card border-b flex items-center justify-between px-3 sm:px-6 shrink-0 z-30">
       {/* Left Area: FTodo Brand Logo on Dashboard vs Project Name inside Workspace */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         {!isInsideWorkspace ? (
           /* Default Logo & Title when on main Dashboard / Home */
           <Link href="/" className="flex items-center">
             <Logo size="sm" subtitleText="Bảng điều khiển tổng quan dự án" />
           </Link>
         ) : (
-          /* When inside Workspace: Logo is removed, replaced cleanly with Project Name only (no role badges) */
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
-              <FolderKanban className="h-5 w-5" />
+          /* When inside Workspace: Mobile hamburger + Project Name only */
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => window.dispatchEvent(new Event("ftodo_toggle_mobile_sidebar"))}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground md:hidden shrink-0 rounded-lg -ml-1"
+              title="Menu dự án"
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+            <div className="p-1.5 sm:p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+              <FolderKanban className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
             <h2
-              className="text-base sm:text-lg font-bold text-foreground tracking-tight truncate max-w-[220px] sm:max-w-md md:max-w-lg"
+              className="text-sm sm:text-base md:text-lg font-bold text-foreground tracking-tight truncate max-w-[170px] sm:max-w-md md:max-w-lg"
               title={currentProject?.name}
             >
               {currentProject?.name || "Dự án Scrum"}

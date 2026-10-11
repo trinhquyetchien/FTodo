@@ -458,7 +458,7 @@ export default function ProjectCostPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {/* View switcher for Owner */}
           {isOwner && (
             <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 text-xs">
@@ -485,7 +485,7 @@ export default function ProjectCostPage() {
             </div>
           )}
 
-          <Button onClick={() => setIsAddExpenseOpen(true)} className="gap-1.5 shadow-xs">
+          <Button onClick={() => setIsAddExpenseOpen(true)} className="gap-1.5 shadow-xs shrink-0">
             <Plus className="h-4 w-4" />
             {isOwner ? "Thêm khoản chi" : "Đề xuất chi phí"}
           </Button>
@@ -495,9 +495,9 @@ export default function ProjectCostPage() {
       {/* Role Notice Banner for Member */}
       {!isOwner && (
         <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center shrink-0">
+          <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="h-9 w-9 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
                 <Receipt className="h-5 w-5" />
               </div>
               <div>
@@ -513,7 +513,7 @@ export default function ProjectCostPage() {
               size="sm"
               variant="outline"
               onClick={() => setActiveTab("my")}
-              className="text-xs bg-background shrink-0"
+              className="text-xs bg-background shrink-0 w-full sm:w-auto"
             >
               Xem đề xuất của tôi ({myExpenses.length})
             </Button>

@@ -454,8 +454,8 @@ export default function BoardPage() {
         </div>
       </div>
 
-      {/* 3. KANBAN BOARD COLUMNS CONTAINER */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
+      {/* 3. KANBAN BOARD COLUMNS CONTAINER (Swipeable on mobile/tablet, 4-col grid on desktop) */}
+      <div className="flex overflow-x-auto pb-4 gap-4 snap-x snap-mandatory lg:grid lg:grid-cols-4 lg:overflow-x-visible flex-1 -mx-1 px-1">
         {COLUMNS.map((col) => {
           const colTasks = filteredTasks.filter((t) => t.status === col.id);
           const colPoints = colTasks.reduce((sum, t) => sum + (t.points || 0), 0);
@@ -467,7 +467,7 @@ export default function BoardPage() {
               onDragOver={(e) => handleDragOver(e, col.id)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, col.id)}
-              className={`flex flex-col rounded-xl border bg-slate-50/70 dark:bg-slate-900/40 p-3 transition-all ${
+              className={`flex flex-col rounded-xl border bg-slate-50/70 dark:bg-slate-900/40 p-3 transition-all w-[85vw] sm:w-[320px] lg:w-auto shrink-0 snap-start ${
                 isOver
                   ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-md"
                   : "border-border shadow-2xs"

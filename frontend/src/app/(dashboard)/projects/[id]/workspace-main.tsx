@@ -17,9 +17,9 @@ export function WorkspaceMain({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 min-w-0">
+    <div className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-6 min-w-0">
       {/* Horizontal Navigation Tab Bar (Chỉ hiển thị ở các trang Home / Workspace) */}
-      <div className="border-b pb-3 mb-6">
+      <div className="border-b pb-2.5 sm:pb-3 mb-4 sm:mb-6">
         <ProjectNav />
       </div>
 

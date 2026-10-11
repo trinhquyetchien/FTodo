@@ -171,7 +171,7 @@ export default function GlobalDashboard() {
   });
 
   return (
-    <div className="space-y-8 pb-12 max-w-7xl mx-auto p-6 md:p-8 w-full">
+    <div className="space-y-6 sm:space-y-8 pb-12 max-w-7xl mx-auto p-3 sm:p-6 md:p-8 w-full">
       {/* 1. Top Banner & Action */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -334,7 +334,7 @@ export default function GlobalDashboard() {
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5 shrink-0 overflow-x-auto pb-1 sm:pb-0">
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 shrink-0">
                 <Button
                   variant={filterTab === "all" ? "default" : "outline"}
                   size="sm"

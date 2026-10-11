@@ -17,7 +17,8 @@ import {
   Info,
   User,
   MessageCircle,
-  FileText
+  FileText,
+  ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -255,6 +256,7 @@ export default function ProjectChatPage() {
   const [channels] = useState<Channel[]>(initialChannels);
   const [members] = useState<TeamMember[]>(teamMembers);
   const [activeChat, setActiveChat] = useState<ActiveChatTarget>({ type: "channel", id: "general" });
+  const [mobileTab, setMobileTab] = useState<"list" | "chat">("chat");
   
   const [channelMessages, setChannelMessages] = useState<Record<string, Message[]>>(initialChannelMessages);
   const [dmMessages, setDmMessages] = useState<Record<string, Message[]>>(initialDmMessages);
@@ -367,7 +369,9 @@ export default function ProjectChatPage() {
       {/* ============================================================== */}
       {/* 1. LEFT COLUMN: CHANNELS & DIRECT MESSAGES                     */}
       {/* ============================================================== */}
-      <div className="w-64 border-r bg-slate-50/70 dark:bg-slate-900/40 flex flex-col shrink-0 select-none h-full min-h-0 overflow-hidden">
+      <div className={`w-full md:w-64 border-r bg-slate-50/70 dark:bg-slate-900/40 flex-col shrink-0 select-none h-full min-h-0 overflow-hidden ${
+        mobileTab === "list" ? "flex" : "hidden md:flex"
+      }`}>
         {/* Header */}
         <div className="p-3.5 border-b flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -389,7 +393,10 @@ export default function ProjectChatPage() {
               return (
                 <button
                   key={channel.id}
-                  onClick={() => setActiveChat({ type: "channel", id: channel.id })}
+                  onClick={() => {
+                    setActiveChat({ type: "channel", id: channel.id });
+                    setMobileTab("chat");
+                  }}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all ${
                     isActive
                       ? "bg-primary text-primary-foreground font-semibold shadow-sm"
@@ -421,7 +428,10 @@ export default function ProjectChatPage() {
               return (
                 <button
                   key={member.id}
-                  onClick={() => setActiveChat({ type: "dm", id: member.id })}
+                  onClick={() => {
+                    setActiveChat({ type: "dm", id: member.id });
+                    setMobileTab("chat");
+                  }}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all text-left ${
                     isActive
                       ? "bg-primary text-primary-foreground font-semibold shadow-sm"
@@ -467,9 +477,22 @@ export default function ProjectChatPage() {
       {/* ============================================================== */}
       {/* 2. CHAT MAIN AREA                                             */}
       {/* ============================================================== */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden bg-background">
+      <div className={`flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden bg-background ${
+        mobileTab === "chat" ? "flex" : "hidden md:flex"
+      }`}>
         {/* Top Header */}
-        <div className="h-14 border-b px-5 flex items-center justify-between bg-card/50 backdrop-blur-xs shrink-0 z-10">
+        <div className="h-14 border-b px-3 sm:px-5 flex items-center justify-between bg-card/50 backdrop-blur-xs shrink-0 z-10">
+          {/* Back button on mobile to return to Channel/DM list */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setMobileTab("list")}
+            className="md:hidden h-8 px-2 text-xs text-muted-foreground hover:text-foreground shrink-0 -ml-1 mr-1 gap-1 rounded-lg"
+            title="Quay lại danh sách kênh & cá nhân"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span className="text-[11px] font-medium">Kênh</span>
+          </Button>
           {isChannel ? (
             <div className="flex items-center gap-3 min-w-0">
               <div className="p-2 rounded-lg bg-muted text-foreground">

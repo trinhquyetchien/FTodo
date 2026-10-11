@@ -504,7 +504,7 @@ export default function BacklogPage() {
                 </div>
 
                 {/* Right: Status, Priority, Points, Assignee, Actions */}
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
                   <Badge
                     variant={
                       item.status === "DONE"
@@ -513,7 +513,7 @@ export default function BacklogPage() {
                         ? "secondary"
                         : "outline"
                     }
-                    className={`text-[10px] py-0 ${
+                    className={`text-[10px] py-0 hidden sm:inline-flex ${
                       item.status === "DONE" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""
                     }`}
                   >
@@ -678,7 +678,7 @@ export default function BacklogPage() {
                 </div>
 
                 {/* Right */}
-                <div className="flex items-center gap-2.5 shrink-0">
+                <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
                   {/* Quick button: Move up to Sprint 1 */}
                   <Button
                     variant="outline"
@@ -687,7 +687,7 @@ export default function BacklogPage() {
                     className="h-7 text-[11px] px-2 gap-1 text-primary border-primary/30 hover:bg-primary/5"
                     title="Đưa công việc này vào Sprint 1"
                   >
-                    <MoveUp className="h-3 w-3" /> Vào Sprint 1
+                    <MoveUp className="h-3 w-3" /> <span className="hidden xs:inline sm:inline">Vào Sprint 1</span><span className="xs:hidden sm:hidden">Lên</span>
                   </Button>
 
                   {/* Story Points */}
