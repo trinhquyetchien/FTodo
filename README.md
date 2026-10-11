@@ -7,9 +7,11 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38B2AC?style=for-the-badge&logo=tailwind-css)
 ![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?style=for-the-badge&logo=nestjs)
+![Swagger](https://img.shields.io/badge/Swagger-OpenAPI_3.0-85EA2D?style=for-the-badge&logo=swagger)
 ![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?style=for-the-badge&logo=prisma)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker)
+[![CI](https://github.com/trinhquyetchien/FTodo/actions/workflows/ci.yml/badge.svg)](https://github.com/trinhquyetchien/FTodo/actions/workflows/ci.yml)
 
 <p align="center">
   <b>Nền tảng quản lý dự án công nghệ hiện đại, kết hợp tinh hoa giữa Agile/Scrum (Jira & Linear style) và Quản trị Tài chính Dự án Chiến lược (EVM, ROI, CPI, Runway).</b>
@@ -148,9 +150,11 @@ npx prisma db push
 # Chạy seed dữ liệu mẫu
 npm run prisma:seed
 
-# Khởi chạy server API (cổng 3001)
+# Khởi chạy server API (cổng 4000)
 npm run start:dev
 ```
+
+* **Swagger OpenAPI Documentation:** Truy cập giao diện tương tác API tại **[http://localhost:4000/api/docs](http://localhost:4000/api/docs)** để kiểm thử trực tiếp các endpoint với Bearer Token.
 
 ---
 
@@ -166,6 +170,13 @@ npm run dev
 ```
 
 Truy cập ứng dụng tại: **[http://localhost:3000](http://localhost:3000)**
+
+---
+
+### 5. Tự động hóa CI/CD (GitHub Actions)
+Dự án đã được tích hợp quy trình **Continuous Integration (CI)** tự động tại `.github/workflows/ci.yml`:
+* **Backend CI:** Tự động cài đặt dependencies, sinh Prisma Client, kiểm tra biên dịch NestJS (`npm run build`) và chạy Jest Unit Test trên môi trường Node.js 20.
+* **Frontend CI:** Tự động kiểm tra tính đúng đắn kiểu dữ liệu TypeScript (`npx tsc --noEmit`) và tối ưu hóa bản dựng Next.js Turbopack (`npm run build`).
 
 ---
 
