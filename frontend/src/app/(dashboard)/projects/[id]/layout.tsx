@@ -1,7 +1,7 @@
 import * as React from "react";
 import { ProjectProvider } from "./project-context";
-import { ProjectNav } from "./project-nav";
 import { ProjectSidebar } from "@/components/project-sidebar";
+import { WorkspaceMain } from "./workspace-main";
 
 export default function ProjectLayout({
   children,
@@ -21,16 +21,8 @@ export default function ProjectLayout({
           {/* Left Sidebar: Only appears inside the Project Workspace */}
           <ProjectSidebar />
 
-          {/* Right Workspace Main Working Area */}
-          <div className="flex-1 overflow-y-auto p-6 min-w-0">
-            {/* Horizontal Navigation Tab Bar */}
-            <div className="border-b pb-3 mb-6">
-              <ProjectNav />
-            </div>
-
-            {/* Sub-page Content */}
-            <div>{children}</div>
-          </div>
+          {/* Right Workspace Main Working Area (Tự động ẩn toolbar khi ở trang Chat) */}
+          <WorkspaceMain>{children}</WorkspaceMain>
         </div>
       </ProjectProvider>
     </React.Suspense>

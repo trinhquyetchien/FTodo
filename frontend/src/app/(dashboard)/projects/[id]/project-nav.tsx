@@ -114,13 +114,6 @@ export function ProjectNav() {
       description: "Quản lý nhóm quyền & thành viên",
     },
     {
-      id: "chat",
-      name: "Kênh chat",
-      href: `/projects/${id}/chat`,
-      icon: MessageSquare,
-      description: "Trao đổi nhóm theo kênh thời gian thực",
-    },
-    {
       id: "activity",
       name: "Lịch sử hoạt động",
       href: `/projects/${id}/activity`,

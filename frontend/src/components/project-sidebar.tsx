@@ -8,7 +8,8 @@ import {
   MessageSquare,
   LogOut,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  Home
 } from "lucide-react";
 
 export function ProjectSidebar() {
@@ -35,7 +36,7 @@ export function ProjectSidebar() {
     }
   };
 
-  const isChatActive = pathname === `/projects/${projectId}/chat`;
+  const isChatActive = pathname?.includes(`/projects/${projectId}/chat`);
 
   return (
     <aside
@@ -65,11 +66,48 @@ export function ProjectSidebar() {
         </Button>
       </div>
 
-      {/* Main Sidebar Area: Rounded Chat Button */}
+      {/* Main Sidebar Area: Home & Chat Navigation */}
       <div className="flex-1 p-2.5 space-y-2">
+        {/* 1. Home / Workspace Pages */}
+        <Link
+          href={`/projects/${projectId}/board`}
+          title={isCollapsed ? "Không gian dự án (Home)" : undefined}
+          className={`flex items-center rounded-2xl text-xs font-medium transition-all ${
+            isCollapsed
+              ? "justify-center p-3 w-11 h-11 mx-auto"
+              : "gap-3 px-3.5 py-3"
+          } ${
+            !isChatActive
+              ? "bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20"
+              : "text-foreground bg-muted/40 hover:bg-muted border border-border/50 hover:border-primary/40 shadow-2xs"
+          }`}
+        >
+          <div
+            className={`p-1.5 rounded-xl shrink-0 transition-colors ${
+              !isChatActive ? "bg-white/20 text-white" : "bg-primary/10 text-primary"
+            }`}
+          >
+            <Home className="h-4 w-4" />
+          </div>
+
+          {!isCollapsed && (
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold truncate">Không gian dự án</div>
+              <div
+                className={`text-[10px] truncate ${
+                  !isChatActive ? "text-primary-foreground/80 font-normal" : "text-muted-foreground"
+                }`}
+              >
+                Trang làm việc & Scrum
+              </div>
+            </div>
+          )}
+        </Link>
+
+        {/* 2. Chat / Kênh Chat & Cá nhân */}
         <Link
           href={`/projects/${projectId}/chat`}
-          title={isCollapsed ? "Kênh chat dự án" : undefined}
+          title={isCollapsed ? "Kênh chat & Tin nhắn" : undefined}
           className={`flex items-center rounded-2xl text-xs font-medium transition-all ${
             isCollapsed
               ? "justify-center p-3 w-11 h-11 mx-auto"
@@ -90,13 +128,13 @@ export function ProjectSidebar() {
 
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <div className="font-semibold truncate">Kênh chat dự án</div>
+              <div className="font-semibold truncate">Kênh chat & Tin nhắn</div>
               <div
                 className={`text-[10px] truncate ${
                   isChatActive ? "text-primary-foreground/80 font-normal" : "text-muted-foreground"
                 }`}
               >
-                Trao đổi realtime
+                Kênh nhóm & Cá nhân
               </div>
             </div>
           )}

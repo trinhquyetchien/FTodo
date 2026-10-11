@@ -100,7 +100,6 @@ export const TAB_CATEGORIES = [
   {
     category: "Mở rộng & Quản trị",
     items: [
-      { id: "chat", label: "Kênh chat dự án", desc: "Trao đổi nhóm thời gian thực", icon: MessageSquare },
       { id: "cost", label: "Tiền & Chi phí", desc: "Ngân sách, burn-rate & đề xuất chi phí", icon: DollarSign, isSensitive: true },
       { id: "members", label: "Nhân sự & Nhóm quyền", desc: "Quản lý nhóm quyền & phân bổ thành viên", icon: Users, isSensitive: true },
       { id: "activity", label: "Lịch sử hoạt động", desc: "Nhật ký kiểm toán công việc, xóa task & duyệt chi", icon: History },
