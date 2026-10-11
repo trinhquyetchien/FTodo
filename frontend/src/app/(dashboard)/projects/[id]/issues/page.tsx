@@ -1,0 +1,409 @@
+"use client";
+
+import React, { useState } from "react";
+import {
+  CheckSquare,
+  Search,
+  Plus,
+  Filter,
+  Bookmark,
+  Bug,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  ArrowUp,
+  ArrowDown,
+  Minus,
+  Sparkles
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useProject } from "../project-context";
+
+interface Issue {
+  id: string;
+  key: string;
+  summary: string;
+  type: "story" | "bug" | "task";
+  status: "todo" | "in_progress" | "review" | "done";
+  priority: "highest" | "high" | "medium" | "low";
+  points: number;
+  assignee: string;
+  sprint: string;
+}
+
+const INITIAL_ISSUES: Issue[] = [
+  {
+    id: "iss-1",
+    key: "FT-101",
+    summary: "Thiết kế cơ sở dữ liệu PostgreSQL và Prisma schema",
+    type: "task",
+    status: "done",
+    priority: "high",
+    points: 5,
+    assignee: "Trần Thị Bình",
+    sprint: "Sprint 1",
+  },
+  {
+    id: "iss-2",
+    key: "FT-102",
+    summary: "Xây dựng hệ thống Xác thực JWT và Phân quyền theo nhóm",
+    type: "story",
+    status: "in_progress",
+    priority: "highest",
+    points: 8,
+    assignee: "Nguyễn Văn An",
+    sprint: "Sprint 1",
+  },
+  {
+    id: "iss-3",
+    key: "FT-103",
+    summary: "Xây dựng giao diện Bảng Scrum kéo thả dnd-kit",
+    type: "story",
+    status: "in_progress",
+    priority: "high",
+    points: 8,
+    assignee: "Trịnh Quyết Chiến",
+    sprint: "Sprint 1",
+  },
+  {
+    id: "iss-4",
+    key: "FT-104",
+    summary: "Quản lý Chi phí, Hóa đơn và Phân quyền xem tab Cost",
+    type: "story",
+    status: "review",
+    priority: "medium",
+    points: 5,
+    assignee: "Nguyễn Văn An",
+    sprint: "Sprint 1",
+  },
+  {
+    id: "iss-5",
+    key: "FT-105",
+    summary: "Lỗi đồng bộ WebSocket khi gửi tin nhắn nhanh",
+    type: "bug",
+    status: "todo",
+    priority: "highest",
+    points: 3,
+    assignee: "Nguyễn Văn An",
+    sprint: "Sprint 1",
+  },
+  {
+    id: "iss-6",
+    key: "FT-106",
+    summary: "Tích hợp biểu đồ Recharts cho burndown và velocity",
+    type: "task",
+    status: "done",
+    priority: "medium",
+    points: 3,
+    assignee: "Trịnh Quyết Chiến",
+    sprint: "Sprint 1",
+  },
+  {
+    id: "iss-7",
+    key: "FT-107",
+    summary: "Thiết lập pipeline CI/CD với Docker Compose",
+    type: "task",
+    status: "todo",
+    priority: "low",
+    points: 5,
+    assignee: "Trịnh Quyết Chiến",
+    sprint: "Sprint 2",
+  },
+];
+
+export default function IssuesPage() {
+  const { project } = useProject();
+  const [issues, setIssues] = useState<Issue[]>(INITIAL_ISSUES);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  // New Issue Form
+  const [newSummary, setNewSummary] = useState("");
+  const [newType, setNewType] = useState<Issue["type"]>("story");
+  const [newPriority, setNewPriority] = useState<Issue["priority"]>("medium");
+  const [newPoints, setNewPoints] = useState("3");
+
+  const filteredIssues = issues.filter((item) => {
+    const matchesSearch =
+      item.summary.toLowerCase().includes(search.toLowerCase()) ||
+      item.key.toLowerCase().includes(search.toLowerCase()) ||
+      item.assignee.toLowerCase().includes(search.toLowerCase());
+    const matchesType = typeFilter === "all" || item.type === typeFilter;
+    const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+    return matchesSearch && matchesType && matchesStatus;
+  });
+
+  const handleCreateIssue = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSummary.trim()) return;
+
+    const newIss: Issue = {
+      id: "iss-" + Date.now(),
+      key: `FT-${100 + issues.length + 1}`,
+      summary: newSummary.trim(),
+      type: newType,
+      status: "todo",
+      priority: newPriority,
+      points: parseInt(newPoints) || 1,
+      assignee: "Chưa phân công",
+      sprint: "Sprint 1",
+    };
+
+    setIssues([newIss, ...issues]);
+    setNewSummary("");
+    setIsCreateOpen(false);
+  };
+
+  const renderTypeIcon = (type: Issue["type"]) => {
+    switch (type) {
+      case "story":
+        return <Bookmark className="h-3.5 w-3.5 text-emerald-500" />;
+      case "bug":
+        return <Bug className="h-3.5 w-3.5 text-rose-500" />;
+      case "task":
+        return <CheckSquare className="h-3.5 w-3.5 text-blue-500" />;
+    }
+  };
+
+  const renderPriorityIcon = (priority: Issue["priority"]) => {
+    switch (priority) {
+      case "highest":
+        return <ArrowUp className="h-3.5 w-3.5 text-rose-600 font-bold" />;
+      case "high":
+        return <ArrowUp className="h-3.5 w-3.5 text-amber-500" />;
+      case "medium":
+        return <Minus className="h-3.5 w-3.5 text-yellow-500" />;
+      case "low":
+        return <ArrowDown className="h-3.5 w-3.5 text-slate-400" />;
+    }
+  };
+
+  const renderStatusBadge = (status: Issue["status"]) => {
+    switch (status) {
+      case "done":
+        return <Badge className="bg-emerald-600 hover:bg-emerald-700 text-[10px]">Done</Badge>;
+      case "review":
+        return <Badge variant="secondary" className="text-[10px] bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300">In Review</Badge>;
+      case "in_progress":
+        return <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">In Progress</Badge>;
+      case "todo":
+        return <Badge variant="outline" className="text-[10px]">To Do</Badge>;
+    }
+  };
+
+  return (
+    <div className="space-y-6 pb-12">
+      {/* Top Banner */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <CheckSquare className="h-6 w-6 text-primary" /> Danh sách tác vụ (All Issues)
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Theo dõi, lọc và tra cứu toàn bộ User Stories, Bugs và Tasks trong dự án Scrum.
+          </p>
+        </div>
+
+        <Button onClick={() => setIsCreateOpen(true)} className="gap-2 shadow-xs">
+          <Plus className="h-4 w-4" /> Tạo tác vụ mới
+        </Button>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-3 rounded-xl border bg-card shadow-xs">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Tìm theo mã tác vụ (FT-101), tiêu đề, hoặc người thực hiện..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 text-xs h-9"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Select value={typeFilter} onValueChange={(val) => setTypeFilter(val || "all")}>
+            <SelectTrigger className="w-32 h-9 text-xs">
+              <SelectValue placeholder="Loại" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả loại</SelectItem>
+              <SelectItem value="story">Story</SelectItem>
+              <SelectItem value="bug">Bug</SelectItem>
+              <SelectItem value="task">Task</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || "all")}>
+            <SelectTrigger className="w-36 h-9 text-xs">
+              <SelectValue placeholder="Trạng thái" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
+              <SelectItem value="todo">To Do</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="review">In Review</SelectItem>
+              <SelectItem value="done">Done</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Issues Table */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10 text-center">Loại</TableHead>
+                <TableHead className="w-24">Mã</TableHead>
+                <TableHead>Tiêu đề tác vụ</TableHead>
+                <TableHead className="w-28 text-center">Ưu tiên</TableHead>
+                <TableHead className="w-28">Sprint</TableHead>
+                <TableHead className="w-32">Người thực hiện</TableHead>
+                <TableHead className="w-24 text-center">Points</TableHead>
+                <TableHead className="w-28 text-center">Trạng thái</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredIssues.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-xs text-muted-foreground">
+                    Không tìm thấy tác vụ nào khớp với bộ lọc tìm kiếm.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredIssues.map((issue) => (
+                  <TableRow key={issue.id} className="hover:bg-muted/40 cursor-pointer">
+                    <TableCell className="text-center">{renderTypeIcon(issue.type)}</TableCell>
+                    <TableCell className="font-mono text-xs font-semibold text-primary">
+                      {issue.key}
+                    </TableCell>
+                    <TableCell className="font-medium text-xs text-foreground">
+                      {issue.summary}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="inline-flex items-center gap-1 text-[11px] capitalize">
+                        {renderPriorityIcon(issue.priority)} {issue.priority}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{issue.sprint}</TableCell>
+                    <TableCell className="text-xs font-medium">{issue.assignee}</TableCell>
+                    <TableCell className="text-center font-mono text-xs font-bold">
+                      {issue.points}
+                    </TableCell>
+                    <TableCell className="text-center">{renderStatusBadge(issue.status)}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Create Issue Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tạo tác vụ mới (Create Issue)</DialogTitle>
+            <DialogDescription>
+              Thêm một User Story, Task hoặc Bug vào dự án Scrum.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateIssue} className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="iss-sum">Tiêu đề tóm tắt</Label>
+              <Input
+                id="iss-sum"
+                placeholder="VD: Viết unit tests cho module auth"
+                value={newSummary}
+                onChange={(e) => setNewSummary(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label>Loại</Label>
+                <Select value={newType} onValueChange={(val) => setNewType((val as Issue["type"]) || "story")}>
+                  <SelectTrigger className="text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="story">Story</SelectItem>
+                    <SelectItem value="bug">Bug</SelectItem>
+                    <SelectItem value="task">Task</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Mức ưu tiên</Label>
+                <Select value={newPriority} onValueChange={(val) => setNewPriority((val as Issue["priority"]) || "medium")}>
+                  <SelectTrigger className="text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="highest">Highest</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Story Points</Label>
+                <Input
+                  type="number"
+                  value={newPoints}
+                  onChange={(e) => setNewPoints(e.target.value)}
+                  min="1"
+                  max="40"
+                  required
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+                Hủy
+              </Button>
+              <Button type="submit">Tạo tác vụ</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
