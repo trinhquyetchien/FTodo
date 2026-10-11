@@ -17,7 +17,7 @@ export default function ProjectLayout({
       }
     >
       <ProjectProvider>
-        <div className="flex flex-1 h-[calc(100vh-4rem)] overflow-hidden">
+        <div className="flex flex-1 h-full min-h-0 overflow-hidden">
           {/* Left Sidebar: Only appears inside the Project Workspace */}
           <ProjectSidebar />
 

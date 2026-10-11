@@ -426,6 +426,10 @@ export class ChatService {
     currentUserId: string,
     otherUserId: string,
   ) {
+    if (currentUserId === otherUserId) {
+      return [];
+    }
+
     return this.prisma.message.findMany({
       where: {
         OR: [
@@ -453,6 +457,10 @@ export class ChatService {
     otherUserId: string,
     dto: SendMessageDto,
   ) {
+    if (currentUserId === otherUserId) {
+      throw new ForbiddenException('Không thể gửi tin nhắn cho chính mình');
+    }
+
     const recipient = await this.prisma.user.findUnique({
       where: { id: otherUserId },
     });

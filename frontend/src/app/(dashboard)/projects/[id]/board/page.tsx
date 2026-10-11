@@ -77,68 +77,40 @@ export default function BoardPage() {
   const [tasks, setTasks] = useState<BoardTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Synchronize live tasks from PostgreSQL backend
-  useEffect(() => {
-    let isMounted = true;
-    const loadBackendTasks = async () => {
-      try {
-        setIsLoading(true);
-        const data = await api.tasks.getTasks(project.id);
-        if (isMounted) {
-          if (Array.isArray(data)) {
-            const mapped: BoardTask[] = data.map((t: any) => {
-              const prio = t.priority === "HIGH" ? "Cao" : t.priority === "LOW" ? "Thấp" : "Trung bình";
-              let type: BoardTask["type"] = "TASK";
-              const titleLower = (t.title || "").toLowerCase();
-              if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
-                type = "BUG";
-              } else if (titleLower.includes("xác thực") || titleLower.includes("jwt") || titleLower.includes("hệ thống") || (t.points && t.points >= 8)) {
-                type = "STORY";
-              }
-
-              let epic = "Kiến trúc Cốt lõi";
-              if (titleLower.includes("jwt") || titleLower.includes("xác thực") || titleLower.includes("bảo mật") || titleLower.includes("rbac")) {
-                epic = "Xác thực & Bảo mật";
-              } else if (titleLower.includes("schema") || titleLower.includes("postgresql") || titleLower.includes("database") || titleLower.includes("docker") || titleLower.includes("backend")) {
-                epic = "Kiến trúc Backend";
-              } else if (titleLower.includes("chi phí") || titleLower.includes("ngân sách")) {
-                epic = "Quản lý Tài chính";
-              } else if (titleLower.includes("chat") || titleLower.includes("thời gian thực")) {
-                epic = "Giao tiếp Đội ngũ";
-              }
-
-              return {
-                id: t.code || `FT-${t.id.slice(0, 4).toUpperCase()}`,
-                backendId: t.id,
-                title: t.title,
-                type,
-                epic,
-                status: (t.status || "TODO") as BoardTask["status"],
-                priority: prio as BoardTask["priority"],
-                points: t.points || 1,
-                assignee: t.assignee?.avatar || (t.assignee?.name ? t.assignee.name.slice(0, 2).toUpperCase() : "US"),
-                assigneeName: t.assignee?.name || "Chưa phân công",
-              };
-            });
-            setTasks(mapped);
-          } else {
-            setTasks([]);
-          }
-        }
-      } catch (err) {
-        console.error("Lỗi khi tải task từ PostgreSQL:", err);
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    };
-
-    if (project?.id) {
-      loadBackendTasks();
+  const formatBackendTask = (t: any): BoardTask => {
+    const prio = t.priority === "HIGH" ? "Cao" : t.priority === "LOW" ? "Thấp" : "Trung bình";
+    let type: BoardTask["type"] = "TASK";
+    const titleLower = (t.title || "").toLowerCase();
+    if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
+      type = "BUG";
+    } else if (titleLower.includes("xác thực") || titleLower.includes("jwt") || titleLower.includes("hệ thống") || (t.points && t.points >= 8)) {
+      type = "STORY";
     }
-    return () => {
-      isMounted = false;
+
+    let epic = "Kiến trúc Cốt lõi";
+    if (titleLower.includes("jwt") || titleLower.includes("xác thực") || titleLower.includes("bảo mật") || titleLower.includes("rbac")) {
+      epic = "Xác thực & Bảo mật";
+    } else if (titleLower.includes("schema") || titleLower.includes("postgresql") || titleLower.includes("database") || titleLower.includes("docker") || titleLower.includes("backend")) {
+      epic = "Kiến trúc Backend";
+    } else if (titleLower.includes("chi phí") || titleLower.includes("ngân sách")) {
+      epic = "Quản lý Tài chính";
+    } else if (titleLower.includes("chat") || titleLower.includes("thời gian thực")) {
+      epic = "Giao tiếp Đội ngũ";
+    }
+
+    return {
+      id: t.code || `FT-${t.id.slice(0, 4).toUpperCase()}`,
+      backendId: t.id,
+      title: t.title,
+      type,
+      epic,
+      status: (t.status || "TODO") as BoardTask["status"],
+      priority: prio as BoardTask["priority"],
+      points: t.points || 1,
+      assignee: t.assignee?.avatar || (t.assignee?.name ? t.assignee.name.slice(0, 2).toUpperCase() : "US"),
+      assigneeName: t.assignee?.name || "Chưa phân công",
     };
-  }, [project?.id, projectId]);
+  };
 
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -159,6 +131,49 @@ export default function BoardPage() {
   const [newTaskPriority, setNewTaskPriority] = useState<BoardTask["priority"]>("Trung bình");
   const [newTaskPoints, setNewTaskPoints] = useState<number>(3);
   const [newTaskAssignee, setNewTaskAssignee] = useState<string>("VA");
+
+  // Synchronize live tasks from PostgreSQL backend with Realtime Polling
+  useEffect(() => {
+    let isMounted = true;
+    if (!project?.id) return;
+
+    const loadBackendTasks = async (showLoading = false) => {
+      // Do not overwrite while dragging or creating task
+      if (draggedTaskId || isAddTaskOpen) return;
+
+      try {
+        if (showLoading) setIsLoading(true);
+        const data = await api.tasks.getTasks(project.id);
+        if (isMounted && Array.isArray(data)) {
+          const mapped: BoardTask[] = data.map((t: any) => formatBackendTask(t));
+          setTasks((prev) => {
+            const prevSignature = prev.map((p) => `${p.backendId}:${p.status}:${p.title}`).join("|");
+            const nextSignature = mapped.map((m) => `${m.backendId}:${m.status}:${m.title}`).join("|");
+            if (prevSignature !== nextSignature || prev.length !== mapped.length) {
+              return mapped;
+            }
+            return prev;
+          });
+        }
+      } catch (err) {
+        console.error("Lỗi khi tải task từ PostgreSQL:", err);
+      } finally {
+        if (isMounted && showLoading) setIsLoading(false);
+      }
+    };
+
+    loadBackendTasks(true);
+
+    // Live sync polling every 2s for multi-user real-time interaction
+    const pollInterval = setInterval(() => {
+      loadBackendTasks(false);
+    }, 2000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(pollInterval);
+    };
+  }, [project?.id, projectId, draggedTaskId, isAddTaskOpen]);
 
   const saveTasks = (newTasks: BoardTask[]) => {
     setTasks(newTasks);
@@ -360,6 +375,10 @@ export default function BoardPage() {
               </span>
               <Badge className="bg-emerald-600 hover:bg-emerald-700 text-[10px]">
                 Active Sprint
+              </Badge>
+              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Realtime Live Sync
               </Badge>
               <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
                 01/10 - 15/10/2026 (Còn 4 ngày)

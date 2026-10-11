@@ -139,6 +139,11 @@ export default function ProjectChatPage() {
   const [isDeleteChannelOpen, setIsDeleteChannelOpen] = useState(false);
   const [isDeletingChannel, setIsDeletingChannel] = useState(false);
 
+  // Filter out the current user from Direct Messages list (cannot chat with oneself)
+  const directMessageMembers = members.filter(
+    (m) => m.id !== user?.id && m.email !== user?.email
+  );
+
   // Helper to format backend Message response to UI Message
   const formatMessage = useCallback((m: any): Message => {
     const isMe = m.user?.id === user?.id || m.user?.email === user?.email || m.userId === user?.id;
@@ -181,8 +186,11 @@ export default function ProjectChatPage() {
         }));
         setChannels(loadedChannels);
 
-        // Auto select first channel if no active chat
+        // Auto select first channel if no active chat or if currently selecting oneself
         setActiveChat((prev) => {
+          if (prev.type === "dm" && (prev.id === user?.id || prev.id === user?.email)) {
+            return loadedChannels.length > 0 ? { type: "channel", id: loadedChannels[0].id } : { type: "channel", id: "" };
+          }
           if (prev.id && (loadedChannels.some(c => c.id === prev.id) || prev.type === "dm")) {
             return prev;
           }
@@ -207,11 +215,20 @@ export default function ProjectChatPage() {
     } catch (err) {
       console.warn("Lỗi tải thông tin kênh và thành viên:", err);
     }
-  }, [project?.id]);
+  }, [project?.id, user?.id, user?.email]);
 
   useEffect(() => {
     loadChannelsAndMembers();
   }, [loadChannelsAndMembers]);
+
+  // Prevent activeChat being oneself
+  useEffect(() => {
+    if (activeChat.type === "dm" && (activeChat.id === user?.id || activeChat.id === user?.email)) {
+      if (channels.length > 0) {
+        setActiveChat({ type: "channel", id: channels[0].id });
+      }
+    }
+  }, [activeChat, user?.id, user?.email, channels]);
 
   // Load members of the active channel
   const loadActiveChannelMembers = useCallback(async () => {
@@ -225,7 +242,6 @@ export default function ProjectChatPage() {
         setActiveChannelMembers(membersData);
       }
     } catch {
-      // Fallback to channel object members if available
       const current = channels.find((c) => c.id === activeChat.id);
       if (current?.members) {
         setActiveChannelMembers(current.members);
@@ -237,7 +253,7 @@ export default function ProjectChatPage() {
     loadActiveChannelMembers();
   }, [loadActiveChannelMembers]);
 
-  // Load messages and start polling every 2.5s for real-time live chat
+  // Load messages and start fast polling (every 1.5s) for real-time live chat
   useEffect(() => {
     let isMounted = true;
     if (!activeChat.id) return;
@@ -248,19 +264,32 @@ export default function ProjectChatPage() {
           const data = await api.chat.getMessages(activeChat.id);
           if (isMounted && Array.isArray(data)) {
             const mapped = data.map((m: any) => formatMessage(m));
-            setChannelMessages((prev) => ({
-              ...prev,
-              [activeChat.id]: mapped,
-            }));
+            setChannelMessages((prev) => {
+              const currentList = prev[activeChat.id] || [];
+              if (
+                currentList.length !== mapped.length ||
+                (mapped.length > 0 && currentList[currentList.length - 1]?.id !== mapped[mapped.length - 1]?.id)
+              ) {
+                return { ...prev, [activeChat.id]: mapped };
+              }
+              return prev;
+            });
           }
         } else if (activeChat.type === "dm" && project?.id) {
+          if (activeChat.id === user?.id || activeChat.id === user?.email) return;
           const data = await api.chat.getDirectMessages(project.id, activeChat.id);
           if (isMounted && Array.isArray(data)) {
             const mapped = data.map((m: any) => formatMessage(m));
-            setDmMessages((prev) => ({
-              ...prev,
-              [activeChat.id]: mapped,
-            }));
+            setDmMessages((prev) => {
+              const currentList = prev[activeChat.id] || [];
+              if (
+                currentList.length !== mapped.length ||
+                (mapped.length > 0 && currentList[currentList.length - 1]?.id !== mapped[mapped.length - 1]?.id)
+              ) {
+                return { ...prev, [activeChat.id]: mapped };
+              }
+              return prev;
+            });
           }
         }
       } catch {
@@ -269,15 +298,15 @@ export default function ProjectChatPage() {
     };
 
     fetchLiveMessages();
-    const timer = setInterval(fetchLiveMessages, 2500);
+    const timer = setInterval(fetchLiveMessages, 1500);
 
     return () => {
       isMounted = false;
       clearInterval(timer);
     };
-  }, [activeChat.id, activeChat.type, project?.id, formatMessage]);
+  }, [activeChat.id, activeChat.type, project?.id, user?.id, user?.email, formatMessage]);
 
-  // Scroll to bottom on new message
+  // Auto scroll to bottom when message arrives
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [channelMessages, dmMessages, activeChat]);
@@ -288,7 +317,7 @@ export default function ProjectChatPage() {
     ? channels.find((c) => c.id === activeChat.id) || channels[0]
     : null;
   const currentMember = !isChannel
-    ? members.find((m) => m.id === activeChat.id) || members[0]
+    ? directMessageMembers.find((m) => m.id === activeChat.id) || directMessageMembers[0]
     : null;
 
   const currentMessages = isChannel
@@ -344,7 +373,7 @@ export default function ProjectChatPage() {
         console.warn("Lỗi khi gửi tin nhắn vào kênh:", err);
       }
     } else {
-      if (!project?.id) return;
+      if (!project?.id || activeChat.id === user?.id) return;
       setDmMessages((prev) => ({
         ...prev,
         [activeChat.id]: [...(prev[activeChat.id] || []), optimisticMsg],
@@ -455,7 +484,6 @@ export default function ProjectChatPage() {
       await api.chat.deleteChannel(project.id, currentChannel.id);
       setIsDeleteChannelOpen(false);
       
-      // Remove channel from list and switch to 'chung'
       const remaining = channels.filter((c) => c.id !== currentChannel.id);
       setChannels(remaining);
       if (remaining.length > 0) {
@@ -512,7 +540,7 @@ export default function ProjectChatPage() {
     }
   };
 
-  // Non-channel members of project for "Add Member" modal
+  // Candidate members to add to channel
   const candidateMembersToAdd = members.filter(
     (m) => !activeChannelMembers.some((cm) => cm.userId === m.id || cm.user?.id === m.id)
   );
@@ -526,7 +554,7 @@ export default function ProjectChatPage() {
         mobileTab === "list" ? "flex" : "hidden md:flex"
       }`}>
         {/* Header */}
-        <div className="p-3.5 border-b flex items-center justify-between">
+        <div className="p-3.5 border-b flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />
             <span className="font-bold text-sm tracking-tight">Kênh & Tin nhắn</span>
@@ -587,74 +615,79 @@ export default function ProjectChatPage() {
             })}
           </div>
 
-          {/* SECTION 2: DIRECT MESSAGES (CÁ NHÂN CHAT) */}
+          {/* SECTION 2: DIRECT MESSAGES (EXCLUDES CURRENT USER) */}
           <div className="space-y-1">
             <div className="px-2 py-1 text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-              <span>Cá nhân chat ({members.length})</span>
+              <span>Cá nhân chat ({directMessageMembers.length})</span>
               <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
-            {members.map((member) => {
-              const isActive = activeChat.type === "dm" && activeChat.id === member.id;
-              const isMe = member.id === user?.id || member.email === user?.email;
-              return (
-                <button
-                  key={member.id}
-                  onClick={() => {
-                    setActiveChat({ type: "dm", id: member.id });
-                    setMobileTab("chat");
-                  }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all text-left ${
-                    isActive
-                      ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                      : "text-foreground/80 hover:bg-slate-200/60 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  <div className="relative shrink-0">
-                    <Avatar className="h-7 w-7 text-[10px]">
-                      <AvatarFallback className={isActive ? "bg-white/20 text-white" : ""}>
-                        {member.avatar}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span
-                      className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ${
-                        isActive ? "ring-primary" : "ring-background"
-                      } ${
-                        member.status === "online"
-                          ? "bg-emerald-500"
-                          : member.status === "busy"
-                          ? "bg-amber-500"
-                          : "bg-slate-400"
-                      }`}
-                    />
-                  </div>
-                  <div className="flex-1 truncate">
-                    <div className="font-medium truncate leading-tight">
-                      {member.name} {isMe ? "(Bạn)" : ""}
+            {directMessageMembers.length === 0 ? (
+              <div className="px-2 py-3 text-[11px] text-muted-foreground italic text-center">
+                Không có thành viên khác trong dự án
+              </div>
+            ) : (
+              directMessageMembers.map((member) => {
+                const isActive = activeChat.type === "dm" && activeChat.id === member.id;
+                return (
+                  <button
+                    key={member.id}
+                    onClick={() => {
+                      setActiveChat({ type: "dm", id: member.id });
+                      setMobileTab("chat");
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all text-left ${
+                      isActive
+                        ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                        : "text-foreground/80 hover:bg-slate-200/60 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    <div className="relative shrink-0">
+                      <Avatar className="h-7 w-7 text-[10px]">
+                        <AvatarFallback className={isActive ? "bg-white/20 text-white" : ""}>
+                          {member.avatar}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span
+                        className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ${
+                          isActive ? "ring-primary" : "ring-background"
+                        } ${
+                          member.status === "online"
+                            ? "bg-emerald-500"
+                            : member.status === "busy"
+                            ? "bg-amber-500"
+                            : "bg-slate-400"
+                        }`}
+                      />
                     </div>
-                    <div className={`text-[10px] truncate ${isActive ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                      {member.role}
+                    <div className="flex-1 truncate">
+                      <div className="font-medium truncate leading-tight">
+                        {member.name}
+                      </div>
+                      <div className={`text-[10px] truncate ${isActive ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                        {member.role}
+                      </div>
                     </div>
-                  </div>
-                  {member.unreadCount && member.unreadCount > 0 ? (
-                    <Badge variant={isActive ? "secondary" : "default"} className="h-4.5 px-1.5 text-[10px]">
-                      {member.unreadCount}
-                    </Badge>
-                  ) : null}
-                </button>
-              );
-            })}
+                    {member.unreadCount && member.unreadCount > 0 ? (
+                      <Badge variant={isActive ? "secondary" : "default"} className="h-4.5 px-1.5 text-[10px]">
+                        {member.unreadCount}
+                      </Badge>
+                    ) : null}
+                  </button>
+                );
+              })
+            )}
           </div>
         </ScrollArea>
       </div>
 
       {/* ============================================================== */}
-      {/* 2. CHAT MAIN AREA                                             */}
+      {/* 2. CHAT MAIN AREA (FULL HEIGHT WITH PINNED BOTTOM INPUT BAR)   */}
       {/* ============================================================== */}
-      <div className={`flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden bg-background ${
+      <div className={`flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden bg-background relative ${
         mobileTab === "chat" ? "flex" : "hidden md:flex"
       }`}>
         {/* Top Header */}
-        <div className="h-14 border-b px-3 sm:px-5 flex items-center justify-between bg-card/50 backdrop-blur-xs shrink-0 z-10">
+        <div className="h-14 border-b px-3 sm:px-5 flex items-center justify-between bg-card/60 backdrop-blur-md shrink-0 z-10">
           <Button
             variant="ghost"
             size="sm"
@@ -668,7 +701,7 @@ export default function ProjectChatPage() {
 
           {isChannel ? (
             <div className="flex items-center gap-3 min-w-0">
-              <div className="p-2 rounded-lg bg-muted text-foreground">
+              <div className="p-2 rounded-lg bg-muted text-foreground shrink-0">
                 {currentChannel?.isPrivate ? (
                   <Lock className="h-4 w-4 shrink-0 text-amber-500" />
                 ) : (
@@ -681,6 +714,10 @@ export default function ProjectChatPage() {
                   {currentChannel?.isPrivate && (
                     <Badge variant="outline" className="text-[10px] h-4 text-amber-600 border-amber-300">Riêng tư</Badge>
                   )}
+                  <Badge variant="outline" className="text-[10px] h-4 bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Live Sync
+                  </Badge>
                 </div>
                 <div className="text-xs text-muted-foreground truncate">{currentChannel?.description || "Kênh trao đổi dự án"}</div>
               </div>
@@ -706,6 +743,10 @@ export default function ProjectChatPage() {
                   <span className="font-bold text-sm leading-tight truncate">{currentMember?.name}</span>
                   <Badge variant="outline" className="text-[10px] h-4.5 px-1.5 py-0 font-normal">
                     {currentMember?.role}
+                  </Badge>
+                  <Badge variant="outline" className="text-[10px] h-4 bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Live 1-1
                   </Badge>
                 </div>
                 <div className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
@@ -759,10 +800,9 @@ export default function ProjectChatPage() {
           </div>
         </div>
 
-        {/* Message Feed */}
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-          <ScrollArea className="h-full w-full p-4 sm:p-5">
-            <div className="space-y-4 max-w-4xl mx-auto pb-2">
+        {/* Message Feed - SCROLLABLE AREA FILLING AVAILABLE SPACE */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 flex flex-col">
+          <div className="space-y-4 max-w-4xl mx-auto w-full pb-2">
             {filteredMessages.length === 0 ? (
               <div className="text-center py-16 text-muted-foreground text-sm flex flex-col items-center justify-center gap-2">
                 <MessageCircle className="h-10 w-10 text-muted-foreground/40" />
@@ -870,12 +910,11 @@ export default function ProjectChatPage() {
             )}
             <div ref={messagesEndRef} />
           </div>
-          </ScrollArea>
         </div>
 
-        {/* Message Input Box */}
-        <div className="p-3.5 border-t bg-card/80 backdrop-blur-xs shrink-0 z-10 mt-auto">
-          <form onSubmit={handleSendMessage} className="flex items-center gap-2.5">
+        {/* Message Input Box - PERMANENTLY ANCHORED TO BOTTOM */}
+        <div className="p-3 sm:p-4 border-t bg-card/95 backdrop-blur-md shrink-0 z-20 sticky bottom-0 w-full shadow-xs">
+          <form onSubmit={handleSendMessage} className="flex items-center gap-2.5 max-w-5xl mx-auto">
             <div className="relative flex-1">
               <Input
                 placeholder={
@@ -917,11 +956,11 @@ export default function ProjectChatPage() {
               <Send className="h-4 w-4" />
             </Button>
           </form>
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1.5 mt-2">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1.5 mt-2 max-w-5xl mx-auto">
             <span>Nhấn <strong>Enter</strong> để gửi tin nhắn</span>
             <span className="flex items-center gap-1.5 font-medium">
               <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500 animate-pulse" />
-              Kết nối Live Database đang hoạt động
+              Kết nối Realtime Đang Hoạt Động (1.5s Polling)
             </span>
           </div>
         </div>
@@ -1017,7 +1056,6 @@ export default function ProjectChatPage() {
                               <span className="text-[10px] text-muted-foreground">Thành viên</span>
                             )}
                             
-                            {/* Remove member button (only if not project owner and not deleting oneself if owner) */}
                             {!isOwner && (
                               <Button
                                 variant="ghost"
