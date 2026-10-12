@@ -289,7 +289,9 @@ export default function ProjectActivityPage() {
         <CardContent className="p-4 sm:p-6">
           {filteredLogs.length === 0 ? (
             <div className="py-12 text-center text-xs text-muted-foreground">
-              Không tìm thấy nhật ký hoạt động nào phù hợp với bộ lọc tìm kiếm.
+              {logs.length === 0
+                ? "Chưa có nhật ký hoạt động nào được ghi nhận cho dự án này."
+                : "Không tìm thấy nhật ký hoạt động nào phù hợp với bộ lọc tìm kiếm."}
             </div>
           ) : (
             <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-2 sm:before:left-3 before:top-3 before:bottom-3 before:w-0.5 before:bg-border">

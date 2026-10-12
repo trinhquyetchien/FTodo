@@ -67,7 +67,7 @@ export function DashboardHeader() {
   }, []);
 
   const pendingInvitations = invitations.filter(
-    (i) => i.status === "pending" && (i.recipientEmail === user?.email || i.recipientName === user?.name || i.id === "inv-1" || i.id === "inv-2")
+    (i) => i.status === "pending" && (i.recipientEmail === user?.email || (user?.name && i.recipientName === user?.name))
   );
 
   useEffect(() => {

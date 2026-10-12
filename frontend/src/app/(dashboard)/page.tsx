@@ -167,7 +167,7 @@ export default function GlobalDashboard() {
 
   // Invitations addressed to the current user
   const myInvitations = invitations.filter(
-    (i) => i.recipientEmail === user?.email || i.recipientName === user?.name || i.id === "inv-1" || i.id === "inv-2"
+    (i) => i.recipientEmail && user?.email && i.recipientEmail.toLowerCase() === user.email.toLowerCase()
   );
   const pendingInvitations = myInvitations.filter((i) => i.status === "pending");
 
@@ -187,6 +187,8 @@ export default function GlobalDashboard() {
 
   const dynamicProjectDeliveryData = useMemo(() => {
     if (allProjects.length === 0) return [];
+    const hasAnyTasks = allProjects.some((p) => (p.tasks || 0) > 0);
+    if (!hasAnyTasks) return [];
     const colors = ["#6366f1", "#f59e0b", "#10b981", "#ec4899", "#8b5cf6", "#06b6d4"];
     return allProjects.slice(0, 6).map((p, idx) => {
       const done = p.completedTasks || 0;
@@ -205,11 +207,7 @@ export default function GlobalDashboard() {
 
   const dynamicWorkMixData = useMemo(() => {
     if (allTasks.length === 0) {
-      return [
-        { name: "User Stories (Tính năng)", count: 0, points: 0, color: "#3b82f6", pct: 60 },
-        { name: "Technical Tasks (Hạ tầng/DevOps)", count: 0, points: 0, color: "#10b981", pct: 25 },
-        { name: "Bug Fixes (Lỗi & Nợ kỹ thuật)", count: 0, points: 0, color: "#f43f5e", pct: 15 },
-      ];
+      return [];
     }
     let storyCount = 0, storyPoints = 0;
     let taskCount = 0, taskPoints = 0;
@@ -240,16 +238,14 @@ export default function GlobalDashboard() {
 
   const dynamicSprintVelocityData = useMemo(() => {
     if (allSprints.length === 0) {
-      return [
-        { sprint: "Sprint 1", committed: 10, completed: 8, velocityAvg: 9 },
-      ];
+      return [];
     }
     return allSprints.slice(0, 4).reverse().map((s) => {
-      const totalPts = Array.isArray(s.tasks) ? s.tasks.reduce((sum: number, t: any) => sum + (t.points || 0), 0) : 10;
+      const totalPts = Array.isArray(s.tasks) ? s.tasks.reduce((sum: number, t: any) => sum + (t.points || 0), 0) : 0;
       const donePts = Array.isArray(s.tasks) ? s.tasks.filter((t: any) => t.status === "DONE").reduce((sum: number, t: any) => sum + (t.points || 0), 0) : (s.status === "COMPLETED" ? totalPts : 0);
       return {
         sprint: s.name,
-        committed: totalPts || 5,
+        committed: totalPts || 0,
         completed: donePts,
         velocityAvg: Math.round((totalPts + donePts) / 2),
       };
@@ -263,16 +259,23 @@ export default function GlobalDashboard() {
   }, [dynamicSprintVelocityData]);
 
   const predictability = useMemo(() => {
-    if (dynamicSprintVelocityData.length === 0) return 100;
+    if (dynamicSprintVelocityData.length === 0) return 0;
     const committed = dynamicSprintVelocityData.reduce((acc, s) => acc + s.committed, 0);
     const completed = dynamicSprintVelocityData.reduce((acc, s) => acc + s.completed, 0);
-    return committed > 0 ? Math.min(100, Math.round((completed / committed) * 100)) : 100;
+    return committed > 0 ? Math.min(100, Math.round((completed / committed) * 100)) : 0;
   }, [dynamicSprintVelocityData]);
 
   const bugRatio = useMemo(() => {
     const bugEntry = dynamicWorkMixData.find((w) => w.name.includes("Bug"));
     return bugEntry ? bugEntry.pct : 0;
   }, [dynamicWorkMixData]);
+
+  const isCurrentChartEmpty = useMemo(() => {
+    if (chartView === "velocity") return dynamicSprintVelocityData.length === 0;
+    if (chartView === "workmix") return dynamicWorkMixData.length === 0;
+    if (chartView === "delivery") return dynamicProjectDeliveryData.length === 0;
+    return false;
+  }, [chartView, dynamicSprintVelocityData, dynamicWorkMixData, dynamicProjectDeliveryData]);
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-12 max-w-7xl mx-auto p-3 sm:p-6 md:p-8 w-full">
@@ -471,49 +474,61 @@ export default function GlobalDashboard() {
             </CardHeader>
 
             <CardContent className="pt-4 h-[250px] pl-0">
-              {chartView === "velocity" && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={dynamicSprintVelocityData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                    <XAxis dataKey="sprint" axisLine={false} tickLine={false} fontSize={11} />
-                    <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
-                    <Tooltip formatter={(value: any) => [`${value} Story Points`, ""]} />
-                    <Legend verticalAlign="top" height={32} iconSize={10} wrapperStyle={{ fontSize: "11px" }} />
-                    <Bar dataKey="committed" name="Điểm Cam kết (Committed)" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="completed" name="Điểm Hoàn thành (Completed)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    <Line type="monotone" dataKey="velocityAvg" name="Mức TB (Velocity Target)" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={false} />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              )}
+              {isCurrentChartEmpty ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-muted-foreground border-2 border-dashed rounded-lg mx-4">
+                  <BarChart2 className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                  <p className="text-sm font-medium">Chưa có dữ liệu biểu đồ</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Dữ liệu sẽ tự động hiển thị khi bạn tạo dự án, sprint và các thẻ công việc.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {chartView === "velocity" && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={dynamicSprintVelocityData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                        <XAxis dataKey="sprint" axisLine={false} tickLine={false} fontSize={11} />
+                        <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
+                        <Tooltip formatter={(value: any) => [`${value} Story Points`, ""]} />
+                        <Legend verticalAlign="top" height={32} iconSize={10} wrapperStyle={{ fontSize: "11px" }} />
+                        <Bar dataKey="committed" name="Điểm Cam kết (Committed)" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="completed" name="Điểm Hoàn thành (Completed)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                        <Line type="monotone" dataKey="velocityAvg" name="Mức TB (Velocity Target)" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  )}
 
-              {chartView === "workmix" && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dynamicWorkMixData} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.3} />
-                    <XAxis type="number" axisLine={false} tickLine={false} fontSize={11} unit="%" />
-                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} fontSize={11} width={180} />
-                    <Tooltip formatter={(val: any, name: any, item: any) => [`${item.payload.pct}% (${item.payload.points} SP - ${item.payload.count} tác vụ)`, "Tỷ trọng"]} />
-                    <Bar dataKey="pct" radius={[0, 6, 6, 0]}>
-                      {dynamicWorkMixData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
+                  {chartView === "workmix" && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={dynamicWorkMixData} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.3} />
+                        <XAxis type="number" axisLine={false} tickLine={false} fontSize={11} unit="%" />
+                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} fontSize={11} width={180} />
+                        <Tooltip formatter={(val: any, name: any, item: any) => [`${item.payload.pct}% (${item.payload.points} SP - ${item.payload.count} tác vụ)`, "Tỷ trọng"]} />
+                        <Bar dataKey="pct" radius={[0, 6, 6, 0]}>
+                          {dynamicWorkMixData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
 
-              {chartView === "delivery" && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dynamicProjectDeliveryData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} />
-                    <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
-                    <Tooltip formatter={(val: any, name: any) => [`${val} Story Points`, name === "done" ? "Đã xong" : "Còn lại"]} />
-                    <Legend verticalAlign="top" height={32} iconSize={10} wrapperStyle={{ fontSize: "11px" }} />
-                    <Bar dataKey="done" name="Đã bàn giao (Done SP)" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="remaining" name="Còn lại (Remaining SP)" stackId="a" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                  {chartView === "delivery" && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={dynamicProjectDeliveryData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} />
+                        <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
+                        <Tooltip formatter={(val: any, name: any) => [`${val} Story Points`, name === "done" ? "Đã xong" : "Còn lại"]} />
+                        <Legend verticalAlign="top" height={32} iconSize={10} wrapperStyle={{ fontSize: "11px" }} />
+                        <Bar dataKey="done" name="Đã bàn giao (Done SP)" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="remaining" name="Còn lại (Remaining SP)" stackId="a" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
@@ -865,22 +880,28 @@ export default function GlobalDashboard() {
               </div>
             </CardHeader>
             <CardContent className="p-3 space-y-2.5">
-              {recentActivities.map((act) => (
-                <div key={act.id} className="text-xs space-y-1 p-2 rounded-lg hover:bg-muted/30 transition-colors">
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span className="font-semibold text-foreground flex items-center gap-1.5">
-                      <span className="h-4.5 w-4.5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold">
-                        {act.userAvatar}
-                      </span>
-                      {act.userName}
-                    </span>
-                    <span className="text-[10px]">{act.timeAgo}</span>
-                  </div>
-                  <p className="text-xs text-foreground/90 pl-6 leading-relaxed">
-                    <span className="text-muted-foreground font-medium">{act.action}:</span> {act.detail}
-                  </p>
+              {recentActivities.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground text-xs">
+                  Chưa có hoạt động nào được ghi nhận.
                 </div>
-              ))}
+              ) : (
+                recentActivities.map((act) => (
+                  <div key={act.id} className="text-xs space-y-1 p-2 rounded-lg hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span className="font-semibold text-foreground flex items-center gap-1.5">
+                        <span className="h-4.5 w-4.5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold">
+                          {act.userAvatar}
+                        </span>
+                        {act.userName}
+                      </span>
+                      <span className="text-[10px]">{act.timeAgo}</span>
+                    </div>
+                    <p className="text-xs text-foreground/90 pl-6 leading-relaxed">
+                      <span className="text-muted-foreground font-medium">{act.action}:</span> {act.detail}
+                    </p>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
 

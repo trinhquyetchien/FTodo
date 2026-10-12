@@ -27,21 +27,35 @@ export interface ProjectActivityLog {
 }
 
 export const INITIAL_INVITATIONS: ProjectInvitation[] = [];
-
 export const INITIAL_ACTIVITY_LOGS: ProjectActivityLog[] = [];
+
+const STORE_VERSION_KEY = "ftodo_clean_nodata_v5";
+
+function checkAndClearLegacyStorage() {
+  if (typeof window === "undefined") return;
+  if (localStorage.getItem("ftodo_store_v") !== STORE_VERSION_KEY) {
+    localStorage.removeItem("ftodo_project_invitations");
+    localStorage.removeItem("ftodo_activity_logs");
+    // Clear any board task local caches
+    Object.keys(localStorage).forEach((k) => {
+      if (k.startsWith("ftodo_board_tasks_")) {
+        localStorage.removeItem(k);
+      }
+    });
+    localStorage.setItem("ftodo_store_v", STORE_VERSION_KEY);
+  }
+}
 
 // Helper: Invitations
 export function getStoredInvitations(): ProjectInvitation[] {
-  if (typeof window === "undefined") return INITIAL_INVITATIONS;
+  if (typeof window === "undefined") return [];
+  checkAndClearLegacyStorage();
   const raw = localStorage.getItem("ftodo_project_invitations");
-  if (!raw) {
-    localStorage.setItem("ftodo_project_invitations", JSON.stringify(INITIAL_INVITATIONS));
-    return INITIAL_INVITATIONS;
-  }
+  if (!raw) return [];
   try {
     return JSON.parse(raw);
   } catch {
-    return INITIAL_INVITATIONS;
+    return [];
   }
 }
 
@@ -98,25 +112,19 @@ export function respondToInvitation(
 
 // Helper: Activity Logs
 export function getStoredActivityLogs(projectId?: string): ProjectActivityLog[] {
-  if (typeof window === "undefined") {
-    return projectId ? INITIAL_ACTIVITY_LOGS.filter((l) => l.projectId === projectId) : INITIAL_ACTIVITY_LOGS;
-  }
+  if (typeof window === "undefined") return [];
+  checkAndClearLegacyStorage();
   const raw = localStorage.getItem("ftodo_activity_logs");
-  let logs: ProjectActivityLog[] = INITIAL_ACTIVITY_LOGS;
-  if (raw) {
-    try {
-      logs = JSON.parse(raw);
-    } catch {
-      logs = INITIAL_ACTIVITY_LOGS;
+  if (!raw) return [];
+  try {
+    const logs: ProjectActivityLog[] = JSON.parse(raw);
+    if (projectId) {
+      return logs.filter((l) => l.projectId === projectId);
     }
-  } else {
-    localStorage.setItem("ftodo_activity_logs", JSON.stringify(INITIAL_ACTIVITY_LOGS));
+    return logs;
+  } catch {
+    return [];
   }
-
-  if (projectId) {
-    return logs.filter((l) => l.projectId === projectId);
-  }
-  return logs;
 }
 
 export function addStoredActivityLog(
@@ -132,6 +140,16 @@ export function addStoredActivityLog(
   };
   const updated = [newEntry, ...current];
   localStorage.setItem("ftodo_activity_logs", JSON.stringify(updated));
+  window.dispatchEvent(new Event("ftodo_activity_updated"));
+  window.dispatchEvent(new Event("storage"));
+}
+
+export function clearAllStoredActivitiesAndInvitations(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("ftodo_project_invitations");
+  localStorage.removeItem("ftodo_activity_logs");
+  localStorage.setItem("ftodo_store_v", STORE_VERSION_KEY);
+  window.dispatchEvent(new Event("ftodo_invitations_updated"));
   window.dispatchEvent(new Event("ftodo_activity_updated"));
   window.dispatchEvent(new Event("storage"));
 }
