@@ -99,9 +99,6 @@ export default function ProjectSettingsPage() {
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Cài đặt dự án</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Chỉ có bạn (Chủ dự án) có quyền chỉnh sửa thông tin hoặc xóa dự án này.
-        </p>
       </div>
 
       {savedSuccess && (
@@ -115,7 +112,6 @@ export default function ProjectSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold">Thông tin chung</CardTitle>
-          <CardDescription>Cập nhật tên hiển thị và mô tả phạm vi của dự án Scrum</CardDescription>
         </CardHeader>
         <form onSubmit={handleSave}>
           <CardContent className="space-y-4">

@@ -283,8 +283,8 @@ export default function GlobalDashboard() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Tổng quan hệ thống</h1>
-          <p className="text-muted-foreground text-xs sm:text-sm mt-1">
-            Chào mừng trở lại, <strong className="text-foreground">{user?.name}</strong>! Theo dõi tất cả dự án bạn đang tham gia hoặc làm chủ.
+          <p className="text-muted-foreground text-sm mt-0.5">
+            Xin chào, <strong className="text-foreground">{user?.name}</strong>
           </p>
         </div>
 
@@ -298,10 +298,7 @@ export default function GlobalDashboard() {
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Tạo dự án phần mềm mới</DialogTitle>
-              <DialogDescription>
-                Bắt đầu một dự án Scrum mới. Hệ thống sẽ tự động khởi tạo nhóm quyền và kênh trao đổi mặc định.
-              </DialogDescription>
+              <DialogTitle className="text-lg font-bold">Tạo dự án mới</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreateProject} className="space-y-4 py-2">
               <div className="space-y-2">
@@ -359,27 +356,25 @@ export default function GlobalDashboard() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Dự án làm chủ (Owner)</CardTitle>
+                <CardTitle className="text-sm font-medium">Dự án làm chủ</CardTitle>
                 <Crown className="h-4 w-4 text-amber-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
                   {ownedProjects.length}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Toàn quyền quản trị & cài đặt</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Dự án tham gia (Member)</CardTitle>
+                <CardTitle className="text-sm font-medium">Dự án tham gia</CardTitle>
                 <UserCheck className="h-4 w-4 text-blue-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                   {memberProjects.length}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Quyền hạn theo nhóm và cấp phép</p>
               </CardContent>
             </Card>
 
@@ -404,15 +399,10 @@ export default function GlobalDashboard() {
             <CardHeader className="pb-3 border-b">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <BarChart2 className="h-4 w-4 text-primary" />
-                    Chỉ số Vận hành & Năng lực Đội ngũ (Software Delivery Metrics)
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <BarChart2 className="h-4.5 w-4.5 text-primary" />
+                    Chỉ số vận hành & năng lực
                   </CardTitle>
-                  <CardDescription className="text-xs mt-0.5">
-                    {chartView === "velocity" && "Đo lường độ ổn định cam kết Story Points hoàn thành qua các Sprint (Velocity)."}
-                    {chartView === "workmix" && "Tỷ trọng đầu tư vào Tính năng mới (Stories) vs Hạ tầng (Tasks) vs Nợ kỹ thuật (Bugs)."}
-                    {chartView === "delivery" && "So sánh tiến độ Story Points đã hoàn thành vs còn lại trên toàn bộ các dự án."}
-                  </CardDescription>
                 </div>
 
                 {/* View Switcher Tabs */}
@@ -757,11 +747,6 @@ export default function GlobalDashboard() {
                   </div>
                   <div>
                     <CardTitle className="text-sm font-bold">Lời mời dự án</CardTitle>
-                    <CardDescription className="text-[11px] leading-none mt-0.5">
-                      {pendingInvitations.length > 0
-                        ? `${pendingInvitations.length} lời mời đang chờ xử lý`
-                        : "Hộp thư lời mời tham gia"}
-                    </CardDescription>
                   </div>
                 </div>
                 {pendingInvitations.length > 0 ? (
@@ -873,9 +858,6 @@ export default function GlobalDashboard() {
                 </div>
                 <div>
                   <CardTitle className="text-sm font-bold">Lịch sử hoạt động</CardTitle>
-                  <CardDescription className="text-[11px] leading-none mt-0.5">
-                    Nhật ký thao tác hệ thống gần đây
-                  </CardDescription>
                 </div>
               </div>
             </CardHeader>

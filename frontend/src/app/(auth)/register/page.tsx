@@ -63,19 +63,8 @@ export default function Register() {
 
   return (
     <Card className="border shadow-xl rounded-2xl bg-card/95 backdrop-blur-sm">
-      <CardHeader className="space-y-1.5 pb-4 text-center sm:text-left">
-        <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
-          <span className="p-1.5 rounded-lg bg-primary/10 text-primary">
-            <Sparkles className="h-4 w-4" />
-          </span>
-          <span className="text-xs font-bold text-primary uppercase tracking-wider">
-            Bắt đầu với FTodo
-          </span>
-        </div>
+      <CardHeader className="pb-4 text-center sm:text-left">
         <CardTitle className="text-2xl font-bold tracking-tight">Tạo tài khoản mới</CardTitle>
-        <CardDescription className="text-xs">
-          Trải nghiệm hệ thống quản trị dự án Agile/Scrum & Tài chính chiến lược
-        </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">

@@ -597,13 +597,10 @@ export function MembersClient() {
 
         <Card>
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Nhóm vai trò (Role Groups)</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground">Nhóm vai trò</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-2xl font-bold text-primary">{roles.length} Nhóm quyền</div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Hiển thị chi tiết và phân quyền trực tiếp bên dưới
-            </p>
           </CardContent>
         </Card>
 
@@ -615,9 +612,6 @@ export function MembersClient() {
             <div className="text-2xl font-bold text-violet-600 dark:text-violet-400">
               {members.filter((m: any) => m.extraPermissions?.length > 0).length} Thành viên
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Được cấp thêm quyền ngoài nhóm (VD: Tiền & Chi phí)
-            </p>
           </CardContent>
         </Card>
       </div>
@@ -630,11 +624,8 @@ export function MembersClient() {
           <div>
             <h3 className="text-base font-bold flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-primary" />
-              Các nhóm quyền dự án (Role Groups)
+              Các nhóm quyền dự án
             </h3>
-            <p className="text-xs text-muted-foreground">
-              Các nhóm vai trò đã được tạo. Bạn có thể bật/tắt quyền trực tiếp của từng nhóm hoặc bấm Thêm nhóm quyền mới.
-            </p>
           </div>
 
           <Button
@@ -1102,11 +1093,8 @@ export function MembersClient() {
               </div>
               <div>
                 <DialogTitle className="text-xl font-bold">
-                  Khởi tạo nhóm quyền mới (Add Role Group)
+                  Khởi tạo nhóm quyền mới
                 </DialogTitle>
-                <DialogDescription className="text-sm mt-0.5">
-                  Thiết lập vai trò tùy chỉnh và phân quyền các trang Scrum thành viên nhóm này được phép truy cập.
-                </DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -1186,14 +1174,9 @@ export function MembersClient() {
               {/* 3. PERMISSIONS CHECKLIST */}
               <div className="space-y-4 pt-2 border-t">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
-                  <div>
-                    <div className="text-sm font-bold text-foreground flex items-center gap-2">
-                      <ShieldCheck className="h-5 w-5 text-primary" />
-                      <span>Cấp quyền truy cập các trang công cụ</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Thành viên nhóm này sẽ có quyền truy cập và ghim các trang được tích chọn lên thanh ngang.
-                    </p>
+                  <div className="text-sm font-bold text-foreground flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-primary" />
+                    <span>Cấp quyền truy cập các trang công cụ</span>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -1325,9 +1308,6 @@ export function MembersClient() {
         <DialogContent className="max-w-md p-6">
           <DialogHeader className="border-b pb-3">
             <DialogTitle className="text-lg font-bold">Thêm thành viên mới</DialogTitle>
-            <DialogDescription className="text-xs">
-              Mời thành viên mới tham gia vào dự án và gán vào nhóm vai trò tương ứng.
-            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleAddMember} className="space-y-4 py-2">

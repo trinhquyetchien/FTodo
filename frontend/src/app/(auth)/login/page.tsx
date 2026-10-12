@@ -54,19 +54,8 @@ export default function Login() {
 
   return (
     <Card className="border shadow-xl rounded-2xl bg-card/95 backdrop-blur-sm">
-      <CardHeader className="space-y-1.5 pb-4 text-center sm:text-left">
-        <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
-          <span className="p-1.5 rounded-lg bg-primary/10 text-primary">
-            <Sparkles className="h-4 w-4" />
-          </span>
-          <span className="text-xs font-bold text-primary uppercase tracking-wider">
-            Chào mừng trở lại
-          </span>
-        </div>
+      <CardHeader className="pb-4 text-center sm:text-left">
         <CardTitle className="text-2xl font-bold tracking-tight">Đăng nhập tài khoản</CardTitle>
-        <CardDescription className="text-xs">
-          Truy cập không gian làm việc Scrum và trung tâm tài chính dự án của bạn
-        </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
