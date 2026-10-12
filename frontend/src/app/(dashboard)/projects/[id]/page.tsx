@@ -45,7 +45,7 @@ export default function ProjectOverview() {
   const [sprints, setSprints] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [costsSummary, setCostsSummary] = useState<{ totalBudget: number; approvedTotal: number }>({
-    totalBudget: 500000000,
+    totalBudget: 0,
     approvedTotal: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -81,7 +81,7 @@ export default function ProjectOverview() {
               .filter((c: any) => c.status === "PAID" || c.status === "APPROVED")
               .reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
             setCostsSummary({
-              totalBudget: costsRes.value.summary?.totalBudget || 500000000,
+              totalBudget: costsRes.value.summary?.totalBudget || (project as any)?.budget || 0,
               approvedTotal: approved,
             });
           }
@@ -184,6 +184,7 @@ export default function ProjectOverview() {
     }
 
     if (list.length === 0) {
+      if (sprintTasks.length === 0) return [];
       // Fallback to active tasks assignees
       const map: Record<string, number> = {};
       sprintTasks.forEach((t) => {
@@ -294,7 +295,7 @@ export default function ProjectOverview() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {members.length > 0 ? members.length : 1} Thành viên
+                {members.length > 0 ? members.length : (project?.ownerId ? 1 : 0)} Thành viên
               </div>
               <p className="text-[11px] text-muted-foreground mt-1">
                 Tổng điểm giao: {totalPoints} Story Points
@@ -346,34 +347,43 @@ export default function ProjectOverview() {
               </div>
             </CardHeader>
             <CardContent className="pt-4">
-              <div className="h-[220px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={sprintStatusData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={10} />
-                    <YAxis axisLine={false} tickLine={false} fontSize={10} unit=" SP" />
-                    <Tooltip
-                      formatter={(val: any) => [`${val} Story Points`, "Điểm công việc"]}
-                      contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
-                    />
-                    <Bar dataKey="points" radius={[4, 4, 0, 0]} name="Story Points">
-                      {sprintStatusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="grid grid-cols-4 gap-2 pt-3 border-t text-center text-xs">
-                {sprintStatusData.map((item) => (
-                  <div key={item.name}>
-                    <p className="text-[11px] text-muted-foreground truncate">{item.name.split(" ")[0]}</p>
-                    <p className="font-semibold text-foreground">
-                      {item.points} SP ({item.tasks} tasks)
-                    </p>
+              {sprintTasks.length === 0 ? (
+                <div className="h-[220px] flex flex-col items-center justify-center text-muted-foreground">
+                  <BarChart2 className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                  <p className="text-xs">Chưa có công việc nào trong Sprint</p>
+                </div>
+              ) : (
+                <>
+                  <div className="h-[220px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={sprintStatusData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={10} />
+                        <YAxis axisLine={false} tickLine={false} fontSize={10} unit=" SP" />
+                        <Tooltip
+                          formatter={(val: any) => [`${val} Story Points`, "Điểm công việc"]}
+                          contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
+                        />
+                        <Bar dataKey="points" radius={[4, 4, 0, 0]} name="Story Points">
+                          {sprintStatusData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
-                ))}
-              </div>
+                  <div className="grid grid-cols-4 gap-2 pt-3 border-t text-center text-xs">
+                    {sprintStatusData.map((item) => (
+                      <div key={item.name}>
+                        <p className="text-[11px] text-muted-foreground truncate">{item.name.split(" ")[0]}</p>
+                        <p className="font-semibold text-foreground">
+                          {item.points} SP ({item.tasks} tasks)
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -396,39 +406,48 @@ export default function ProjectOverview() {
               </div>
             </CardHeader>
             <CardContent className="pt-4">
-              <div className="h-[220px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={teamWorkloadData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                    <XAxis dataKey="member" axisLine={false} tickLine={false} fontSize={10} />
-                    <YAxis axisLine={false} tickLine={false} fontSize={10} unit=" SP" />
-                    <Tooltip
-                      formatter={(val: any, name: any) => [
-                        `${val} SP`,
-                        name === "assigned" ? "Story Points đã nhận" : "Hạn mức tối đa"
-                      ]}
-                      contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
-                    />
-                    <Legend verticalAlign="top" height={24} iconSize={8} wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="assigned" name="Đã giao (SP)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="capacity" name="Năng lực trần (SP)" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t text-center text-xs">
-                {teamWorkloadData.slice(0, 4).map((t) => {
-                  const pct = Math.round((t.assigned / t.capacity) * 100);
-                  const isFull = pct >= 100;
-                  return (
-                    <div key={t.member}>
-                      <p className="text-[10px] text-muted-foreground truncate">{t.member}</p>
-                      <p className={`font-semibold text-[11px] ${isFull ? "text-amber-600" : "text-emerald-600"}`}>
-                        {t.assigned}/{t.capacity} SP ({pct}%)
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
+              {teamWorkloadData.length === 0 ? (
+                <div className="h-[220px] flex flex-col items-center justify-center text-muted-foreground">
+                  <Users className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                  <p className="text-xs">Chưa có phân bổ công việc theo thành viên</p>
+                </div>
+              ) : (
+                <>
+                  <div className="h-[220px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={teamWorkloadData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                        <XAxis dataKey="member" axisLine={false} tickLine={false} fontSize={10} />
+                        <YAxis axisLine={false} tickLine={false} fontSize={10} unit=" SP" />
+                        <Tooltip
+                          formatter={(val: any, name: any) => [
+                            `${val} SP`,
+                            name === "assigned" ? "Story Points đã nhận" : "Hạn mức tối đa"
+                          ]}
+                          contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
+                        />
+                        <Legend verticalAlign="top" height={24} iconSize={8} wrapperStyle={{ fontSize: 10 }} />
+                        <Bar dataKey="assigned" name="Đã giao (SP)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="capacity" name="Năng lực trần (SP)" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t text-center text-xs">
+                    {teamWorkloadData.slice(0, 4).map((t) => {
+                      const pct = Math.round((t.assigned / t.capacity) * 100);
+                      const isFull = pct >= 100;
+                      return (
+                        <div key={t.member}>
+                          <p className="text-[10px] text-muted-foreground truncate">{t.member}</p>
+                          <p className={`font-semibold text-[11px] ${isFull ? "text-amber-600" : "text-emerald-600"}`}>
+                            {t.assigned}/{t.capacity} SP ({pct}%)
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

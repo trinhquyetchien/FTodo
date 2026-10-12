@@ -19,8 +19,6 @@ import {
   CalendarRange,
   CheckSquare,
   BarChart3,
-  Rocket,
-  Boxes,
   History
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -84,20 +82,6 @@ export function ProjectNav() {
       href: `/projects/${id}/reports`,
       icon: BarChart3,
       description: "Biểu đồ Burndown, Velocity & CFD",
-    },
-    {
-      id: "releases",
-      name: "Phiên bản",
-      href: `/projects/${id}/releases`,
-      icon: Rocket,
-      description: "Quản lý phiên bản phát hành v1.0, v1.1",
-    },
-    {
-      id: "components",
-      name: "Hợp phần",
-      href: `/projects/${id}/components`,
-      icon: Boxes,
-      description: "Phân rã module kiến trúc phần mềm",
     },
     {
       id: "cost",

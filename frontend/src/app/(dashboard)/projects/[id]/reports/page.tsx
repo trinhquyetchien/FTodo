@@ -145,7 +145,8 @@ export default function ReportsPage() {
 
   // Dynamic Burndown Data based on real story points
   const burndownData = useMemo(() => {
-    const points = totalSP > 0 ? totalSP : 10;
+    if (totalSP === 0) return [];
+    const points = totalSP;
     const done = completedSP;
     const remaining = Math.max(0, points - done);
     return [
@@ -163,7 +164,7 @@ export default function ReportsPage() {
     if (sprints.length > 0) {
       return sprints.map((s, idx) => {
         const sTasks = tasks.filter((t) => t.sprintId === s.id);
-        const committed = sTasks.reduce((sum, t) => sum + (t.points || 0), 0) || (s.tasks?.reduce((sum: number, t: any) => sum + (t.points || 0), 0) || 10);
+        const committed = sTasks.reduce((sum, t) => sum + (t.points || 0), 0) || (s.tasks?.reduce((sum: number, t: any) => sum + (t.points || 0), 0) || 0);
         const completed = sTasks.filter((t) => t.status === "DONE").reduce((sum, t) => sum + (t.points || 0), 0);
         return {
           sprint: s.name || `Sprint ${idx + 1}`,
@@ -173,9 +174,12 @@ export default function ReportsPage() {
         };
       });
     }
-    return [
-      { sprint: "Sprint hiện tại", committed: totalSP || 10, completed: completedSP, target: totalSP || 10 },
-    ];
+    if (totalSP > 0) {
+      return [
+        { sprint: "Sprint hiện tại", committed: totalSP, completed: completedSP, target: totalSP },
+      ];
+    }
+    return [];
   }, [sprints, tasks, totalSP, completedSP]);
 
   // Dynamic Defect / Bug Data
@@ -185,12 +189,13 @@ export default function ReportsPage() {
       return titleLower.includes("lỗi") || titleLower.includes("bug");
     });
     const totalBugs = bugs.length;
+    if (totalBugs === 0) return [];
     const resolvedBugs = bugs.filter((t) => t.status === "DONE").length;
     const openBugs = Math.max(0, totalBugs - resolvedBugs);
 
     return [
-      { day: "Sprint đầu", opened: Math.max(1, totalBugs), resolved: 0 },
-      { day: "Sprint giữa", opened: Math.max(1, totalBugs), resolved: Math.round(resolvedBugs * 0.5) },
+      { day: "Sprint đầu", opened: totalBugs, resolved: 0 },
+      { day: "Sprint giữa", opened: totalBugs, resolved: Math.round(resolvedBugs * 0.5) },
       { day: "Hiện tại", opened: openBugs, resolved: resolvedBugs },
     ];
   }, [tasks]);
@@ -637,78 +642,99 @@ export default function ReportsPage() {
 
         <CardContent className="h-[280px] pl-0 pt-4">
           {chartTab === "burndown" && (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={burndownData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={11} />
-                <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
-                <Tooltip
-                  formatter={(value: any, name: any) => [`${value} Story Points`, name]}
-                  contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
-                />
-                <Legend verticalAlign="top" height={36} iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                <Line
-                  type="monotone"
-                  dataKey="ideal"
-                  name="Đường lý tưởng (Guideline)"
-                  stroke="#94a3b8"
-                  strokeDasharray="5 5"
-                  strokeWidth={2}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="actual"
-                  name="Thực tế còn lại (Remaining)"
-                  stroke="#3b82f6"
-                  strokeWidth={3}
-                  dot={{ r: 4, fill: "#3b82f6" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            burndownData.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+                <TrendingDown className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                <p className="text-xs">Chưa có dữ liệu Story Points để hiển thị biểu đồ Burndown</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={burndownData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={11} />
+                  <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
+                  <Tooltip
+                    formatter={(value: any, name: any) => [`${value} Story Points`, name]}
+                    contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
+                  />
+                  <Legend verticalAlign="top" height={36} iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="ideal"
+                    name="Đường lý tưởng (Guideline)"
+                    stroke="#94a3b8"
+                    strokeDasharray="5 5"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="actual"
+                    name="Thực tế còn lại (Remaining)"
+                    stroke="#3b82f6"
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: "#3b82f6" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )
           )}
 
           {chartTab === "velocity" && (
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={velocityTrendData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                <XAxis dataKey="sprint" axisLine={false} tickLine={false} fontSize={11} />
-                <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" SP" />
-                <Tooltip
-                  formatter={(val: any, name: any) => [`${val} Story Points`, name]}
-                  contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
-                />
-                <Legend verticalAlign="top" height={36} iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="committed" name="Điểm cam kết (Committed)" fill="#cbd5e1" radius={[4, 4, 0, 0]} barSize={28} />
-                <Bar dataKey="completed" name="Điểm hoàn thành (Completed)" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={28} />
-                <Line
-                  type="monotone"
-                  dataKey="target"
-                  name="Mục tiêu vận tốc (24-25 SP)"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  strokeDasharray="4 4"
-                  dot={{ r: 3, fill: "#10b981" }}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
+            velocityTrendData.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+                <Zap className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                <p className="text-xs">Chưa có dữ liệu Sprint hoàn thành để đo lường vận tốc</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={velocityTrendData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                  <XAxis dataKey="sprint" axisLine={false} tickLine={false} fontSize={11} />
+                  <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" SP" />
+                  <Tooltip
+                    formatter={(val: any, name: any) => [`${val} Story Points`, name]}
+                    contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
+                  />
+                  <Legend verticalAlign="top" height={36} iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="committed" name="Điểm cam kết (Committed)" fill="#cbd5e1" radius={[4, 4, 0, 0]} barSize={28} />
+                  <Bar dataKey="completed" name="Điểm hoàn thành (Completed)" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={28} />
+                  <Line
+                    type="monotone"
+                    dataKey="target"
+                    name="Mục tiêu vận tốc (Target)"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    strokeDasharray="4 4"
+                    dot={{ r: 3, fill: "#10b981" }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )
           )}
 
           {chartTab === "quality" && (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={defectTrendData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={11} />
-                <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" bugs" />
-                <Tooltip
-                  formatter={(val: any, name: any) => [`${val} Bugs`, name]}
-                  contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
-                />
-                <Legend verticalAlign="top" height={36} iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="opened" name="Bug mới phát hiện (Opened)" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={24} />
-                <Bar dataKey="resolved" name="Bug đã khắc phục (Resolved)" fill="#10b981" radius={[4, 4, 0, 0]} barSize={24} />
-              </BarChart>
-            </ResponsiveContainer>
+            defectTrendData.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+                <Bug className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                <p className="text-xs">Chưa có phát hiện lỗi (Defect/Bug) nào trong dự án</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={defectTrendData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={11} />
+                  <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" bugs" />
+                  <Tooltip
+                    formatter={(val: any, name: any) => [`${val} Bugs`, name]}
+                    contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
+                  />
+                  <Legend verticalAlign="top" height={36} iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="opened" name="Bug mới phát hiện (Opened)" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={24} />
+                  <Bar dataKey="resolved" name="Bug đã khắc phục (Resolved)" fill="#10b981" radius={[4, 4, 0, 0]} barSize={24} />
+                </BarChart>
+              </ResponsiveContainer>
+            )
           )}
         </CardContent>
 
@@ -732,7 +758,7 @@ export default function ReportsPage() {
                 Tổng vận tốc đã đạt: <strong className="text-foreground">{completedSP} Story Points</strong>
               </span>
               <span className="text-muted-foreground">
-                Tỷ lệ hoàn thành: <strong className="text-emerald-600">{totalSP > 0 ? Math.round((completedSP / totalSP) * 100) : 0}%</strong> • Số Sprint: {sprints.length > 0 ? sprints.length : 1}
+                Tỷ lệ hoàn thành: <strong className="text-emerald-600">{totalSP > 0 ? Math.round((completedSP / totalSP) * 100) : 0}%</strong> • Số Sprint: {sprints.length}
               </span>
             </div>
           )}

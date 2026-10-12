@@ -149,8 +149,6 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         "timeline",
         "issues",
         "reports",
-        "releases",
-        "components",
         "cost",
         "members",
         "chat",
@@ -183,8 +181,6 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       "timeline",
       "issues",
       "reports",
-      "releases",
-      "components",
       "chat",
       "activity",
     ];
@@ -202,7 +198,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       }
     }
     if (isOwner) {
-      return ["overview", "board", "backlog", "timeline", "issues", "reports", "releases", "components", "members", "cost", "activity", "settings"];
+      return ["overview", "board", "backlog", "timeline", "issues", "reports", "members", "cost", "activity", "settings"];
     }
     return ["overview", "board", "backlog", "timeline", "activity"];
   });
@@ -227,7 +223,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       }
     }
     if (isOwner) {
-      setActiveTabs(["overview", "board", "backlog", "timeline", "issues", "reports", "releases", "components", "members", "cost", "settings"]);
+      setActiveTabs(["overview", "board", "backlog", "timeline", "issues", "reports", "members", "cost", "settings"]);
     } else {
       const defaults = ["overview", "board", "backlog", "timeline"].filter((t) =>
         effectivePermissions.includes(t)

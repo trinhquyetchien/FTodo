@@ -161,15 +161,14 @@ export default function ProjectCostPage() {
   }, [project?.id, projectId]);
 
   // Dynamic sprint burn rate calculated from real expenses
+  // Dynamic sprint burn rate calculated from real expenses
   const sprintBurnData = React.useMemo(() => {
-    const sprintMap: Record<string, { budget: number; actual: number }> = {
-      "Sprint 1": { budget: 180, actual: 0 },
-      "Sprint 2": { budget: 170, actual: 0 },
-    };
+    if (expenses.length === 0) return [];
+    const sprintMap: Record<string, { budget: number; actual: number }> = {};
     expenses.forEach((e) => {
-      const sName = e.sprint || "Sprint 1";
+      const sName = e.sprint || "Khoản chi chung";
       if (!sprintMap[sName]) {
-        sprintMap[sName] = { budget: 150, actual: 0 };
+        sprintMap[sName] = { budget: 0, actual: 0 };
       }
       if (e.status === "paid" || e.status === "approved") {
         sprintMap[sName].actual += e.amount / 1000000;
@@ -182,21 +181,17 @@ export default function ProjectCostPage() {
     }));
   }, [expenses]);
 
-  const [mainView, setMainView] = useState<"overview" | "strategic_roi">("overview");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"all" | "pending" | "my">("all");
-
-  // ROI Simulator state
-  const [expectedRevenue, setExpectedRevenue] = useState(1200000000); // 1.2 billion VND
 
   // Add / Propose Expense Dialog
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState<Expense["category"]>("infrastructure");
   const [newAmount, setNewAmount] = useState("");
-  const [newSprint, setNewSprint] = useState("Sprint 2");
+  const [newSprint, setNewSprint] = useState("");
   const [newReason, setNewReason] = useState("");
 
   // Review / Decision Dialog (For Boss/Owner)
@@ -231,28 +226,15 @@ export default function ProjectCostPage() {
     );
   }
 
-  const totalBudget = 500000000; // 500 million VND
+  const totalBudget = (project as any)?.budget || 0;
   const totalSpent = expenses
     .filter((e) => e.status === "paid" || e.status === "approved")
     .reduce((sum, item) => sum + item.amount, 0);
   const pendingTotal = expenses
     .filter((e) => e.status === "pending")
     .reduce((sum, item) => sum + item.amount, 0);
-  const remainingBudget = totalBudget - totalSpent;
-  const spentPercentage = Math.round((totalSpent / totalBudget) * 100);
-
-  // Strategic Calculations:
-  // EVM: Planned Value (PV) = 180M, Earned Value (EV) = 175M, Actual Cost (AC) = totalSpent
-  const plannedValue = 180000000;
-  const earnedValue = 175000000;
-  const actualCost = totalSpent;
-  const cpi = actualCost > 0 ? Number((earnedValue / actualCost).toFixed(2)) : 1.0; // Cost Performance Index
-  const spi = Number((earnedValue / plannedValue).toFixed(2)); // Schedule Performance Index
-  const sprintBurnRate = actualCost > 0 ? actualCost : 50000000; // Average per sprint
-  const runwaySprints = Number((remainingBudget / sprintBurnRate).toFixed(1));
-
-  // ROI: (Revenue - Total Budget) / Total Budget * 100%
-  const estimatedRoi = Math.round(((expectedRevenue - totalBudget) / totalBudget) * 100);
+  const remainingBudget = Math.max(0, totalBudget - totalSpent);
+  const spentPercentage = totalBudget > 0 ? Math.min(100, Math.round((totalSpent / totalBudget) * 100)) : 0;
 
   const pendingList = expenses.filter((e) => e.status === "pending");
   const myExpenses = expenses.filter(
@@ -442,7 +424,7 @@ export default function ProjectCostPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">
-              {isOwner ? "Quản trị Tài chính, Ngân sách & Chỉ số ROI" : "Quản lý Chi phí & Đề xuất Ngân sách"}
+              {isOwner ? "Quản trị Tài chính & Ngân sách" : "Quản lý Chi phí & Đề xuất Ngân sách"}
             </h1>
             <Badge variant={isOwner ? "default" : "secondary"} className="text-xs">
               {isOwner ? "Giao diện Chủ dự án (Sếp)" : "Giao diện Nhân viên"}
@@ -450,38 +432,12 @@ export default function ProjectCostPage() {
           </div>
           <p className="text-xs text-muted-foreground mt-1">
             {isOwner
-              ? "Toàn quyền theo dõi ngân sách, phân tích chỉ số hoàn vốn ROI, EVM và duyệt chi phí từ đội ngũ."
+              ? "Toàn quyền theo dõi ngân sách và phê duyệt chi phí từ đội ngũ thực tế."
               : "Theo dõi tình hình ngân sách và gửi các đề xuất chi phí phát sinh kèm lý do cho Chủ dự án duyệt."}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          {/* View switcher for Owner */}
-          {isOwner && (
-            <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 text-xs">
-              <button
-                onClick={() => setMainView("overview")}
-                className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
-                  mainView === "overview"
-                    ? "bg-background text-foreground shadow-2xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <DollarSign className="h-3.5 w-3.5" /> Thu chi & Duyệt
-              </button>
-              <button
-                onClick={() => setMainView("strategic_roi")}
-                className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
-                  mainView === "strategic_roi"
-                    ? "bg-background text-foreground shadow-2xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Target className="h-3.5 w-3.5 text-primary" /> Phân tích ROI & EVM
-              </button>
-            </div>
-          )}
-
           <Button onClick={() => setIsAddExpenseOpen(true)} className="gap-1.5 shadow-xs shrink-0">
             <Plus className="h-4 w-4" />
             {isOwner ? "Thêm khoản chi" : "Đề xuất chi phí"}
@@ -519,193 +475,9 @@ export default function ProjectCostPage() {
       )}
 
       {/* ======================================================== */}
-      {/* 1. STRATEGIC ROI & EVM VIEW (DÀNH CHO SẾP / OWNER)       */}
+      {/* FINANCIAL OVERVIEW & EXPENSES VIEW                       */}
       {/* ======================================================== */}
-      {isOwner && mainView === "strategic_roi" && (
-        <div className="space-y-6">
-          {/* Strategic Metrics KPI Grid */}
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            {/* ROI */}
-            <Card className="border-primary/30 bg-primary/5">
-              <CardHeader className="p-4 pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    ROI Dự kiến (Tỷ suất hoàn vốn)
-                  </CardTitle>
-                  <Target className="h-4 w-4 text-primary" />
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 pt-1">
-                <div className="text-2xl font-black text-primary">+{estimatedRoi}%</div>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Giá trị dự kiến: {formatCurrency(expectedRevenue)}
-                </p>
-                <Badge variant="outline" className="mt-2 text-[10px] bg-background border-primary/30 text-primary">
-                  Điểm hòa vốn: Sau 6 - 8 tháng
-                </Badge>
-              </CardContent>
-            </Card>
-
-            {/* CPI (Cost Performance Index) */}
-            <Card>
-              <CardHeader className="p-4 pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    CPI (Hiệu quả chi phí)
-                  </CardTitle>
-                  <Coins className="h-4 w-4 text-emerald-500" />
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 pt-1">
-                <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                  {cpi} <span className="text-xs font-normal text-muted-foreground">(&gt; 1.0)</span>
-                </div>
-                <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-1">
-                  Tiết kiệm chi phí ~7% so với định mức
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  EV: {formatCurrency(earnedValue)} • AC: {formatCurrency(actualCost)}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* SPI (Schedule Performance Index) */}
-            <Card>
-              <CardHeader className="p-4 pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    SPI (Hiệu quả tiến độ)
-                  </CardTitle>
-                  <Clock className="h-4 w-4 text-amber-500" />
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 pt-1">
-                <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
-                  {spi} <span className="text-xs font-normal text-muted-foreground">(97%)</span>
-                </div>
-                <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-1">
-                  Bám sát 97% tiến độ kế hoạch ban đầu
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  EV: {formatCurrency(earnedValue)} • PV: {formatCurrency(plannedValue)}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Burn Rate & Runway */}
-            <Card>
-              <CardHeader className="p-4 pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Burn Rate & Runway
-                  </CardTitle>
-                  <Zap className="h-4 w-4 text-rose-500" />
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 pt-1">
-                <div className="text-2xl font-black text-foreground">
-                  {runwaySprints} <span className="text-xs font-normal text-muted-foreground">Sprints còn lại</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Tốc độ chi: ~{Math.round(sprintBurnRate / 1000000)} Tr ₫ / Sprint
-                </p>
-                <Badge variant="outline" className="mt-2 text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
-                  An toàn cho 6 - 8 tuần tiếp theo
-                </Badge>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Interactive ROI & Financial Simulator */}
-          <Card className="border-border">
-            <CardHeader className="pb-3 border-b">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                  <SlidersHorizontal className="h-4 w-4" />
-                </div>
-                <div>
-                  <CardTitle className="text-base">Mô phỏng Doanh thu & Tỷ suất hoàn vốn (ROI Simulator)</CardTitle>
-                  <CardDescription className="text-xs">
-                    Kéo thanh trượt hoặc nhập doanh thu / giá trị kỳ vọng để tính toán tỷ suất hoàn vốn và điểm hòa vốn.
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-6 space-y-6">
-              <div className="grid gap-6 md:grid-cols-2 items-center">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold">
-                      Doanh thu kỳ vọng từ sản phẩm (VNĐ):
-                    </Label>
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="number"
-                        value={expectedRevenue}
-                        onChange={(e) => setExpectedRevenue(Number(e.target.value) || 0)}
-                        className="text-sm font-semibold h-11"
-                        step={50000000}
-                      />
-                    </div>
-                  </div>
-
-                  <input
-                    type="range"
-                    min="500000000"
-                    max="3000000000"
-                    step="50000000"
-                    value={expectedRevenue}
-                    onChange={(e) => setExpectedRevenue(Number(e.target.value))}
-                    className="w-full accent-primary h-2 bg-slate-200 rounded-lg cursor-pointer dark:bg-slate-700"
-                  />
-
-                  <div className="flex justify-between text-[11px] text-muted-foreground">
-                    <span>500 Triệu (Hòa vốn)</span>
-                    <span>1.5 Tỷ</span>
-                    <span>3.0 Tỷ (Tối đa)</span>
-                  </div>
-                </div>
-
-                {/* Calculation Summary Card */}
-                <div className="p-4 rounded-xl border bg-muted/20 space-y-3">
-                  <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    Kết quả phân tích đầu tư:
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Tổng ngân sách:</span>
-                      <div className="font-bold text-sm text-foreground mt-0.5">{formatCurrency(totalBudget)}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Lợi nhuận ròng dự kiến:</span>
-                      <div className="font-bold text-sm text-emerald-600 mt-0.5">
-                        {formatCurrency(expectedRevenue - totalBudget)}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Tỷ suất ROI:</span>
-                      <div className="font-extrabold text-base text-primary mt-0.5">+{estimatedRoi}%</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Đánh giá khả thi:</span>
-                      <div className="font-semibold text-emerald-600 mt-0.5">
-                        {estimatedRoi > 100 ? "Rất tiềm năng" : estimatedRoi > 50 ? "Khả thi" : "Cần cân nhắc"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* ======================================================== */}
-      {/* 2. MAIN FINANCIAL OVERVIEW & EXPENSES VIEW               */}
-      {/* ======================================================== */}
-      {(mainView === "overview" || !isOwner) && (
-        <div className="space-y-6">
+      <div className="space-y-6">
           {/* 1. Summary Cards */}
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
@@ -772,7 +544,7 @@ export default function ProjectCostPage() {
                   {formatCurrency(remainingBudget)}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Đủ chi trả cho khoảng {runwaySprints} Sprints tiếp theo
+                  {totalBudget > 0 ? `Còn lại ${100 - spentPercentage}% hạn mức ngân sách` : "Chưa thiết lập ngân sách cố định"}
                 </p>
               </CardContent>
             </Card>
@@ -898,20 +670,27 @@ export default function ProjectCostPage() {
                 <CardDescription className="text-xs">Đơn vị: Triệu VNĐ (Dự toán kế hoạch so với thực chi)</CardDescription>
               </CardHeader>
               <CardContent className="h-[260px] pl-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={sprintBurnData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} />
-                    <YAxis axisLine={false} tickLine={false} fontSize={11} />
-                    <Tooltip
-                      formatter={(val: any) => [`${val} Triệu ₫`, ""]}
-                      cursor={{ fill: "rgba(0,0,0,0.04)" }}
-                    />
-                    <Legend verticalAlign="top" height={32} />
-                    <Bar name="Ngân sách kế hoạch" dataKey="budget" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                    <Bar name="Chi phí thực tế" dataKey="actual" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                {sprintBurnData.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+                    <BarChart2 className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                    <p className="text-xs">Chưa có dữ liệu chi phí theo Sprint</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={sprintBurnData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} />
+                      <YAxis axisLine={false} tickLine={false} fontSize={11} />
+                      <Tooltip
+                        formatter={(val: any) => [`${val} Triệu ₫`, ""]}
+                        cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                      />
+                      <Legend verticalAlign="top" height={32} />
+                      <Bar name="Ngân sách kế hoạch" dataKey="budget" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                      <Bar name="Chi phí thực tế" dataKey="actual" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
 
@@ -922,34 +701,43 @@ export default function ProjectCostPage() {
                 <CardDescription className="text-xs">Tỷ lệ phân bổ chi phí toàn dự án</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[170px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData.length > 0 ? pieData : [{ name: "Khác", value: 1, color: "#94a3b8" }]}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={70}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value: any) => [formatCurrency(Number(value)), ""]} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="grid grid-cols-2 gap-2 mt-3 text-[11px]">
-                  {pieData.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                      <span className="truncate text-muted-foreground">{item.name}</span>
+                {pieData.length === 0 ? (
+                  <div className="h-[170px] flex flex-col items-center justify-center text-muted-foreground">
+                    <PieIcon className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                    <p className="text-xs">Chưa có chi phí nào được ghi nhận</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="h-[170px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={pieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={45}
+                            outerRadius={70}
+                            paddingAngle={3}
+                            dataKey="value"
+                          >
+                            {pieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value: any) => [formatCurrency(Number(value)), ""]} />
+                        </PieChart>
+                      </ResponsiveContainer>
                     </div>
-                  ))}
-                </div>
+                    <div className="grid grid-cols-2 gap-2 mt-3 text-[11px]">
+                      {pieData.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                          <span className="truncate text-muted-foreground">{item.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -1160,7 +948,6 @@ export default function ProjectCostPage() {
             </CardContent>
           </Card>
         </div>
-      )}
 
       {/* ========================================================= */}
       {/* 3. ADD / PROPOSE EXPENSE MODAL                            */}

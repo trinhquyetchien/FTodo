@@ -18,8 +18,6 @@ import {
   CalendarRange,
   CheckSquare,
   BarChart3,
-  Rocket,
-  Boxes,
   MessageSquare,
   DollarSign,
   FolderPlus,
@@ -93,8 +91,6 @@ export const TAB_CATEGORIES = [
     items: [
       { id: "issues", label: "Tất cả tác vụ", desc: "Toàn bộ Bugs, Tasks, Stories", icon: CheckSquare },
       { id: "reports", label: "Báo cáo & Burndown", desc: "Biểu đồ Burndown, Velocity", icon: BarChart3 },
-      { id: "releases", label: "Phiên bản phát hành", desc: "Quản lý phiên bản v1.0, v1.1", icon: Rocket },
-      { id: "components", label: "Hợp phần kiến trúc", desc: "Phân rã module kỹ thuật", icon: Boxes },
     ],
   },
   {
@@ -118,8 +114,8 @@ const ROLE_PRESETS = [
   },
   {
     name: "DevOps Engineer",
-    desc: "Vận hành hạ tầng, CI/CD và phiên bản phát hành",
-    perms: ["overview", "issues", "releases", "components", "chat"],
+    desc: "Vận hành hạ tầng, CI/CD và theo dõi công việc",
+    perms: ["overview", "issues", "board", "chat"],
   },
   {
     name: "Business Analyst",

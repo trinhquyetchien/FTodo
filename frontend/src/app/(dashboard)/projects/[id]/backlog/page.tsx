@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   Plus,
@@ -81,12 +81,7 @@ export interface WbsEpic {
   description: string;
 }
 
-const INITIAL_EPICS: WbsEpic[] = [
-  { id: "epic-auth", name: "Xác thực & Bảo mật", color: "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-950/40 dark:text-purple-300", description: "JWT, Refresh Token, RBAC Matrix" },
-  { id: "epic-scrum", name: "Scrum Engine & Board", color: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300", description: "Kanban Drag-Drop, Sprint Goal, Filters" },
-  { id: "epic-cost", name: "Quản trị Tài chính & ROI", color: "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300", description: "ROI, EVM (CPI/SPI), Duyệt chi phí" },
-  { id: "epic-report", name: "Báo cáo & Phê duyệt PDF", color: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300", description: "Báo cáo tuần, PDF viewer, Ký duyệt" },
-];
+const DEFAULT_EPICS: WbsEpic[] = [];
 
 export default function BacklogPage() {
   const { project, isOwner } = useProject();
@@ -97,6 +92,21 @@ export default function BacklogPage() {
   const [members, setMembers] = useState<Array<{ id: string; name: string; email: string; avatar?: string }>>([]);
   const [activeSprint, setActiveSprint] = useState<any>(null);
   const [activeSprintId, setActiveSprintId] = useState<string | null>(null);
+
+  const availableEpics: WbsEpic[] = useMemo(() => {
+    const list: WbsEpic[] = [];
+    items.forEach((item) => {
+      if (item.epicName && item.epicName !== "Chung" && !list.some((e) => e.name === item.epicName)) {
+        list.push({
+          id: item.epicId || item.epicName,
+          name: item.epicName,
+          color: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300",
+          description: "",
+        });
+      }
+    });
+    return list;
+  }, [items]);
 
   // Sync live tasks, sprints, and members from PostgreSQL backend
   useEffect(() => {
@@ -153,18 +163,8 @@ export default function BacklogPage() {
               type = "STORY";
             }
 
-            let epicId = "epic-scrum";
-            let epicName = "Scrum Engine & Board";
-            if (titleLower.includes("jwt") || titleLower.includes("xác thực") || titleLower.includes("bảo mật") || titleLower.includes("schema")) {
-              epicId = "epic-auth";
-              epicName = "Xác thực & Bảo mật";
-            } else if (titleLower.includes("chi phí") || titleLower.includes("ngân sách") || titleLower.includes("roi")) {
-              epicId = "epic-cost";
-              epicName = "Quản trị Tài chính & ROI";
-            } else if (titleLower.includes("báo cáo") || titleLower.includes("pdf")) {
-              epicId = "epic-report";
-              epicName = "Báo cáo & Phê duyệt PDF";
-            }
+            const epicName = t.epic || (titleLower.includes("lỗi") || titleLower.includes("bug") ? "Lỗi & Sự cố" : "Chung");
+            const epicId = t.epic ? t.epic.toLowerCase().replace(/\s+/g, "-") : (titleLower.includes("lỗi") || titleLower.includes("bug") ? "epic-bug" : "epic-general");
 
             const initials = t.assignee?.name
               ? t.assignee.name.split(" ").filter(Boolean).map((n: string) => n[0]).join("").slice(-2).toUpperCase()
@@ -269,7 +269,7 @@ export default function BacklogPage() {
   const handleQuickAdd = async (sprint: BacklogItem["sprint"], title: string, setTitle: (s: string) => void) => {
     if (!title.trim()) return;
 
-    const epic = INITIAL_EPICS[0];
+    const epic = { id: "epic-general", name: "Chung" };
     let createdBackendId: string | undefined;
     let createdCode = `FT-${items.length + 109}`;
     const defaultAssigneeId = user?.id || (members.length > 0 ? members[0].id : undefined);
@@ -320,7 +320,7 @@ export default function BacklogPage() {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
-    const epic = INITIAL_EPICS.find((e) => e.id === newEpicId) || INITIAL_EPICS[0];
+    const epic = availableEpics.find((e) => e.id === newEpicId) || { id: "epic-general", name: "Chung" };
     const targetMember = members.find((m) => m.id === newAssignee);
     const backendPrio = newPriority === "Cao" ? "HIGH" : newPriority === "Thấp" ? "LOW" : "MEDIUM";
     let createdBackendId: string | undefined;
@@ -432,10 +432,10 @@ export default function BacklogPage() {
             onClick={() => setSelectedEpicFilter("ALL")}
             className="text-xs h-7 px-3 rounded-lg"
           >
-            Tất cả Epics ({items.length} việc)
+            Tất cả công việc ({items.length} việc)
           </Button>
 
-          {INITIAL_EPICS.map((epic) => {
+          {availableEpics.map((epic) => {
             const count = items.filter((i) => i.epicId === epic.id).length;
             const pts = items.filter((i) => i.epicId === epic.id).reduce((s, i) => s + (i.points || 0), 0);
             const isSelected = selectedEpicFilter === epic.id;
@@ -459,7 +459,7 @@ export default function BacklogPage() {
       </div>
 
       {/* ======================================================== */}
-      {/* 3. ACTIVE SPRINT CONTAINER (SPRINT 1)                    */}
+      {/* 3. ACTIVE SPRINT CONTAINER                                */}
       {/* ======================================================== */}
       <div className="border rounded-2xl bg-card shadow-2xs overflow-hidden">
         {/* Sprint Header */}
@@ -468,18 +468,24 @@ export default function BacklogPage() {
             <div className="flex items-center gap-2">
               <Flame className="h-4 w-4 text-orange-500" />
               <h3 className="font-bold text-sm text-foreground">
-                {activeSprint?.name || "Sprint 1: Nền tảng & Xác thực"}
+                {activeSprint ? activeSprint.name : "Chưa có Sprint kích hoạt"}
               </h3>
-              <Badge className="bg-emerald-600 hover:bg-emerald-700 text-[10px] py-0">
-                {activeSprint?.status === "ACTIVE" ? "Active Sprint" : activeSprint?.status || "Active Sprint"}
-              </Badge>
-              <span className="text-xs text-muted-foreground font-mono">
-                • {activeSprint?.startDate ? new Date(activeSprint.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : "01/10"} - {activeSprint?.endDate ? new Date(activeSprint.endDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : "15/10"}
-              </span>
+              {activeSprint && (
+                <Badge className="bg-emerald-600 hover:bg-emerald-700 text-[10px] py-0">
+                  {activeSprint.status === "ACTIVE" ? "Active Sprint" : activeSprint.status}
+                </Badge>
+              )}
+              {activeSprint?.startDate && activeSprint?.endDate && (
+                <span className="text-xs text-muted-foreground font-mono">
+                  • {new Date(activeSprint.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })} - {new Date(activeSprint.endDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
+                </span>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Mục tiêu: {activeSprint?.goal || "Hoàn tất module xác thực JWT, RBAC phân quyền và bảng Scrum kéo thả."}
-            </p>
+            {activeSprint?.goal ? (
+              <p className="text-xs text-muted-foreground">
+                Mục tiêu: {activeSprint.goal}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
@@ -503,7 +509,9 @@ export default function BacklogPage() {
         <div className="divide-y">
           {sprint1Items.length === 0 ? (
             <div className="p-6 text-center text-xs text-muted-foreground">
-              Không có công việc nào trong Sprint 1 phù hợp với bộ lọc Epic.
+              {activeSprint
+                ? "Không có công việc nào trong Sprint này phù hợp với bộ lọc."
+                : "Dự án chưa có Sprint nào đang hoạt động. Các công việc nằm trong Backlog bên dưới."}
             </div>
           ) : (
             sprint1Items.map((item) => (
@@ -827,12 +835,13 @@ export default function BacklogPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Thuộc Epic (WBS)</Label>
-                <Select value={newEpicId} onValueChange={(val) => setNewEpicId(val || "epic-auth")}>
+                <Select value={newEpicId} onValueChange={(val) => setNewEpicId(val || "epic-general")}>
                   <SelectTrigger className="text-xs h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {INITIAL_EPICS.map((ep) => (
+                    <SelectItem value="epic-general">Chung (Mặc định)</SelectItem>
+                    {availableEpics.map((ep) => (
                       <SelectItem key={ep.id} value={ep.id}>
                         {ep.name}
                       </SelectItem>

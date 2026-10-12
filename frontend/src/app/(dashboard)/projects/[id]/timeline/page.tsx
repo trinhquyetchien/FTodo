@@ -73,6 +73,8 @@ const calcGanttPos = (startStr: string, endStr: string) => {
 
 // Today line calculation
 const TODAY = new Date();
+const TODAY_FORMATTED = TODAY.toLocaleDateString("vi-VN");
+const TODAY_SHORT = `${TODAY.getDate()}/${TODAY.getMonth() + 1}`;
 const TODAY_OFFSET_PERCENT =
   ((TODAY.getTime() - TIMELINE_START.getTime()) / (1000 * 3600 * 24) / TOTAL_DAYS) * 100;
 
@@ -202,8 +204,7 @@ export default function TimelinePage() {
             <CalendarRange className="h-6 w-6 text-primary" /> Lộ trình & Lịch tiến độ (Gantt Timeline)
           </h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Hiển thị chi tiết ngày bắt đầu, ngày kết thúc và thời lượng thực tế của từng Epic từ{" "}
-            <strong>01/10/2026 đến 15/11/2026</strong>.
+            Hiển thị chi tiết ngày bắt đầu, ngày kết thúc và tiến độ thực tế của từng Epic trên lộ trình.
           </p>
         </div>
 
@@ -254,7 +255,7 @@ export default function TimelinePage() {
           <CardContent className="p-4 pt-0">
             <div className="text-xl font-bold">{epics.length} Epics • {totalPoints} Points</div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Thời gian lộ trình: 46 ngày công tác
+              {epics.length > 0 ? `${epics.length} hạng mục trong lộ trình` : "Chưa có hạng mục lộ trình"}
             </p>
           </CardContent>
         </Card>
@@ -273,15 +274,23 @@ export default function TimelinePage() {
 
         <Card>
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-xs text-muted-foreground font-medium">Cột mốc bàn giao gần nhất</CardTitle>
+            <CardTitle className="text-xs text-muted-foreground font-medium">Sprint kế tiếp</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="text-xl font-bold flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
-              <Milestone className="h-4 w-4" /> Bản Release v1.0
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Hạn chót: <strong>18/10/2026</strong> (Còn 7 ngày)
-            </p>
+            {epics.length > 0 ? (
+              <>
+                <div className="text-xl font-bold flex items-center gap-1.5 text-blue-600 dark:text-blue-400 truncate">
+                  <Milestone className="h-4 w-4 shrink-0" /> {epics[0].title}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Thời hạn: <strong>{epics[0].endDisplay}</strong>
+                </p>
+              </>
+            ) : (
+              <div className="text-xs text-muted-foreground py-2">
+                Chưa có Sprint kích hoạt
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -293,13 +302,13 @@ export default function TimelinePage() {
             <div>
               <CardTitle className="text-base font-semibold">Trục thời gian chi tiết theo ngày & tuần</CardTitle>
               <CardDescription className="text-xs">
-                Mốc ngày đỏ: <strong>Hôm nay (11/10/2026)</strong> • Chiều dài thanh phản ánh đúng số ngày thực tế
+                Mốc ngày đỏ: <strong>Hôm nay ({TODAY_FORMATTED})</strong> • Chiều dài thanh phản ánh đúng số ngày thực tế
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-xs border-rose-400 text-rose-600 bg-rose-50 dark:bg-rose-950/30 gap-1 font-mono">
                 <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
-                Hôm nay: 11/10/2026
+                Hôm nay: {TODAY_FORMATTED}
               </Badge>
             </div>
           </div>
@@ -351,60 +360,66 @@ export default function TimelinePage() {
               >
                 <div className="h-full w-0.5 bg-rose-500 shadow-sm relative">
                   <div className="absolute -top-2 -translate-x-1/2 bg-rose-500 text-white text-[9px] font-bold px-1 py-0.2 rounded shadow-xs whitespace-nowrap">
-                    11/10 (Hôm nay)
+                    {TODAY_SHORT} (Hôm nay)
                   </div>
                 </div>
               </div>
 
-              {filteredEpics.map((epic) => (
-                <div
-                  key={epic.id}
-                  className="grid grid-cols-12 items-center hover:bg-muted/30 transition-colors py-3.5 px-3"
-                >
-                  {/* Left Column: Epic Details & Exact Dates */}
-                  <div className="col-span-4 pr-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                        {epic.key}
-                      </span>
-                      <span className="text-xs font-semibold text-foreground truncate" title={epic.title}>
-                        {epic.title}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground mt-1.5 font-medium">
-                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-slate-300 dark:border-slate-700 font-mono">
-                        {epic.startDisplay} → {epic.endDisplay}
-                      </Badge>
-                      <span>({epic.durationDays} ngày)</span>
-                      <span>•</span>
-                      <span>{epic.points} pts</span>
-                      <span>•</span>
-                      <span className="text-foreground">{epic.assignee}</span>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Exact Gantt Bar */}
-                  <div className="col-span-8 relative h-8 bg-slate-100/70 dark:bg-slate-800/40 rounded-lg overflow-hidden flex items-center p-1 border border-border/50">
-                    <div
-                      className={`h-full rounded-md ${epic.color} text-white flex items-center justify-between px-2.5 text-[10px] font-semibold transition-all shadow-xs`}
-                      style={{
-                        marginLeft: `${epic.startOffsetPercent}%`,
-                        width: `${epic.widthPercent}%`,
-                        minWidth: "60px",
-                      }}
-                      title={`${epic.title}: ${epic.startDisplay} đến ${epic.endDisplay} (${epic.progress}%)`}
-                    >
-                      <span className="truncate">{epic.progress}%</span>
-                      {epic.status === "done" ? (
-                        <CheckCircle2 className="h-3 w-3 shrink-0 ml-1" />
-                      ) : (
-                        <span className="text-[9px] opacity-80 shrink-0 ml-1">{epic.durationDays}d</span>
-                      )}
-                    </div>
-                  </div>
+              {filteredEpics.length === 0 ? (
+                <div className="p-12 text-center text-xs text-muted-foreground">
+                  Chưa có Epic hoặc Sprint nào trên lộ trình. Bấm &quot;Thêm Epic&quot; để thiết lập mục tiêu tiến độ!
                 </div>
-              ))}
+              ) : (
+                filteredEpics.map((epic) => (
+                  <div
+                    key={epic.id}
+                    className="grid grid-cols-12 items-center hover:bg-muted/30 transition-colors py-3.5 px-3"
+                  >
+                    {/* Left Column: Epic Details & Exact Dates */}
+                    <div className="col-span-4 pr-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                          {epic.key}
+                        </span>
+                        <span className="text-xs font-semibold text-foreground truncate" title={epic.title}>
+                          {epic.title}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground mt-1.5 font-medium">
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-slate-300 dark:border-slate-700 font-mono">
+                          {epic.startDisplay} → {epic.endDisplay}
+                        </Badge>
+                        <span>({epic.durationDays} ngày)</span>
+                        <span>•</span>
+                        <span>{epic.points} pts</span>
+                        <span>•</span>
+                        <span className="text-foreground">{epic.assignee}</span>
+                      </div>
+                    </div>
+
+                    {/* Right Column: Exact Gantt Bar */}
+                    <div className="col-span-8 relative h-8 bg-slate-100/70 dark:bg-slate-800/40 rounded-lg overflow-hidden flex items-center p-1 border border-border/50">
+                      <div
+                        className={`h-full rounded-md ${epic.color} text-white flex items-center justify-between px-2.5 text-[10px] font-semibold transition-all shadow-xs`}
+                        style={{
+                          marginLeft: `${epic.startOffsetPercent}%`,
+                          width: `${epic.widthPercent}%`,
+                          minWidth: "60px",
+                        }}
+                        title={`${epic.title}: ${epic.startDisplay} đến ${epic.endDisplay} (${epic.progress}%)`}
+                      >
+                        <span className="truncate">{epic.progress}%</span>
+                        {epic.status === "done" ? (
+                          <CheckCircle2 className="h-3 w-3 shrink-0 ml-1" />
+                        ) : (
+                          <span className="text-[9px] opacity-80 shrink-0 ml-1">{epic.durationDays}d</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </CardContent>

@@ -422,9 +422,9 @@ export default function BoardPage() {
   const completionRate = totalPoints > 0 ? Math.round((donePoints / totalPoints) * 100) : 0;
 
   // Real sprint date calculation
-  const sprintStartDate = activeSprint?.startDate ? new Date(activeSprint.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : "01/10";
-  const sprintEndDate = activeSprint?.endDate ? new Date(activeSprint.endDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : "15/10";
-  const sprintDaysLeft = activeSprint?.endDate ? Math.max(0, Math.ceil((new Date(activeSprint.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 4;
+  const sprintStartDate = activeSprint?.startDate ? new Date(activeSprint.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : null;
+  const sprintEndDate = activeSprint?.endDate ? new Date(activeSprint.endDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : null;
+  const sprintDaysLeft = activeSprint?.endDate ? Math.max(0, Math.ceil((new Date(activeSprint.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : null;
 
   return (
     <div className="space-y-4 pb-8 flex flex-col min-h-[calc(100vh-13rem)] select-none">
@@ -432,25 +432,35 @@ export default function BoardPage() {
       <Card className="border bg-gradient-to-r from-slate-50 to-indigo-50/20 dark:from-slate-900/50 dark:to-indigo-950/20 shadow-2xs">
         <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-extrabold text-base text-foreground tracking-tight flex items-center gap-1.5">
                 <Flame className="h-4 w-4 text-orange-500 shrink-0" />
-                {activeSprint?.name || "Sprint 1: Nền tảng & Xác thực"}
+                {activeSprint ? activeSprint.name : "Chưa có Sprint kích hoạt"}
               </span>
-              <Badge className="bg-emerald-600 hover:bg-emerald-700 text-[10px]">
-                {activeSprint?.status === "ACTIVE" ? "Active Sprint" : activeSprint?.status || "Active Sprint"}
-              </Badge>
+              {activeSprint && (
+                <Badge className="bg-emerald-600 hover:bg-emerald-700 text-[10px]">
+                  {activeSprint.status === "ACTIVE" ? "Active Sprint" : activeSprint.status}
+                </Badge>
+              )}
               <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center gap-1 font-medium">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Realtime Live Sync
               </Badge>
-              <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
-                {sprintStartDate} - {sprintEndDate} (Còn {sprintDaysLeft} ngày)
-              </Badge>
+              {sprintStartDate && sprintEndDate && (
+                <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
+                  {sprintStartDate} - {sprintEndDate} {sprintDaysLeft !== null ? `(Còn ${sprintDaysLeft} ngày)` : ""}
+                </Badge>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              <strong>Mục tiêu Sprint:</strong> {activeSprint?.goal || "Hoàn thành các tính năng và chức năng cốt lõi của Sprint trong kế hoạch dự án."}
-            </p>
+            {activeSprint?.goal ? (
+              <p className="text-xs text-muted-foreground">
+                <strong>Mục tiêu Sprint:</strong> {activeSprint.goal}
+              </p>
+            ) : !activeSprint ? (
+              <p className="text-xs text-muted-foreground">
+                Hãy tạo hoặc kích hoạt Sprint trong Backlog để theo dõi các đầu việc trên bảng Scrum.
+              </p>
+            ) : null}
           </div>
 
           {/* Velocity & Story Points Progress */}

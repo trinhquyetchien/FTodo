@@ -905,16 +905,6 @@ export default function GlobalDashboard() {
             </CardContent>
           </Card>
 
-          {/* 3. QUICK AGILE TIP / QUOTE */}
-          <div className="p-3.5 rounded-xl border bg-linear-to-br from-primary/5 via-card to-background text-xs space-y-1.5 shadow-2xs">
-            <div className="flex items-center gap-1.5 font-bold text-primary">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Agile & Scrum Best Practice</span>
-            </div>
-            <p className="text-muted-foreground leading-relaxed text-[11px]">
-              Tối ưu hóa quy trình làm việc bằng cách chia nhỏ User Stories theo WBS, cập nhật Burndown chart hàng ngày và phản hồi lời mời kịp thời để đồng bộ tiến độ.
-            </p>
-          </div>
         </div>
       </div>
     </div>
