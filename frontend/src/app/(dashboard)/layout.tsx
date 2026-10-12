@@ -40,7 +40,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="h-screen max-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden">
+    <div className="h-screen max-h-screen flex flex-col bg-background overflow-hidden">
       {/* Top Header wrapped in Suspense for usePathname() / useParams() */}
       <Suspense fallback={<div className="h-16 bg-card border-b shrink-0" />}>
         <DashboardHeader />

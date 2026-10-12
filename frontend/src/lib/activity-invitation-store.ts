@@ -26,36 +26,122 @@ export interface ProjectActivityLog {
   timeAgo: string;
 }
 
-export const INITIAL_INVITATIONS: ProjectInvitation[] = [];
-export const INITIAL_ACTIVITY_LOGS: ProjectActivityLog[] = [];
+export const INITIAL_INVITATIONS: ProjectInvitation[] = [
+  {
+    id: "inv-1",
+    projectId: "ftodo-core",
+    projectName: "FTodo - Nền tảng Quản trị Agile Scrum",
+    projectDescription: "Hệ thống Quản lý Dự án Agile Scrum & Quản trị Tài chính Dự án toàn diện.",
+    inviterName: "Trịnh Quyết Chiến",
+    inviterEmail: "chien@example.com",
+    roleGroupId: "r2",
+    roleGroupName: "DEV",
+    recipientEmail: "binh@example.com",
+    recipientName: "Trần Thị Bình",
+    createdAt: "12/10/2026 lúc 09:30",
+    status: "pending",
+  },
+  {
+    id: "inv-2",
+    projectId: "ftodo-core",
+    projectName: "FTodo - Nền tảng Quản trị Agile Scrum",
+    projectDescription: "Hệ thống Quản lý Dự án Agile Scrum & Quản trị Tài chính Dự án toàn diện.",
+    inviterName: "Trịnh Quyết Chiến",
+    inviterEmail: "chien@example.com",
+    roleGroupId: "r3",
+    roleGroupName: "QA",
+    recipientEmail: "dung@example.com",
+    recipientName: "Lê Hoàng Dũng",
+    createdAt: "12/10/2026 lúc 08:15",
+    status: "accepted",
+  },
+];
 
-const STORE_VERSION_KEY = "ftodo_clean_nodata_v5";
+export const INITIAL_ACTIVITY_LOGS: ProjectActivityLog[] = [
+  {
+    id: "act-1",
+    projectId: "ftodo-core",
+    userName: "Trịnh Quyết Chiến",
+    userAvatar: "QC",
+    userRole: "Chủ sở hữu",
+    category: "task",
+    action: "đã cập nhật trạng thái công việc",
+    detail: "Chuyển 'Bảng Kanban Scrum kéo thả tương tác mượt mà' (FT-103) sang Hoàn thành",
+    timestamp: "12/10/2026 lúc 15:20",
+    timeAgo: "25 phút trước",
+  },
+  {
+    id: "act-2",
+    projectId: "ftodo-core",
+    userName: "Trần Thị Bình",
+    userAvatar: "TB",
+    userRole: "QA",
+    category: "task",
+    action: "đã tạo công việc mới",
+    detail: "Tạo task 'Kiểm thử ma trận phân quyền và xác thực JWT' (FT-108) • 5 SP",
+    timestamp: "12/10/2026 lúc 14:05",
+    timeAgo: "1 giờ trước",
+  },
+  {
+    id: "act-3",
+    projectId: "ftodo-core",
+    userName: "Nguyễn Văn An",
+    userAvatar: "VA",
+    userRole: "DEV",
+    category: "cost",
+    action: "đã đề xuất chi phí mới",
+    detail: "Đề xuất duyệt khoản chi 'Hạ tầng AWS RDS & Elastic Load Balancer' (14.500.000 đ)",
+    timestamp: "12/10/2026 lúc 11:30",
+    timeAgo: "4 giờ trước",
+  },
+  {
+    id: "act-4",
+    projectId: "ftodo-core",
+    userName: "Trịnh Quyết Chiến",
+    userAvatar: "QC",
+    userRole: "Chủ sở hữu",
+    category: "report",
+    action: "đã phê duyệt báo cáo Sprint",
+    detail: "Duyệt báo cáo 'Báo cáo Sprint 1: Hoàn tất Module Auth & Tối ưu Database'",
+    timestamp: "12/10/2026 lúc 10:15",
+    timeAgo: "5 giờ trước",
+  },
+  {
+    id: "act-5",
+    projectId: "ftodo-core",
+    userName: "Lê Hoàng Dũng",
+    userAvatar: "HD",
+    userRole: "DEV",
+    category: "member",
+    action: "đã tham gia dự án",
+    detail: "Gia nhập nhóm phát triển 'DEV' qua lời mời từ Chủ dự án",
+    timestamp: "12/10/2026 lúc 08:30",
+    timeAgo: "7 giờ trước",
+  },
+];
+
+const STORE_VERSION_KEY = "ftodo_seed_v7";
 
 function checkAndClearLegacyStorage() {
   if (typeof window === "undefined") return;
   if (localStorage.getItem("ftodo_store_v") !== STORE_VERSION_KEY) {
-    localStorage.removeItem("ftodo_project_invitations");
-    localStorage.removeItem("ftodo_activity_logs");
-    // Clear any board task local caches
-    Object.keys(localStorage).forEach((k) => {
-      if (k.startsWith("ftodo_board_tasks_")) {
-        localStorage.removeItem(k);
-      }
-    });
+    localStorage.setItem("ftodo_project_invitations", JSON.stringify(INITIAL_INVITATIONS));
+    localStorage.setItem("ftodo_activity_logs", JSON.stringify(INITIAL_ACTIVITY_LOGS));
     localStorage.setItem("ftodo_store_v", STORE_VERSION_KEY);
   }
 }
 
 // Helper: Invitations
 export function getStoredInvitations(): ProjectInvitation[] {
-  if (typeof window === "undefined") return [];
+  if (typeof window === "undefined") return INITIAL_INVITATIONS;
   checkAndClearLegacyStorage();
   const raw = localStorage.getItem("ftodo_project_invitations");
-  if (!raw) return [];
+  if (!raw) return INITIAL_INVITATIONS;
   try {
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_INVITATIONS;
   } catch {
-    return [];
+    return INITIAL_INVITATIONS;
   }
 }
 
@@ -110,20 +196,20 @@ export function respondToInvitation(
   return { success: true, invitation: target };
 }
 
-// Helper: Activity Logs
 export function getStoredActivityLogs(projectId?: string): ProjectActivityLog[] {
-  if (typeof window === "undefined") return [];
+  if (typeof window === "undefined") return INITIAL_ACTIVITY_LOGS;
   checkAndClearLegacyStorage();
   const raw = localStorage.getItem("ftodo_activity_logs");
-  if (!raw) return [];
+  if (!raw) return INITIAL_ACTIVITY_LOGS;
   try {
     const logs: ProjectActivityLog[] = JSON.parse(raw);
+    const result = Array.isArray(logs) && logs.length > 0 ? logs : INITIAL_ACTIVITY_LOGS;
     if (projectId) {
-      return logs.filter((l) => l.projectId === projectId);
+      return result.filter((l) => l.projectId === projectId || l.projectId === "ftodo-core");
     }
-    return logs;
+    return result;
   } catch {
-    return [];
+    return INITIAL_ACTIVITY_LOGS;
   }
 }
 
