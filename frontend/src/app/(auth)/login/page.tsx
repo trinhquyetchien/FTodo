@@ -48,14 +48,8 @@ export default function Login() {
     }
   };
 
-  const fillSampleAccount = (sampleEmail: string) => {
-    setEmail(sampleEmail);
-    setPassword("password123");
-    setError("");
-  };
-
   const handleSocialLogin = (provider: "google" | "github") => {
-    fillSampleAccount("chien@example.com");
+    setError(`Đăng nhập qua ${provider === "google" ? "Google" : "GitHub"} đang được cập nhật. Vui lòng đăng nhập bằng Email và Mật khẩu.`);
   };
 
   return (
@@ -218,36 +212,6 @@ export default function Login() {
             )}
           </Button>
         </form>
-
-        {/* Quick Demo Accounts Banner */}
-        <div className="pt-2 border-t border-dashed">
-          <p className="text-[11px] font-semibold text-muted-foreground mb-1.5 text-center">
-            Tài khoản mẫu có sẵn trong PostgreSQL:
-          </p>
-          <div className="flex flex-wrap gap-1.5 justify-center">
-            <button
-              type="button"
-              onClick={() => fillSampleAccount("chien@example.com")}
-              className="px-2 py-1 text-[10px] font-medium rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-colors"
-            >
-              Chủ dự án (chien@example.com)
-            </button>
-            <button
-              type="button"
-              onClick={() => fillSampleAccount("an@example.com")}
-              className="px-2 py-1 text-[10px] font-medium rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition-colors"
-            >
-              DEV (an@example.com)
-            </button>
-            <button
-              type="button"
-              onClick={() => fillSampleAccount("binh@example.com")}
-              className="px-2 py-1 text-[10px] font-medium rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition-colors"
-            >
-              QA (binh@example.com)
-            </button>
-          </div>
-        </div>
       </CardContent>
 
       <CardFooter className="flex flex-col space-y-2 border-t pt-4">

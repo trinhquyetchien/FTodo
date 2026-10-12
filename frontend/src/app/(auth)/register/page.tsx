@@ -58,9 +58,7 @@ export default function Register() {
   };
 
   const handleSocialRegister = (provider: "google" | "github") => {
-    setName(provider === "google" ? "Google User" : "GitHub Developer");
-    setEmail(`user.${provider}@example.com`);
-    setPassword("password123");
+    setError(`Đăng ký qua ${provider === "google" ? "Google" : "GitHub"} đang được cập nhật. Vui lòng điền thông tin đăng ký bên dưới.`);
   };
 
   return (
