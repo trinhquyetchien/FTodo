@@ -20,6 +20,9 @@ export class TasksService {
         _count: {
           select: { tasks: true },
         },
+        tasks: {
+          select: { id: true, status: true, points: true },
+        },
       },
       orderBy: { startDate: 'desc' },
     });

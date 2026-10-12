@@ -1,11 +1,16 @@
+"use client";
+
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 export default function AccountPage() {
+  const { user } = useAuth();
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="mb-8">
@@ -23,19 +28,19 @@ export default function AccountPage() {
             <div className="flex items-center gap-4">
               <Avatar className="h-20 w-20">
                 <AvatarImage src="" />
-                <AvatarFallback className="bg-primary/10 text-primary">
-                  <User className="h-10 w-10" />
+                <AvatarFallback className="bg-primary/10 text-primary font-bold text-lg">
+                  {user?.avatar || (user?.name ? user.name.slice(0, 2).toUpperCase() : <User className="h-10 w-10" />)}
                 </AvatarFallback>
               </Avatar>
               <Button variant="outline">Đổi ảnh</Button>
             </div>
             <div className="space-y-2">
               <Label htmlFor="name">Họ và tên</Label>
-              <Input id="name" defaultValue="Nguyễn Văn A" />
+              <Input id="name" defaultValue={user?.name || ""} placeholder="Họ và tên của bạn" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" defaultValue="nguyenvana@example.com" disabled />
+              <Input id="email" defaultValue={user?.email || ""} disabled />
             </div>
           </CardContent>
           <CardFooter>

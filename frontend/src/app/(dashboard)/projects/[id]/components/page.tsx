@@ -52,7 +52,7 @@ const INITIAL_COMPONENTS: ArchitectureComponent[] = [
     id: "cmp-1",
     name: "Frontend Web UI (Next.js 16 & Tailwind)",
     description: "Toàn bộ giao diện người dùng, shadcn/ui components và luồng thao tác kéo thả Scrum.",
-    lead: "Trịnh Quyết Chiến",
+    lead: "Frontend Lead",
     issuesCount: 0,
     completedCount: 0,
     iconType: "frontend",
@@ -61,7 +61,7 @@ const INITIAL_COMPONENTS: ArchitectureComponent[] = [
     id: "cmp-2",
     name: "Backend Core & Auth API (NestJS)",
     description: "Kiến trúc máy chủ NestJS, xác thực JWT, guards phân quyền và nghiệp vụ Sprint/Task.",
-    lead: "Nguyễn Văn An",
+    lead: "Backend Lead",
     issuesCount: 0,
     completedCount: 0,
     iconType: "backend",
@@ -70,7 +70,7 @@ const INITIAL_COMPONENTS: ArchitectureComponent[] = [
     id: "cmp-3",
     name: "Database & ORM (PostgreSQL & Prisma)",
     description: "Mô hình quan hệ dữ liệu, migrations, quan hệ dự án, thành viên và chi phí.",
-    lead: "Trần Thị Bình",
+    lead: "Database Lead",
     issuesCount: 0,
     completedCount: 0,
     iconType: "database",
@@ -79,7 +79,7 @@ const INITIAL_COMPONENTS: ArchitectureComponent[] = [
     id: "cmp-4",
     name: "Realtime Chat & Events (Socket.io)",
     description: "Kênh trao đổi nội bộ thời gian thực theo từng dự án, broadcast sự kiện cập nhật task.",
-    lead: "Nguyễn Văn An",
+    lead: "Realtime Lead",
     issuesCount: 0,
     completedCount: 0,
     iconType: "realtime",
@@ -88,7 +88,7 @@ const INITIAL_COMPONENTS: ArchitectureComponent[] = [
     id: "cmp-5",
     name: "DevOps & Cloud (Docker Compose & AWS)",
     description: "Containerization hệ thống, thiết lập PostgreSQL container và CI/CD tự động.",
-    lead: "Trịnh Quyết Chiến",
+    lead: "DevOps Lead",
     issuesCount: 0,
     completedCount: 0,
     iconType: "devops",
@@ -156,7 +156,7 @@ export default function ComponentsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
-  const [lead, setLead] = useState("Nguyễn Văn An");
+  const [lead, setLead] = useState("");
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -292,7 +292,7 @@ export default function ComponentsPage() {
               <Label htmlFor="c-lead">Người phụ trách chính (Lead)</Label>
               <Input
                 id="c-lead"
-                placeholder="VD: Nguyễn Văn An"
+                placeholder="VD: Kỹ sư phụ trách / Lead"
                 value={lead}
                 onChange={(e) => setLead(e.target.value)}
                 required

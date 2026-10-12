@@ -69,6 +69,7 @@ export interface BacklogItem {
   status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
   priority: "Cao" | "Trung bình" | "Thấp";
   points: number;
+  assigneeId?: string;
   assignee: string;
   assigneeName: string;
 }
@@ -87,33 +88,58 @@ const INITIAL_EPICS: WbsEpic[] = [
   { id: "epic-report", name: "Báo cáo & Phê duyệt PDF", color: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300", description: "Báo cáo tuần, PDF viewer, Ký duyệt" },
 ];
 
-// Backlog items are fetched live from PostgreSQL via api.tasks.getTasks
-
-
 export default function BacklogPage() {
   const { project, isOwner } = useProject();
   const { user } = useAuth();
   const projectId = project?.id || "";
 
   const [items, setItems] = useState<BacklogItem[]>([]);
-
+  const [members, setMembers] = useState<Array<{ id: string; name: string; email: string; avatar?: string }>>([]);
+  const [activeSprint, setActiveSprint] = useState<any>(null);
   const [activeSprintId, setActiveSprintId] = useState<string | null>(null);
 
-  // Sync live tasks and sprints from PostgreSQL backend
+  // Sync live tasks, sprints, and members from PostgreSQL backend
   useEffect(() => {
     let isMounted = true;
     const loadBacklogData = async () => {
       if (!project?.id) return;
       try {
-        const [tasksRes, sprintsRes] = await Promise.allSettled([
+        const [tasksRes, sprintsRes, membersRes] = await Promise.allSettled([
           api.tasks.getTasks(project.id),
           api.sprints.getSprints(project.id),
+          api.members.getMembers(project.id),
         ]);
+
+        if (isMounted && membersRes.status === "fulfilled" && Array.isArray(membersRes.value)) {
+          const mList: Array<{ id: string; name: string; email: string; avatar?: string }> = membersRes.value.map((m: any) => ({
+            id: m.userId || m.id,
+            name: m.name || m.user?.name || "Thành viên",
+            email: m.email || m.user?.email || "",
+            avatar: m.avatar || m.user?.avatar,
+          }));
+          const owner = project?.owner;
+          if (owner && !mList.some((item) => item.id === owner.id)) {
+            mList.unshift({
+              id: owner.id,
+              name: owner.name,
+              email: owner.email,
+              avatar: owner.avatar,
+            });
+          }
+          setMembers(mList);
+          if (mList.length > 0 && !newAssignee) {
+            setNewAssignee(user?.id || mList[0].id);
+          }
+        }
 
         let sprintId: string | null = null;
         if (sprintsRes.status === "fulfilled" && Array.isArray(sprintsRes.value) && sprintsRes.value.length > 0) {
-          sprintId = sprintsRes.value[0].id;
-          if (isMounted) setActiveSprintId(sprintId);
+          const act = sprintsRes.value.find((s: any) => s.status === "ACTIVE") || sprintsRes.value[0];
+          sprintId = act.id;
+          if (isMounted) {
+            setActiveSprint(act);
+            setActiveSprintId(sprintId);
+          }
         }
 
         if (isMounted && tasksRes.status === "fulfilled" && Array.isArray(tasksRes.value)) {
@@ -140,6 +166,10 @@ export default function BacklogPage() {
               epicName = "Báo cáo & Phê duyệt PDF";
             }
 
+            const initials = t.assignee?.name
+              ? t.assignee.name.split(" ").filter(Boolean).map((n: string) => n[0]).join("").slice(-2).toUpperCase()
+              : "US";
+
             return {
               id: t.code || `FT-${t.id.slice(0, 4).toUpperCase()}`,
               backendId: t.id,
@@ -151,7 +181,8 @@ export default function BacklogPage() {
               status: (t.status || "TODO") as BacklogItem["status"],
               priority: prio as BacklogItem["priority"],
               points: t.points || 1,
-              assignee: t.assignee?.avatar || (t.assignee?.name?.includes("Chiến") ? "QC" : t.assignee?.name?.includes("An") ? "VA" : "TB"),
+              assigneeId: t.assigneeId || t.assignee?.id,
+              assignee: t.assignee?.avatar || initials,
               assigneeName: t.assignee?.name || "Chưa phân công",
             };
           });
@@ -167,7 +198,7 @@ export default function BacklogPage() {
     return () => {
       isMounted = false;
     };
-  }, [project?.id, projectId]);
+  }, [project?.id, projectId, project?.owner, user?.id]);
 
   const [selectedEpicFilter, setSelectedEpicFilter] = useState<string>("ALL");
   const [quickTitleSprint1, setQuickTitleSprint1] = useState("");
@@ -181,7 +212,7 @@ export default function BacklogPage() {
   const [newSprint, setNewSprint] = useState<BacklogItem["sprint"]>("SPRINT_1");
   const [newPoints, setNewPoints] = useState<number>(3);
   const [newPriority, setNewPriority] = useState<BacklogItem["priority"]>("Trung bình");
-  const [newAssignee, setNewAssignee] = useState<string>("VA");
+  const [newAssignee, setNewAssignee] = useState<string>("");
 
   const saveItems = (updated: BacklogItem[]) => {
     setItems(updated);
@@ -241,12 +272,15 @@ export default function BacklogPage() {
     const epic = INITIAL_EPICS[0];
     let createdBackendId: string | undefined;
     let createdCode = `FT-${items.length + 109}`;
+    const defaultAssigneeId = user?.id || (members.length > 0 ? members[0].id : undefined);
+    const targetMember = members.find((m) => m.id === defaultAssigneeId);
 
     if (project?.id) {
       try {
         const res = await api.tasks.createTask(project.id, {
           title: title.trim(),
           points: 3,
+          assigneeId: defaultAssigneeId,
           sprintId: sprint === "SPRINT_1" ? activeSprintId || undefined : undefined,
         });
         if (res?.id) {
@@ -257,6 +291,10 @@ export default function BacklogPage() {
         console.warn("Lỗi khi tạo nhanh task lên server:", err);
       }
     }
+
+    const initials = targetMember?.name
+      ? targetMember.name.split(" ").filter(Boolean).map((n: string) => n[0]).join("").slice(-2).toUpperCase()
+      : (user?.avatar || "US");
 
     const newItem: BacklogItem = {
       id: createdCode,
@@ -269,8 +307,9 @@ export default function BacklogPage() {
       status: "TODO",
       priority: "Trung bình",
       points: 3,
-      assignee: "VA",
-      assigneeName: "Nguyễn Văn An",
+      assigneeId: defaultAssigneeId,
+      assignee: targetMember?.avatar || initials,
+      assigneeName: targetMember?.name || user?.name || "Chưa phân công",
     };
 
     saveItems([...items, newItem]);
@@ -282,12 +321,7 @@ export default function BacklogPage() {
     if (!newTitle.trim()) return;
 
     const epic = INITIAL_EPICS.find((e) => e.id === newEpicId) || INITIAL_EPICS[0];
-    const assigneeNames: Record<string, string> = {
-      QC: "Trịnh Quyết Chiến",
-      VA: "Nguyễn Văn An",
-      TB: "Trần Thị Bình",
-    };
-
+    const targetMember = members.find((m) => m.id === newAssignee);
     const backendPrio = newPriority === "Cao" ? "HIGH" : newPriority === "Thấp" ? "LOW" : "MEDIUM";
     let createdBackendId: string | undefined;
     let createdCode = `FT-${items.length + 109}`;
@@ -298,6 +332,7 @@ export default function BacklogPage() {
           title: newTitle.trim(),
           points: Number(newPoints) || 1,
           priority: backendPrio,
+          assigneeId: newAssignee || undefined,
           sprintId: newSprint === "SPRINT_1" ? activeSprintId || undefined : undefined,
         });
         if (res?.id) {
@@ -308,6 +343,10 @@ export default function BacklogPage() {
         console.warn("Lỗi khi tạo task chi tiết lên server:", err);
       }
     }
+
+    const initials = targetMember?.name
+      ? targetMember.name.split(" ").filter(Boolean).map((n: string) => n[0]).join("").slice(-2).toUpperCase()
+      : (user?.avatar || "US");
 
     const newItem: BacklogItem = {
       id: createdCode,
@@ -320,8 +359,9 @@ export default function BacklogPage() {
       status: "TODO",
       priority: newPriority,
       points: Number(newPoints) || 1,
-      assignee: newAssignee,
-      assigneeName: assigneeNames[newAssignee] || "Thành viên",
+      assigneeId: newAssignee || undefined,
+      assignee: targetMember?.avatar || initials,
+      assigneeName: targetMember?.name || "Chưa phân công",
     };
 
     saveItems([...items, newItem]);
@@ -428,17 +468,17 @@ export default function BacklogPage() {
             <div className="flex items-center gap-2">
               <Flame className="h-4 w-4 text-orange-500" />
               <h3 className="font-bold text-sm text-foreground">
-                Sprint 1: Xây dựng Nền tảng & Xác thực người dùng
+                {activeSprint?.name || "Sprint 1: Nền tảng & Xác thực"}
               </h3>
               <Badge className="bg-emerald-600 hover:bg-emerald-700 text-[10px] py-0">
-                Active Sprint
+                {activeSprint?.status === "ACTIVE" ? "Active Sprint" : activeSprint?.status || "Active Sprint"}
               </Badge>
               <span className="text-xs text-muted-foreground font-mono">
-                • 01/10/2026 - 15/10/2026
+                • {activeSprint?.startDate ? new Date(activeSprint.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : "01/10"} - {activeSprint?.endDate ? new Date(activeSprint.endDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : "15/10"}
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Mục tiêu: Hoàn tất module xác thực JWT, RBAC phân quyền và bảng Scrum kéo thả.
+              Mục tiêu: {activeSprint?.goal || "Hoàn tất module xác thực JWT, RBAC phân quyền và bảng Scrum kéo thả."}
             </p>
           </div>
 
@@ -864,14 +904,16 @@ export default function BacklogPage() {
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Người phụ trách</Label>
-              <Select value={newAssignee} onValueChange={(val) => setNewAssignee(val || "VA")}>
+              <Select value={newAssignee} onValueChange={(val) => setNewAssignee(val || "")}>
                 <SelectTrigger className="text-xs h-9">
-                  <SelectValue />
+                  <SelectValue placeholder="Chọn thành viên phụ trách" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="QC">Trịnh Quyết Chiến (Chủ dự án)</SelectItem>
-                  <SelectItem value="VA">Nguyễn Văn An (Senior DEV)</SelectItem>
-                  <SelectItem value="TB">Trần Thị Bình (QA Lead)</SelectItem>
+                  {members.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name} ({m.email})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

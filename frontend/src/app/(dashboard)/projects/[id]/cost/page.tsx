@@ -143,7 +143,7 @@ export default function ProjectCostPage() {
             status: (c.status?.toLowerCase() || "pending") as Expense["status"],
             sprint: c.sprint?.name || undefined,
             reason: c.description || "Khoản chi phục vụ tiến độ và mục tiêu Sprint của dự án.",
-            reviewedBy: c.status === "PAID" || c.status === "APPROVED" ? "Trịnh Quyết Chiến" : undefined,
+            reviewedBy: c.status === "PAID" || c.status === "APPROVED" ? (project.owner?.name || "Chủ dự án") : undefined,
             reviewedAt: c.status === "PAID" || c.status === "APPROVED" ? new Date().toLocaleDateString("vi-VN") : undefined,
             reviewNote: c.status === "PAID" ? "Đã duyệt và hoàn tất thanh toán" : c.status === "APPROVED" ? "Đã phê duyệt" : undefined,
           }));
@@ -245,10 +245,10 @@ export default function ProjectCostPage() {
   // EVM: Planned Value (PV) = 180M, Earned Value (EV) = 175M, Actual Cost (AC) = totalSpent
   const plannedValue = 180000000;
   const earnedValue = 175000000;
-  const actualCost = totalSpent > 0 ? totalSpent : 163500000;
-  const cpi = Number((earnedValue / actualCost).toFixed(2)); // Cost Performance Index
+  const actualCost = totalSpent;
+  const cpi = actualCost > 0 ? Number((earnedValue / actualCost).toFixed(2)) : 1.0; // Cost Performance Index
   const spi = Number((earnedValue / plannedValue).toFixed(2)); // Schedule Performance Index
-  const sprintBurnRate = 81750000; // Average per sprint
+  const sprintBurnRate = actualCost > 0 ? actualCost : 50000000; // Average per sprint
   const runwaySprints = Number((remainingBudget / sprintBurnRate).toFixed(1));
 
   // ROI: (Revenue - Total Budget) / Total Budget * 100%
@@ -347,9 +347,9 @@ export default function ProjectCostPage() {
 
     if (targetItem) {
       addStoredActivityLog(projectId, {
-        userName: user?.name || "Trịnh Quyết Chiến",
-        userAvatar: user?.avatar || "QC",
-        userRole: "Chủ dự án (Owner)",
+        userName: user?.name || project?.owner?.name || "Chủ dự án",
+        userAvatar: user?.avatar || (user?.name ? user.name.slice(0, 2).toUpperCase() : "US"),
+        userRole: isOwner ? "Chủ dự án (Owner)" : "Thành viên",
         category: "cost",
         action: "đã phê duyệt đề xuất chi phí",
         detail: `Khoản chi: ${targetItem.title} (${targetItem.amount.toLocaleString()} đ - Đề xuất bởi ${targetItem.requester})`,

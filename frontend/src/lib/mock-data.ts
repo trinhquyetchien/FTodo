@@ -17,10 +17,12 @@ export interface MockProject {
   name: string;
   description: string;
   ownerId: string;
+  owner?: { id: string; name: string; email: string; avatar?: string };
   progress: number;
   tasks: number;
   completedTasks: number;
   members: number;
+  membersList?: any[];
   role?: string;
   createdAt: string;
 }

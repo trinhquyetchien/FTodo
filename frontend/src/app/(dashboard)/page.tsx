@@ -65,23 +65,6 @@ import {
   ProjectActivityLog
 } from "@/lib/activity-invitation-store";
 
-// 1. Sprint Velocity & Commitment Predictability (Khối lượng & Vận tốc qua các Sprint)
-const sprintVelocityData = [
-  { sprint: "Sprint 1", committed: 24, completed: 22, velocityAvg: 23 },
-  { sprint: "Sprint 2", committed: 28, completed: 26, velocityAvg: 25 },
-  { sprint: "Sprint 3", committed: 26, completed: 28, velocityAvg: 26 },
-  { sprint: "Sprint 4 (Hiện tại)", committed: 28, completed: 18, velocityAvg: 26 },
-];
-
-// 2. Work Breakdown & Technical Debt Quality (Tỷ lệ Tính năng vs Nợ kỹ thuật)
-const workMixData = [
-  { name: "User Stories (Tính năng)", count: 28, points: 64, color: "#3b82f6", pct: 58 },
-  { name: "Technical Tasks (Hạ tầng/DevOps)", count: 12, points: 28, color: "#10b981", pct: 25 },
-  { name: "Bug Fixes (Lỗi & Nợ kỹ thuật)", count: 8, points: 18, color: "#f43f5e", pct: 17 },
-];
-
-
-
 export default function GlobalDashboard() {
   const { user } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -89,13 +72,15 @@ export default function GlobalDashboard() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [allProjects, setAllProjects] = useState<MockProject[]>([]);
+  const [allTasks, setAllTasks] = useState<any[]>([]);
+  const [allSprints, setAllSprints] = useState<any[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "owned" | "member">("all");
   const [invitations, setInvitations] = useState<ProjectInvitation[]>([]);
   const [recentActivities, setRecentActivities] = useState<ProjectActivityLog[]>([]);
 
-  // Load projects from PostgreSQL database
+  // Load projects, tasks, and sprints from PostgreSQL database
   useEffect(() => {
     let isMounted = true;
     const loadData = async () => {
@@ -105,6 +90,21 @@ export default function GlobalDashboard() {
         if (isMounted && res) {
           const list = [...(res.owned || []), ...(res.memberOf || [])];
           setAllProjects(list);
+
+          // Fetch tasks and sprints from primary projects to calculate real metrics
+          if (list.length > 0) {
+            const topProjects = list.slice(0, 3);
+            const taskPromises = topProjects.map((p) => api.tasks.getTasks(p.id).catch(() => []));
+            const sprintPromises = topProjects.map((p) => api.sprints.getSprints(p.id).catch(() => []));
+            const [tasksResults, sprintsResults] = await Promise.all([
+              Promise.all(taskPromises),
+              Promise.all(sprintPromises),
+            ]);
+            if (isMounted) {
+              setAllTasks(tasksResults.flat());
+              setAllSprints(sprintsResults.flat());
+            }
+          }
         }
       } catch (err) {
         console.error("Lỗi khi tải dự án từ PostgreSQL:", err);
@@ -202,6 +202,77 @@ export default function GlobalDashboard() {
       };
     });
   }, [allProjects]);
+
+  const dynamicWorkMixData = useMemo(() => {
+    if (allTasks.length === 0) {
+      return [
+        { name: "User Stories (Tính năng)", count: 0, points: 0, color: "#3b82f6", pct: 60 },
+        { name: "Technical Tasks (Hạ tầng/DevOps)", count: 0, points: 0, color: "#10b981", pct: 25 },
+        { name: "Bug Fixes (Lỗi & Nợ kỹ thuật)", count: 0, points: 0, color: "#f43f5e", pct: 15 },
+      ];
+    }
+    let storyCount = 0, storyPoints = 0;
+    let taskCount = 0, taskPoints = 0;
+    let bugCount = 0, bugPoints = 0;
+
+    allTasks.forEach((t) => {
+      const titleLower = (t.title || "").toLowerCase();
+      const pts = t.points || 1;
+      if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
+        bugCount++;
+        bugPoints += pts;
+      } else if (titleLower.includes("xác thực") || titleLower.includes("jwt") || titleLower.includes("hệ thống") || (t.points && t.points >= 8)) {
+        storyCount++;
+        storyPoints += pts;
+      } else {
+        taskCount++;
+        taskPoints += pts;
+      }
+    });
+
+    const totalPts = storyPoints + taskPoints + bugPoints || 1;
+    return [
+      { name: "User Stories (Tính năng)", count: storyCount, points: storyPoints, color: "#3b82f6", pct: Math.round((storyPoints / totalPts) * 100) },
+      { name: "Technical Tasks (Hạ tầng/DevOps)", count: taskCount, points: taskPoints, color: "#10b981", pct: Math.round((taskPoints / totalPts) * 100) },
+      { name: "Bug Fixes (Lỗi & Nợ kỹ thuật)", count: bugCount, points: bugPoints, color: "#f43f5e", pct: Math.round((bugPoints / totalPts) * 100) },
+    ];
+  }, [allTasks]);
+
+  const dynamicSprintVelocityData = useMemo(() => {
+    if (allSprints.length === 0) {
+      return [
+        { sprint: "Sprint 1", committed: 10, completed: 8, velocityAvg: 9 },
+      ];
+    }
+    return allSprints.slice(0, 4).reverse().map((s) => {
+      const totalPts = Array.isArray(s.tasks) ? s.tasks.reduce((sum: number, t: any) => sum + (t.points || 0), 0) : 10;
+      const donePts = Array.isArray(s.tasks) ? s.tasks.filter((t: any) => t.status === "DONE").reduce((sum: number, t: any) => sum + (t.points || 0), 0) : (s.status === "COMPLETED" ? totalPts : 0);
+      return {
+        sprint: s.name,
+        committed: totalPts || 5,
+        completed: donePts,
+        velocityAvg: Math.round((totalPts + donePts) / 2),
+      };
+    });
+  }, [allSprints]);
+
+  const avgVelocity = useMemo(() => {
+    if (dynamicSprintVelocityData.length === 0) return 0;
+    const sum = dynamicSprintVelocityData.reduce((acc, s) => acc + s.completed, 0);
+    return Number((sum / dynamicSprintVelocityData.length).toFixed(1));
+  }, [dynamicSprintVelocityData]);
+
+  const predictability = useMemo(() => {
+    if (dynamicSprintVelocityData.length === 0) return 100;
+    const committed = dynamicSprintVelocityData.reduce((acc, s) => acc + s.committed, 0);
+    const completed = dynamicSprintVelocityData.reduce((acc, s) => acc + s.completed, 0);
+    return committed > 0 ? Math.min(100, Math.round((completed / committed) * 100)) : 100;
+  }, [dynamicSprintVelocityData]);
+
+  const bugRatio = useMemo(() => {
+    const bugEntry = dynamicWorkMixData.find((w) => w.name.includes("Bug"));
+    return bugEntry ? bugEntry.pct : 0;
+  }, [dynamicWorkMixData]);
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-12 max-w-7xl mx-auto p-3 sm:p-6 md:p-8 w-full">
@@ -381,19 +452,19 @@ export default function GlobalDashboard() {
                 <div className="p-2 rounded-lg bg-muted/30 border">
                   <span className="text-[10px] text-muted-foreground uppercase font-semibold">Vận tốc TB (Velocity)</span>
                   <div className="font-bold text-foreground text-sm flex items-center gap-1">
-                    26.5 SP <span className="text-[10px] text-emerald-600 font-normal">/ Sprint</span>
+                    {avgVelocity} SP <span className="text-[10px] text-emerald-600 font-normal">/ Sprint</span>
                   </div>
                 </div>
                 <div className="p-2 rounded-lg bg-muted/30 border">
                   <span className="text-[10px] text-muted-foreground uppercase font-semibold">Độ tin cậy cam kết</span>
                   <div className="font-bold text-foreground text-sm flex items-center gap-1">
-                    92% <span className="text-[10px] text-emerald-600 font-normal">Predictability</span>
+                    {predictability}% <span className="text-[10px] text-emerald-600 font-normal">Predictability</span>
                   </div>
                 </div>
                 <div className="p-2 rounded-lg bg-muted/30 border">
                   <span className="text-[10px] text-muted-foreground uppercase font-semibold">Tỷ lệ Bug nợ kỹ thuật</span>
                   <div className="font-bold text-foreground text-sm flex items-center gap-1">
-                    17% <span className="text-[10px] text-emerald-600 font-normal">(Mức an toàn &lt; 20%)</span>
+                    {bugRatio}% <span className="text-[10px] text-emerald-600 font-normal">(Mức an toàn &lt; 20%)</span>
                   </div>
                 </div>
               </div>
@@ -402,7 +473,7 @@ export default function GlobalDashboard() {
             <CardContent className="pt-4 h-[250px] pl-0">
               {chartView === "velocity" && (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={sprintVelocityData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                  <ComposedChart data={dynamicSprintVelocityData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                     <XAxis dataKey="sprint" axisLine={false} tickLine={false} fontSize={11} />
                     <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
@@ -417,13 +488,13 @@ export default function GlobalDashboard() {
 
               {chartView === "workmix" && (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={workMixData} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+                  <BarChart data={dynamicWorkMixData} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.3} />
                     <XAxis type="number" axisLine={false} tickLine={false} fontSize={11} unit="%" />
                     <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} fontSize={11} width={180} />
                     <Tooltip formatter={(val: any, name: any, item: any) => [`${item.payload.pct}% (${item.payload.points} SP - ${item.payload.count} tác vụ)`, "Tỷ trọng"]} />
                     <Bar dataKey="pct" radius={[0, 6, 6, 0]}>
-                      {workMixData.map((entry, index) => (
+                      {dynamicWorkMixData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Bar>

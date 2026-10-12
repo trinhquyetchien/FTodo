@@ -155,7 +155,7 @@ export default function Register() {
               <Input
                 id="name"
                 type="text"
-                placeholder="Nguyễn Văn A"
+                placeholder="Họ và tên của bạn"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="pl-9 text-sm h-9.5 rounded-xl bg-slate-50/50 dark:bg-slate-900/50"

@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProject } from "../project-context";
+import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 
 interface Epic {
@@ -77,7 +78,9 @@ const TODAY_OFFSET_PERCENT =
 
 export default function TimelinePage() {
   const { project, isOwner } = useProject();
+  const { user } = useAuth();
   const [epics, setEpics] = useState<Epic[]>([]);
+  const [members, setMembers] = useState<Array<{ id: string; name: string }>>([]);
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
   // Sync timeline epics & sprints live from PostgreSQL
@@ -86,11 +89,36 @@ export default function TimelinePage() {
     const loadTimelineData = async () => {
       if (!project?.id) return;
       try {
-        const sprints = await api.sprints.getSprints(project.id);
-        if (isMounted && Array.isArray(sprints) && sprints.length > 0) {
+        const [sprintsRes, membersRes] = await Promise.allSettled([
+          api.sprints.getSprints(project.id),
+          api.members.getMembers(project.id),
+        ]);
+
+        if (isMounted && membersRes.status === "fulfilled" && Array.isArray(membersRes.value)) {
+          const mList = membersRes.value.map((m: any) => ({
+            id: m.userId || m.id,
+            name: m.name || m.user?.name || "Thành viên",
+          }));
+          const owner = project?.owner;
+          if (owner && !mList.some((item: any) => item.id === owner.id)) {
+            mList.unshift({ id: owner.id, name: owner.name });
+          }
+          setMembers(mList);
+          if (mList.length > 0 && !newAssignee) {
+            setNewAssignee(user?.name || mList[0].name);
+          }
+        }
+
+        if (isMounted && sprintsRes.status === "fulfilled" && Array.isArray(sprintsRes.value)) {
+          const sprints = sprintsRes.value;
           const mapped: Epic[] = sprints.map((s: any, idx: number) => {
             const startStr = s.startDate ? new Date(s.startDate).toISOString().slice(0, 10) : "2026-10-01";
             const endStr = s.endDate ? new Date(s.endDate).toISOString().slice(0, 10) : "2026-10-25";
+
+            const sTotalPts = Array.isArray(s.tasks) ? s.tasks.reduce((sum: number, t: any) => sum + (t.points || 0), 0) : 0;
+            const sDonePts = Array.isArray(s.tasks) ? s.tasks.filter((t: any) => t.status === "DONE").reduce((sum: number, t: any) => sum + (t.points || 0), 0) : 0;
+            const sProgress = sTotalPts > 0 ? Math.round((sDonePts / sTotalPts) * 100) : (s.status === "COMPLETED" ? 100 : 0);
+
             return {
               id: s.id,
               key: `SPRINT-0${idx + 1}`,
@@ -101,15 +129,13 @@ export default function TimelinePage() {
               startDisplay: new Date(startStr).toLocaleDateString("vi-VN"),
               endDisplay: new Date(endStr).toLocaleDateString("vi-VN"),
               ...calcGanttPos(startStr, endStr),
-              progress: s.status === "COMPLETED" ? 100 : s.status === "ACTIVE" ? 65 : 0,
-              points: 20,
+              progress: sProgress,
+              points: sTotalPts,
               assignee: "Toàn đội",
               color: s.status === "COMPLETED" ? "bg-emerald-500" : s.status === "ACTIVE" ? "bg-blue-500" : "bg-slate-400",
             };
           });
           setEpics(mapped);
-        } else if (isMounted && Array.isArray(sprints) && sprints.length === 0) {
-          setEpics([]);
         }
       } catch (err) {
         // Backend error handled cleanly
@@ -119,14 +145,14 @@ export default function TimelinePage() {
     return () => {
       isMounted = false;
     };
-  }, [project?.id]);
+  }, [project?.id, project?.owner, user?.name]);
 
   // Add Epic modal
   const [isAddEpicOpen, setIsAddEpicOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newStart, setNewStart] = useState("2026-10-15");
   const [newEnd, setNewEnd] = useState("2026-10-30");
-  const [newAssignee, setNewAssignee] = useState("Nguyễn Văn An");
+  const [newAssignee, setNewAssignee] = useState(user?.name || "Chủ dự án");
   const [newPoints, setNewPoints] = useState(10);
 
   const handleCreateEpic = (e: React.FormEvent) => {
@@ -455,14 +481,16 @@ export default function TimelinePage() {
 
               <div className="space-y-1.5">
                 <Label className="text-xs">Người phụ trách</Label>
-                <Select value={newAssignee} onValueChange={(val) => setNewAssignee(val || "Trịnh Quyết Chiến")}>
+                <Select value={newAssignee} onValueChange={(val) => setNewAssignee(val || "")}>
                   <SelectTrigger className="text-xs">
-                    <SelectValue />
+                    <SelectValue placeholder="Chọn người phụ trách" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Trịnh Quyết Chiến">Trịnh Quyết Chiến (Chủ dự án)</SelectItem>
-                    <SelectItem value="Nguyễn Văn An">Nguyễn Văn An (DEV Lead)</SelectItem>
-                    <SelectItem value="Trần Thị Bình">Trần Thị Bình (QA Lead)</SelectItem>
+                    {members.map((m) => (
+                      <SelectItem key={m.id} value={m.name}>
+                        {m.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

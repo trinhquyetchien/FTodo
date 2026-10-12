@@ -58,7 +58,8 @@ export interface BoardTask {
   status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
   priority: "Cao" | "Trung bình" | "Thấp";
   points: number;
-  assignee: string; // Avatar initial: "QC", "VA", "TB"
+  assigneeId?: string;
+  assignee: string; // Avatar initial: e.g. "QC", "VA", "US"
   assigneeName: string;
 }
 
@@ -75,7 +76,60 @@ export default function BoardPage() {
   const projectId = project?.id || "";
 
   const [tasks, setTasks] = useState<BoardTask[]>([]);
+  const [members, setMembers] = useState<Array<{ id: string; name: string; email: string; avatar?: string }>>([]);
+  const [activeSprint, setActiveSprint] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Load project members and sprints from PostgreSQL
+  useEffect(() => {
+    let isMounted = true;
+    if (!projectId) return;
+
+    const loadMeta = async () => {
+      try {
+        const [membersRes, sprintsRes] = await Promise.allSettled([
+          api.members.getMembers(projectId),
+          api.sprints.getSprints(projectId),
+        ]);
+
+        if (isMounted && membersRes.status === "fulfilled" && Array.isArray(membersRes.value)) {
+          const list: Array<{ id: string; name: string; email: string; avatar?: string }> = membersRes.value.map((m: any) => ({
+            id: m.userId || m.id,
+            name: m.name || m.user?.name || "Thành viên",
+            email: m.email || m.user?.email || "",
+            avatar: m.avatar || m.user?.avatar,
+          }));
+
+          // Include owner if not in list
+          const owner = project?.owner;
+          if (owner && !list.some((item) => item.id === owner.id)) {
+            list.unshift({
+              id: owner.id,
+              name: owner.name,
+              email: owner.email,
+              avatar: owner.avatar,
+            });
+          }
+          setMembers(list);
+          if (list.length > 0 && !newTaskAssignee) {
+            setNewTaskAssignee(user?.id || list[0].id);
+          }
+        }
+
+        if (isMounted && sprintsRes.status === "fulfilled" && Array.isArray(sprintsRes.value) && sprintsRes.value.length > 0) {
+          const active = sprintsRes.value.find((s: any) => s.status === "ACTIVE") || sprintsRes.value[0];
+          setActiveSprint(active);
+        }
+      } catch (err) {
+        console.warn("Lỗi tải thông tin sprint/thành viên:", err);
+      }
+    };
+
+    loadMeta();
+    return () => {
+      isMounted = false;
+    };
+  }, [projectId, project?.owner, user?.id]);
 
   const formatBackendTask = (t: any): BoardTask => {
     const prio = t.priority === "HIGH" ? "Cao" : t.priority === "LOW" ? "Thấp" : "Trung bình";
@@ -98,6 +152,11 @@ export default function BoardPage() {
       epic = "Giao tiếp Đội ngũ";
     }
 
+    const assigneeName = t.assignee?.name || "Chưa phân công";
+    const initials = t.assignee?.name
+      ? t.assignee.name.split(" ").filter(Boolean).map((n: string) => n[0]).join("").slice(-2).toUpperCase()
+      : "US";
+
     return {
       id: t.code || `FT-${t.id.slice(0, 4).toUpperCase()}`,
       backendId: t.id,
@@ -107,8 +166,9 @@ export default function BoardPage() {
       status: (t.status || "TODO") as BoardTask["status"],
       priority: prio as BoardTask["priority"],
       points: t.points || 1,
-      assignee: t.assignee?.avatar || (t.assignee?.name ? t.assignee.name.slice(0, 2).toUpperCase() : "US"),
-      assigneeName: t.assignee?.name || "Chưa phân công",
+      assigneeId: t.assigneeId || t.assignee?.id,
+      assignee: t.assignee?.avatar || initials,
+      assigneeName,
     };
   };
 
@@ -130,7 +190,7 @@ export default function BoardPage() {
   const [newTaskStatus, setNewTaskStatus] = useState<BoardTask["status"]>("TODO");
   const [newTaskPriority, setNewTaskPriority] = useState<BoardTask["priority"]>("Trung bình");
   const [newTaskPoints, setNewTaskPoints] = useState<number>(3);
-  const [newTaskAssignee, setNewTaskAssignee] = useState<string>("VA");
+  const [newTaskAssignee, setNewTaskAssignee] = useState<string>("");
 
   // Synchronize live tasks from PostgreSQL backend with Realtime Polling
   useEffect(() => {
@@ -279,12 +339,7 @@ export default function BoardPage() {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
 
-    const assigneeNames: Record<string, string> = {
-      QC: "Trịnh Quyết Chiến",
-      VA: "Nguyễn Văn An",
-      TB: "Trần Thị Bình",
-    };
-
+    const targetMember = members.find((m) => m.id === newTaskAssignee);
     const backendPrio = newTaskPriority === "Cao" ? "HIGH" : newTaskPriority === "Thấp" ? "LOW" : "MEDIUM";
     let createdBackendId: string | undefined;
     let createdCode = `FT-${tasks.length + 108}`;
@@ -296,6 +351,8 @@ export default function BoardPage() {
           status: newTaskStatus,
           priority: backendPrio,
           points: Number(newTaskPoints) || 1,
+          assigneeId: newTaskAssignee || undefined,
+          sprintId: activeSprint?.id || undefined,
         });
         if (res?.id) {
           createdBackendId = res.id;
@@ -306,6 +363,10 @@ export default function BoardPage() {
       }
     }
 
+    const assigneeInitial = targetMember?.name
+      ? targetMember.name.split(" ").filter(Boolean).map((n: string) => n[0]).join("").slice(-2).toUpperCase()
+      : (user?.avatar || "US");
+
     const newTask: BoardTask = {
       id: createdCode,
       backendId: createdBackendId,
@@ -315,8 +376,9 @@ export default function BoardPage() {
       status: newTaskStatus,
       priority: newTaskPriority,
       points: Number(newTaskPoints) || 1,
-      assignee: newTaskAssignee,
-      assigneeName: assigneeNames[newTaskAssignee] || "Thành viên",
+      assigneeId: newTaskAssignee || undefined,
+      assignee: targetMember?.avatar || assigneeInitial,
+      assigneeName: targetMember?.name || user?.name || "Thành viên",
     };
 
     saveTasks([...tasks, newTask]);
@@ -338,9 +400,6 @@ export default function BoardPage() {
     setIsAddTaskOpen(false);
   };
 
-  // User initials for "Only My Tasks"
-  const currentUserInitial = user?.avatar || (user?.name?.includes("Chiến") ? "QC" : user?.name?.includes("An") ? "VA" : "TB");
-
   // Filtering
   const filteredTasks = tasks.filter((t) => {
     const matchesSearch =
@@ -350,8 +409,8 @@ export default function BoardPage() {
 
     const matchesPriority = filterPriority === "ALL" || t.priority === filterPriority;
     const matchesType = filterType === "ALL" || t.type === filterType;
-    const matchesAssignee = filterAssignee === "ALL" || t.assignee === filterAssignee;
-    const matchesMyTasks = !onlyMyTasks || t.assignee === currentUserInitial;
+    const matchesAssignee = filterAssignee === "ALL" || t.assigneeId === filterAssignee;
+    const matchesMyTasks = !onlyMyTasks || (user?.id && t.assigneeId === user.id);
 
     return matchesSearch && matchesPriority && matchesType && matchesAssignee && matchesMyTasks;
   });
@@ -362,6 +421,11 @@ export default function BoardPage() {
     .reduce((acc, t) => acc + (t.points || 0), 0);
   const completionRate = totalPoints > 0 ? Math.round((donePoints / totalPoints) * 100) : 0;
 
+  // Real sprint date calculation
+  const sprintStartDate = activeSprint?.startDate ? new Date(activeSprint.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : "01/10";
+  const sprintEndDate = activeSprint?.endDate ? new Date(activeSprint.endDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : "15/10";
+  const sprintDaysLeft = activeSprint?.endDate ? Math.max(0, Math.ceil((new Date(activeSprint.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 4;
+
   return (
     <div className="space-y-4 pb-8 flex flex-col min-h-[calc(100vh-13rem)] select-none">
       {/* 1. SPRINT GOAL & PROGRESS HEADER */}
@@ -371,21 +435,21 @@ export default function BoardPage() {
             <div className="flex items-center gap-2">
               <span className="font-extrabold text-base text-foreground tracking-tight flex items-center gap-1.5">
                 <Flame className="h-4 w-4 text-orange-500 shrink-0" />
-                Sprint 1: Xây dựng Nền tảng & Xác thực người dùng
+                {activeSprint?.name || "Sprint 1: Nền tảng & Xác thực"}
               </span>
               <Badge className="bg-emerald-600 hover:bg-emerald-700 text-[10px]">
-                Active Sprint
+                {activeSprint?.status === "ACTIVE" ? "Active Sprint" : activeSprint?.status || "Active Sprint"}
               </Badge>
               <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center gap-1 font-medium">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Realtime Live Sync
               </Badge>
               <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
-                01/10 - 15/10/2026 (Còn 4 ngày)
+                {sprintStartDate} - {sprintEndDate} (Còn {sprintDaysLeft} ngày)
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              <strong>Mục tiêu Sprint (Sprint Goal):</strong> Hoàn thành module xác thực JWT, RBAC phân quyền và bảng Scrum kéo thả tương tác thời gian thực.
+              <strong>Mục tiêu Sprint:</strong> {activeSprint?.goal || "Hoàn thành các tính năng và chức năng cốt lõi của Sprint trong kế hoạch dự án."}
             </p>
           </div>
 
@@ -427,14 +491,16 @@ export default function BoardPage() {
 
           {/* Filter Assignee */}
           <Select value={filterAssignee} onValueChange={(val) => setFilterAssignee(val || "ALL")}>
-            <SelectTrigger className="text-xs h-8 w-36">
+            <SelectTrigger className="text-xs h-8 w-44">
               <SelectValue placeholder="Người làm" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">Tất cả thành viên</SelectItem>
-              <SelectItem value="QC">Trịnh Quyết Chiến (QC)</SelectItem>
-              <SelectItem value="VA">Nguyễn Văn An (VA)</SelectItem>
-              <SelectItem value="TB">Trần Thị Bình (TB)</SelectItem>
+              <SelectItem value="ALL">Tất cả thành viên ({members.length})</SelectItem>
+              {members.map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -772,15 +838,17 @@ export default function BoardPage() {
               <Label className="text-xs font-semibold">Người phụ trách</Label>
               <Select
                 value={newTaskAssignee}
-                onValueChange={(val) => setNewTaskAssignee(val || "VA")}
+                onValueChange={(val) => setNewTaskAssignee(val || "")}
               >
                 <SelectTrigger className="text-xs h-9">
-                  <SelectValue />
+                  <SelectValue placeholder="Chọn thành viên phụ trách" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="QC">Trịnh Quyết Chiến (Chủ dự án)</SelectItem>
-                  <SelectItem value="VA">Nguyễn Văn An (Senior DEV)</SelectItem>
-                  <SelectItem value="TB">Trần Thị Bình (QA Lead)</SelectItem>
+                  {members.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name} ({m.email})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
