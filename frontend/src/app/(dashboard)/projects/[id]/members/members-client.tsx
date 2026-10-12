@@ -32,7 +32,10 @@ import {
   History,
   Clock,
   RotateCcw,
-  X
+  X,
+  Settings,
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -87,10 +90,11 @@ export const TAB_CATEGORIES = [
     ],
   },
   {
-    category: "Theo dõi & Báo cáo",
+    category: "Theo dõi & Giao tiếp",
     items: [
       { id: "issues", label: "Tất cả tác vụ", desc: "Toàn bộ Bugs, Tasks, Stories", icon: CheckSquare },
       { id: "reports", label: "Báo cáo & Burndown", desc: "Biểu đồ Burndown, Velocity", icon: BarChart3 },
+      { id: "chat", label: "Kênh chat & Tin nhắn", desc: "Trao đổi công việc nội bộ và chat nhóm", icon: MessageSquare },
     ],
   },
   {
@@ -99,6 +103,7 @@ export const TAB_CATEGORIES = [
       { id: "cost", label: "Tiền & Chi phí", desc: "Ngân sách, burn-rate & đề xuất chi phí", icon: DollarSign, isSensitive: true },
       { id: "members", label: "Nhân sự & Nhóm quyền", desc: "Quản lý nhóm quyền & phân bổ thành viên", icon: Users, isSensitive: true },
       { id: "activity", label: "Lịch sử hoạt động", desc: "Nhật ký kiểm toán công việc, xóa task & duyệt chi", icon: History },
+      { id: "settings", label: "Cài đặt dự án", desc: "Cấu hình, thông tin chung & quản trị dự án", icon: Settings, isSensitive: true },
     ],
   },
 ];
@@ -200,6 +205,8 @@ export function MembersClient() {
     "issues",
     "chat",
   ]);
+  const [createRoleError, setCreateRoleError] = useState<string | null>(null);
+  const [isCreatingRole, setIsCreatingRole] = useState(false);
 
   // Edit Member State
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
@@ -281,24 +288,35 @@ export function MembersClient() {
     e.preventDefault();
     if (!newRoleName.trim()) return;
 
-    let createdId = "r-" + Date.now();
+    setIsCreatingRole(true);
+    setCreateRoleError(null);
+
+    let createdRoleData: any = null;
+
     if (project?.id) {
       try {
         const res = await api.members.createRole(project.id, {
           name: newRoleName.trim(),
           permissions: newRolePerms,
         });
-        if (res?.id) createdId = res.id;
-      } catch (err) {
-        console.warn("Lỗi khi tạo vai trò lên server:", err);
+        if (res) {
+          createdRoleData = res;
+        }
+      } catch (err: any) {
+        console.error("Lỗi khi tạo vai trò:", err);
+        setCreateRoleError(
+          err?.message || "Không thể tạo nhóm quyền. Tên nhóm vai trò có thể đã tồn tại."
+        );
+        setIsCreatingRole(false);
+        return;
       }
     }
 
     const newRole = {
-      id: createdId,
-      name: newRoleName.trim(),
+      id: createdRoleData?.id || "r-" + Date.now(),
+      name: createdRoleData?.name || newRoleName.trim(),
       desc: newRoleDesc.trim() || "Nhóm quyền tùy chỉnh",
-      permissions: newRolePerms,
+      permissions: createdRoleData?.permissions || newRolePerms,
     };
 
     const updatedRoles = [...roles, newRole];
@@ -310,6 +328,8 @@ export function MembersClient() {
     setNewRoleName("");
     setNewRoleDesc("");
     setNewRolePerms(["overview", "board", "backlog", "timeline", "issues", "chat"]);
+    setCreateRoleError(null);
+    setIsCreatingRole(false);
     setIsAddRoleOpen(false);
   };
 
@@ -1067,192 +1087,231 @@ export function MembersClient() {
       {/* ======================================================== */}
       {/* 3. REDESIGNED ADD ROLE MODAL (SPACIOUS, COMFORTABLE UX)   */}
       {/* ======================================================== */}
-      <Dialog open={isAddRoleOpen} onOpenChange={setIsAddRoleOpen}>
-        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-6 sm:p-8">
-          <DialogHeader className="border-b pb-5">
+      <Dialog
+        open={isAddRoleOpen}
+        onOpenChange={(open) => {
+          setIsAddRoleOpen(open);
+          if (!open) setCreateRoleError(null);
+        }}
+      >
+        <DialogContent className="max-w-5xl sm:max-w-5xl w-[96vw] max-h-[92vh] flex flex-col p-0 overflow-hidden shadow-2xl border border-border/80">
+          <DialogHeader className="p-6 pb-4 border-b bg-card shrink-0">
             <div className="flex items-center gap-3.5">
               <div className="p-3 rounded-2xl bg-primary/10 text-primary">
-                <FolderPlus className="h-7 w-7" />
+                <FolderPlus className="h-6 w-6" />
               </div>
               <div>
                 <DialogTitle className="text-xl font-bold">
                   Khởi tạo nhóm quyền mới (Add Role Group)
                 </DialogTitle>
-                <DialogDescription className="text-sm mt-1">
+                <DialogDescription className="text-sm mt-0.5">
                   Thiết lập vai trò tùy chỉnh và phân quyền các trang Scrum thành viên nhóm này được phép truy cập.
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          <form onSubmit={handleCreateRole} className="space-y-6 pt-2">
-            {/* 1. BASIC INFO FORM (Spacious, prominent inputs) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-2">
-                <Label htmlFor="add-role-name" className="text-sm font-semibold text-foreground flex items-center justify-between">
-                  <span>Tên nhóm vai trò <span className="text-rose-500">*</span></span>
-                  <span className="text-xs font-normal text-muted-foreground">Bắt buộc</span>
-                </Label>
-                <Input
-                  id="add-role-name"
-                  placeholder="VD: Tech Lead, Product Designer, DevOps Engineer..."
-                  value={newRoleName}
-                  onChange={(e) => setNewRoleName(e.target.value)}
-                  className="h-12 text-sm px-4 rounded-xl border-input bg-background shadow-xs focus-visible:ring-2"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="add-role-desc" className="text-sm font-semibold text-foreground">
-                  Mô tả chức năng & nhiệm vụ
-                </Label>
-                <Input
-                  id="add-role-desc"
-                  placeholder="VD: Thiết kế giao diện UI/UX và quản trị Design System..."
-                  value={newRoleDesc}
-                  onChange={(e) => setNewRoleDesc(e.target.value)}
-                  className="h-12 text-sm px-4 rounded-xl border-input bg-background shadow-xs focus-visible:ring-2"
-                />
-              </div>
-            </div>
-
-            {/* 2. PRESET TEMPLATES (Spacious, easy click pills) */}
-            <div className="p-4 rounded-2xl border bg-slate-50/70 dark:bg-slate-900/50 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  <Sparkles className="h-4 w-4 text-amber-500" />
-                  <span>Áp dụng nhanh theo mẫu vai trò phổ biến:</span>
+          <form onSubmit={handleCreateRole} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {createRoleError && (
+                <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2.5">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-rose-500" />
+                  <span className="font-medium">{createRoleError}</span>
                 </div>
-                <span className="text-xs text-muted-foreground">Nhấn để tự động điền thông tin</span>
+              )}
+
+              {/* 1. BASIC INFO FORM (Spacious, prominent inputs) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <Label htmlFor="add-role-name" className="text-sm font-semibold text-foreground flex items-center justify-between">
+                    <span>Tên nhóm vai trò <span className="text-rose-500">*</span></span>
+                    <span className="text-xs font-normal text-muted-foreground">Bắt buộc</span>
+                  </Label>
+                  <Input
+                    id="add-role-name"
+                    placeholder="VD: Tech Lead, Product Designer, DevOps Engineer..."
+                    value={newRoleName}
+                    onChange={(e) => setNewRoleName(e.target.value)}
+                    className="h-11 text-sm px-4 rounded-xl border-input bg-background shadow-xs focus-visible:ring-2"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="add-role-desc" className="text-sm font-semibold text-foreground">
+                    Mô tả chức năng & nhiệm vụ
+                  </Label>
+                  <Input
+                    id="add-role-desc"
+                    placeholder="VD: Thiết kế giao diện UI/UX và quản trị Design System..."
+                    value={newRoleDesc}
+                    onChange={(e) => setNewRoleDesc(e.target.value)}
+                    className="h-11 text-sm px-4 rounded-xl border-input bg-background shadow-xs focus-visible:ring-2"
+                  />
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                {ROLE_PRESETS.map((preset) => (
-                  <div
-                    key={preset.name}
-                    onClick={() => handleApplyPreset(preset)}
-                    className="p-3 rounded-xl border bg-background hover:bg-primary/5 hover:border-primary/50 cursor-pointer transition-all space-y-1 shadow-2xs group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-xs text-foreground group-hover:text-primary transition-colors">
-                        {preset.name}
-                      </span>
-                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono">
-                        {preset.perms.length} quyền
-                      </Badge>
+
+              {/* 2. PRESET TEMPLATES */}
+              <div className="p-4 rounded-2xl border bg-slate-50/70 dark:bg-slate-900/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                    <span>Áp dụng nhanh theo mẫu vai trò phổ biến:</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">Nhấn để tự động điền thông tin</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  {ROLE_PRESETS.map((preset) => (
+                    <div
+                      key={preset.name}
+                      onClick={() => handleApplyPreset(preset)}
+                      className="p-3 rounded-xl border bg-background hover:bg-primary/5 hover:border-primary/50 cursor-pointer transition-all space-y-1 shadow-2xs group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-xs text-foreground group-hover:text-primary transition-colors">
+                          {preset.name}
+                        </span>
+                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono">
+                          {preset.perms.length} quyền
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground line-clamp-1">
+                        {preset.desc}
+                      </p>
                     </div>
-                    <p className="text-[11px] text-muted-foreground line-clamp-1">
-                      {preset.desc}
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. PERMISSIONS CHECKLIST */}
+              <div className="space-y-4 pt-2 border-t">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
+                  <div>
+                    <div className="text-sm font-bold text-foreground flex items-center gap-2">
+                      <ShieldCheck className="h-5 w-5 text-primary" />
+                      <span>Cấp quyền truy cập các trang công cụ</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Thành viên nhóm này sẽ có quyền truy cập và ghim các trang được tích chọn lên thanh ngang.
                     </p>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* 3. PERMISSIONS CHECKLIST (Spacious cards with clean grid) */}
-            <div className="space-y-4 pt-2 border-t">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
-                <div>
-                  <div className="text-sm font-bold text-foreground flex items-center gap-2">
-                    <ShieldCheck className="h-5 w-5 text-primary" />
-                    <span>Cấp quyền truy cập các trang công cụ</span>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs font-semibold px-2.5 py-1">
+                      Đã chọn: <strong className="text-primary ml-1">{newRolePerms.length}</strong> / {ALL_AVAILABLE_PERMS.length}
+                    </Badge>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSelectAllPerms}
+                      className="text-xs h-8 px-3"
+                    >
+                      Chọn tất cả
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDeselectAllPerms}
+                      className="text-xs h-8 px-3 text-muted-foreground"
+                    >
+                      Bỏ chọn
+                    </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Thành viên nhóm này sẽ có quyền truy cập và ghim các trang được tích chọn lên thanh ngang.
-                  </p>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-xs font-semibold px-2.5 py-1">
-                    Đã chọn: <strong className="text-primary ml-1">{newRolePerms.length}</strong> / {ALL_AVAILABLE_PERMS.length}
-                  </Badge>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSelectAllPerms}
-                    className="text-xs h-8 px-3"
-                  >
-                    Chọn tất cả
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleDeselectAllPerms}
-                    className="text-xs h-8 px-3 text-muted-foreground"
-                  >
-                    Bỏ chọn
-                  </Button>
-                </div>
-              </div>
+                {/* Categorized Permissions Grid */}
+                <div className="space-y-5">
+                  {TAB_CATEGORIES.map((cat) => (
+                    <div key={cat.category} className="space-y-2.5">
+                      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-lg">
+                        {cat.category}
+                      </div>
 
-              {/* Categorized Permissions Grid */}
-              <div className="space-y-5">
-                {TAB_CATEGORIES.map((cat) => (
-                  <div key={cat.category} className="space-y-2.5">
-                    <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground bg-muted/40 px-3 py-1.5 rounded-lg">
-                      {cat.category}
-                    </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {cat.items.map((item) => {
+                          const Icon = item.icon;
+                          const isChecked = newRolePerms.includes(item.id);
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {cat.items.map((item) => {
-                        const Icon = item.icon;
-                        const isChecked = newRolePerms.includes(item.id);
-
-                        return (
-                          <div
-                            key={item.id}
-                            onClick={() => handleToggleNewPerm(item.id)}
-                            className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer select-none transition-all ${
-                              isChecked
-                                ? "bg-primary/5 border-primary/50 shadow-2xs"
-                                : "bg-card hover:bg-slate-50 dark:hover:bg-slate-900 border-border"
-                            }`}
-                          >
-                            <Checkbox
-                              id={`role-create-${item.id}`}
-                              checked={isChecked}
-                              onCheckedChange={() => handleToggleNewPerm(item.id)}
-                              className="h-5 w-5 rounded-md mt-0.5 shrink-0"
-                            />
-                            <div className="p-2 rounded-lg bg-muted/60 shrink-0 mt-0.5">
-                              <Icon className={`h-4 w-4 ${isChecked ? "text-primary" : "text-muted-foreground"}`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-1">
-                                <span className="font-semibold text-sm text-foreground">
-                                  {item.label}
-                                </span>
-                                {item.isSensitive && (
-                                  <Badge
-                                    variant="outline"
-                                    className="text-[10px] shrink-0 border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950/40"
-                                  >
-                                    Quản trị
-                                  </Badge>
-                                )}
+                          return (
+                            <div
+                              key={item.id}
+                              onClick={() => handleToggleNewPerm(item.id)}
+                              className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer select-none transition-all ${
+                                isChecked
+                                  ? "bg-primary/5 border-primary/50 shadow-2xs ring-1 ring-primary/20"
+                                  : "bg-card hover:bg-muted/40 border-border"
+                              }`}
+                            >
+                              <div className="mt-0.5 pointer-events-none">
+                                <Checkbox
+                                  id={`role-create-${item.id}`}
+                                  checked={isChecked}
+                                  className="h-5 w-5 rounded-md shrink-0"
+                                />
                               </div>
-                              <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
-                                {item.desc}
-                              </p>
+                              <div className="p-2 rounded-lg bg-muted/60 shrink-0 mt-0.5 pointer-events-none">
+                                <Icon className={`h-4 w-4 ${isChecked ? "text-primary" : "text-muted-foreground"}`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="font-semibold text-sm text-foreground">
+                                    {item.label}
+                                  </span>
+                                  {item.isSensitive && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] shrink-0 border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950/40"
+                                    >
+                                      Quản trị
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                                  {item.desc}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
 
-            <DialogFooter className="pt-4 border-t flex items-center justify-between">
-              <Button type="button" variant="outline" size="lg" onClick={() => setIsAddRoleOpen(false)} className="h-11 px-5 text-sm">
+            <DialogFooter className="p-4 sm:px-6 border-t bg-card shrink-0 flex items-center justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                size="default"
+                onClick={() => {
+                  setIsAddRoleOpen(false);
+                  setCreateRoleError(null);
+                }}
+                className="h-10 px-5 text-sm"
+              >
                 Hủy
               </Button>
-              <Button type="submit" size="lg" disabled={!newRoleName.trim()} className="h-11 px-6 text-sm font-semibold shadow-xs">
-                <FolderPlus className="h-4 w-4 mr-2" />
-                Khởi tạo nhóm quyền
+              <Button
+                type="submit"
+                size="default"
+                disabled={!newRoleName.trim() || isCreatingRole}
+                className="h-10 px-6 text-sm font-semibold shadow-xs"
+              >
+                {isCreatingRole ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Đang khởi tạo...
+                  </>
+                ) : (
+                  <>
+                    <FolderPlus className="h-4 w-4 mr-2" />
+                    Khởi tạo nhóm quyền
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </form>
