@@ -92,8 +92,21 @@ export default function BacklogPage() {
 
   const [items, setItems] = useState<BacklogItem[]>([]);
   const [members, setMembers] = useState<Array<{ id: string; name: string; email: string; avatar?: string }>>([]);
+  const [rawSprints, setRawSprints] = useState<any[]>([]);
   const [activeSprint, setActiveSprint] = useState<any>(null);
   const [activeSprintId, setActiveSprintId] = useState<string | null>(null);
+
+  // Complete Sprint Modal
+  const [isCompleteSprintOpen, setIsCompleteSprintOpen] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<"NEXT_SPRINT" | "BACKLOG">("NEXT_SPRINT");
+  const [isCompleting, setIsCompleting] = useState(false);
+
+  // Create Sprint Modal
+  const [isCreateSprintOpen, setIsCreateSprintOpen] = useState(false);
+  const [newSprintName, setNewSprintName] = useState("");
+  const [newSprintGoal, setNewSprintGoal] = useState("");
+  const [newSprintStart, setNewSprintStart] = useState(new Date().toISOString().slice(0, 10));
+  const [newSprintEnd, setNewSprintEnd] = useState(new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10));
 
   // Create Modal
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -158,6 +171,7 @@ export default function BacklogPage() {
 
         let sprintId: string | null = null;
         if (sprintsRes.status === "fulfilled" && Array.isArray(sprintsRes.value) && sprintsRes.value.length > 0) {
+          if (isMounted) setRawSprints(sprintsRes.value);
           const act = sprintsRes.value.find((s: any) => s.status === "ACTIVE") || sprintsRes.value[0];
           sprintId = act.id;
           if (isMounted) {
@@ -500,6 +514,53 @@ export default function BacklogPage() {
   const backlogPoints = backlogItems.reduce((sum, i) => sum + (i.points || 0), 0);
   const totalAllPoints = items.reduce((sum, i) => sum + (i.points || 0), 0);
 
+  const doneTasksCount = sprint1Items.filter((t) => t.status === "DONE").length;
+  const incompleteTasks = sprint1Items.filter((t) => t.status !== "DONE");
+  const incompleteTasksCount = incompleteTasks.length;
+  const incompletePoints = incompleteTasks.reduce((sum, t) => sum + (t.points || 0), 0);
+
+  const handleCompleteSprint = async () => {
+    if (!activeSprint?.id || !projectId) return;
+    setIsCompleting(true);
+    try {
+      const nextNum = parseInt((activeSprint.name || "").replace(/\D/g, "") || "1") + 1;
+      await api.sprints.completeSprint(projectId, activeSprint.id, {
+        moveToNextSprint: moveTarget === "NEXT_SPRINT",
+        nextSprintName: `Sprint ${nextNum}`,
+      });
+      api.activities.create(projectId, {
+        category: "sprint",
+        action: `đã kết thúc ${activeSprint.name} và ${moveTarget === "NEXT_SPRINT" ? `chuyển giao công việc sang Sprint ${nextNum}` : "chuyển việc về Backlog"}`,
+      }).catch(() => {});
+      window.location.reload();
+    } catch (err) {
+      console.warn("Lỗi khi kết thúc sprint:", err);
+    } finally {
+      setIsCompleting(false);
+      setIsCompleteSprintOpen(false);
+    }
+  };
+
+  const handleCreateNewSprint = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSprintName.trim() || !projectId) return;
+    try {
+      await api.sprints.createSprint(projectId, {
+        name: newSprintName.trim(),
+        goal: newSprintGoal.trim() || undefined,
+        startDate: new Date(newSprintStart).toISOString(),
+        endDate: new Date(newSprintEnd).toISOString(),
+      });
+      api.activities.create(projectId, {
+        category: "sprint",
+        action: `đã tạo chu kỳ ${newSprintName.trim()}`,
+      }).catch(() => {});
+      window.location.reload();
+    } catch (err) {
+      console.warn("Lỗi khi tạo sprint:", err);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12 select-none">
       {/* 1. TOP HEADER & METRICS */}
@@ -516,6 +577,17 @@ export default function BacklogPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setNewSprintName(`Sprint ${rawSprints.length + 1}`);
+              setIsCreateSprintOpen(true);
+            }}
+            className="text-xs h-9 gap-1.5"
+          >
+            <Plus className="h-3.5 w-3.5" /> Tạo Sprint mới
+          </Button>
           <Link href={`/projects/${projectId}/board`}>
             <Button variant="outline" size="sm" className="text-xs h-9 gap-1.5">
               Xem Bảng Scrum <ExternalLink className="h-3.5 w-3.5" />
@@ -619,6 +691,15 @@ export default function BacklogPage() {
                 ({sprint1Items.length} việc)
               </span>
             </div>
+            {activeSprint && (
+              <Button
+                size="sm"
+                onClick={() => setIsCompleteSprintOpen(true)}
+                className="text-xs h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Hoàn thành Sprint
+              </Button>
+            )}
             <Link href={`/projects/${projectId}/board`}>
               <Button size="sm" variant="outline" className="text-xs h-8 gap-1 bg-background">
                 Xem Bảng <ChevronRight className="h-3.5 w-3.5" />
@@ -1090,6 +1171,198 @@ export default function BacklogPage() {
               </Button>
               <Button type="submit" disabled={!newTitle.trim()}>
                 Tạo công việc
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* COMPLETE SPRINT DIALOG */}
+      <Dialog open={isCompleteSprintOpen} onOpenChange={setIsCompleteSprintOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              Hoàn thành {activeSprint?.name || "Sprint 1"}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Đóng chu kỳ làm việc hiện tại và chuẩn bị cho Sprint tiếp theo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            <div className="p-3 rounded-xl border bg-muted/30 space-y-2">
+              <div className="flex justify-between items-center text-emerald-600 font-semibold">
+                <span>✓ Đã hoàn thành:</span>
+                <span className="font-mono">{doneTasksCount} công việc ({sprint1DonePoints} SP)</span>
+              </div>
+              <div className="flex justify-between items-center text-amber-600 font-semibold">
+                <span>⚠ Chưa hoàn thành:</span>
+                <span className="font-mono">{incompleteTasksCount} công việc ({incompletePoints} SP)</span>
+              </div>
+            </div>
+
+            {incompleteTasksCount > 0 ? (
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold">
+                  Chọn nơi chuyển {incompleteTasksCount} công việc chưa hoàn thành:
+                </Label>
+                <div className="space-y-2">
+                  <div
+                    onClick={() => setMoveTarget("NEXT_SPRINT")}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 ${
+                      moveTarget === "NEXT_SPRINT"
+                        ? "bg-primary/10 border-primary shadow-2xs"
+                        : "hover:bg-muted/40"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="sprint_target_backlog"
+                      checked={moveTarget === "NEXT_SPRINT"}
+                      onChange={() => setMoveTarget("NEXT_SPRINT")}
+                      className="mt-0.5 text-primary"
+                    />
+                    <div>
+                      <div className="font-semibold text-foreground">
+                        Khởi động Sprint 2 (Khuyến nghị chuẩn Scrum)
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Tự động tạo Sprint 2, kích hoạt chu kỳ mới và chuyển toàn bộ việc chưa xong sang Sprint 2.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => setMoveTarget("BACKLOG")}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 ${
+                      moveTarget === "BACKLOG"
+                        ? "bg-primary/10 border-primary shadow-2xs"
+                        : "hover:bg-muted/40"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="sprint_target_backlog"
+                      checked={moveTarget === "BACKLOG"}
+                      onChange={() => setMoveTarget("BACKLOG")}
+                      className="mt-0.5 text-primary"
+                    />
+                    <div>
+                      <div className="font-semibold text-foreground">
+                        Chuyển về Product Backlog
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Đưa các việc chưa hoàn thành về kho lưu trữ Backlog để lên kế hoạch lại sau.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900">
+                🎉 Tuyệt vời! Toàn bộ 100% công việc trong Sprint này đã hoàn thành!
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className="pt-2 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCompleteSprintOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleCompleteSprint}
+              disabled={isCompleting}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+            >
+              {isCompleting ? "Đang xử lý..." : "Xác nhận kết thúc Sprint"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CREATE SPRINT MODAL */}
+      <Dialog open={isCreateSprintOpen} onOpenChange={setIsCreateSprintOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-4 w-4 text-primary" /> Tạo chu kỳ Sprint mới
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Thiết lập kế hoạch Sprint tiếp theo cho dự án.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateNewSprint} className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="sp-name" className="text-xs font-semibold">
+                Tên Sprint <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="sp-name"
+                placeholder="VD: Sprint 2"
+                value={newSprintName}
+                onChange={(e) => setNewSprintName(e.target.value)}
+                required
+                className="text-xs h-9"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="sp-goal" className="text-xs font-semibold">
+                Mục tiêu Sprint
+              </Label>
+              <Input
+                id="sp-goal"
+                placeholder="VD: Hoàn thiện cổng thanh toán và kiểm thử"
+                value={newSprintGoal}
+                onChange={(e) => setNewSprintGoal(e.target.value)}
+                className="text-xs h-9"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="sp-start" className="text-xs font-semibold">
+                  Ngày bắt đầu
+                </Label>
+                <Input
+                  id="sp-start"
+                  type="date"
+                  value={newSprintStart}
+                  onChange={(e) => setNewSprintStart(e.target.value)}
+                  className="text-xs h-9"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="sp-end" className="text-xs font-semibold">
+                  Ngày kết thúc
+                </Label>
+                <Input
+                  id="sp-end"
+                  type="date"
+                  value={newSprintEnd}
+                  onChange={(e) => setNewSprintEnd(e.target.value)}
+                  className="text-xs h-9"
+                  required
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2 border-t">
+              <Button type="button" variant="outline" onClick={() => setIsCreateSprintOpen(false)}>
+                Hủy
+              </Button>
+              <Button type="submit" disabled={!newSprintName.trim()}>
+                Tạo Sprint
               </Button>
             </DialogFooter>
           </form>

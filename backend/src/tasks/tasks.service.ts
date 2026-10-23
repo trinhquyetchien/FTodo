@@ -6,6 +6,8 @@ import {
   UpdateTaskDto,
   CreateSprintDto,
   UpdateSprintStatusDto,
+  CompleteSprintDto,
+  StartSprintDto,
 } from './dto/task.dto';
 
 @Injectable()
@@ -71,6 +73,108 @@ export class TasksService {
     return this.prisma.sprint.update({
       where: { id: sprintId },
       data: { status: dto.status },
+    });
+  }
+
+  async completeSprint(
+    projectId: string,
+    sprintId: string,
+    dto: CompleteSprintDto,
+  ) {
+    const sprint = await this.prisma.sprint.findFirst({
+      where: { id: sprintId, projectId },
+      include: { tasks: true },
+    });
+    if (!sprint) {
+      throw new NotFoundException('Không tìm thấy Sprint');
+    }
+
+    // 1. Mark current sprint as COMPLETED
+    const completedSprint = await this.prisma.sprint.update({
+      where: { id: sprintId },
+      data: { status: 'COMPLETED' },
+    });
+
+    // 2. Identify incomplete tasks in this sprint
+    const incompleteTasks = sprint.tasks.filter((t) => t.status !== 'DONE');
+
+    let nextSprint: any = null;
+
+    if (dto.moveToNextSprint && incompleteTasks.length > 0) {
+      let targetSprintId = dto.targetSprintId;
+
+      if (!targetSprintId) {
+        // Automatically create next sprint (Sprint 2, Sprint 3, etc.)
+        const sprintCount = await this.prisma.sprint.count({ where: { projectId } });
+        const nextName = dto.nextSprintName || `Sprint ${sprintCount + 1}`;
+        const today = new Date();
+        const twoWeeksLater = new Date(today.getTime() + 14 * 24 * 3600 * 1000);
+
+        nextSprint = await this.prisma.sprint.create({
+          data: {
+            name: nextName,
+            goal: `Tiếp tục mục tiêu công việc từ ${sprint.name}`,
+            startDate: today,
+            endDate: twoWeeksLater,
+            status: 'ACTIVE',
+            projectId,
+          },
+        });
+        targetSprintId = nextSprint.id;
+      }
+
+      // Move incomplete tasks to target sprint
+      await this.prisma.task.updateMany({
+        where: {
+          id: { in: incompleteTasks.map((t) => t.id) },
+        },
+        data: {
+          sprintId: targetSprintId,
+        },
+      });
+    } else if (dto.targetSprintId === null || (!dto.moveToNextSprint && incompleteTasks.length > 0)) {
+      // Move incomplete tasks back to backlog
+      await this.prisma.task.updateMany({
+        where: {
+          id: { in: incompleteTasks.map((t) => t.id) },
+        },
+        data: {
+          sprintId: null,
+        },
+      });
+    }
+
+    return {
+      completedSprint,
+      nextSprint,
+      movedTasksCount: incompleteTasks.length,
+      message: `Đã kết thúc ${sprint.name} thành công`,
+    };
+  }
+
+  async startSprint(
+    projectId: string,
+    sprintId: string,
+    dto: StartSprintDto,
+  ) {
+    const sprint = await this.prisma.sprint.findFirst({
+      where: { id: sprintId, projectId },
+    });
+    if (!sprint) {
+      throw new NotFoundException('Không tìm thấy Sprint');
+    }
+
+    const today = dto.startDate ? new Date(dto.startDate) : new Date();
+    const endDate = dto.endDate ? new Date(dto.endDate) : new Date(today.getTime() + 14 * 86400000);
+
+    return this.prisma.sprint.update({
+      where: { id: sprintId },
+      data: {
+        status: 'ACTIVE',
+        startDate: today,
+        endDate,
+        ...(dto.goal ? { goal: dto.goal } : {}),
+      },
     });
   }
 

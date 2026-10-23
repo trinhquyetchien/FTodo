@@ -79,6 +79,11 @@ export default function BoardPage() {
   const [activeSprint, setActiveSprint] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Complete Sprint dialog
+  const [isCompleteSprintOpen, setIsCompleteSprintOpen] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<"NEXT_SPRINT" | "BACKLOG">("NEXT_SPRINT");
+  const [isCompleting, setIsCompleting] = useState(false);
+
   // New task dialog
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -428,6 +433,33 @@ export default function BoardPage() {
     return Math.max(0, Math.ceil((new Date(activeSprint.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
   }, [activeSprint?.endDate]);
 
+  const doneTasksCount = tasks.filter((t) => t.status === "DONE").length;
+  const incompleteTasks = tasks.filter((t) => t.status !== "DONE");
+  const incompleteTasksCount = incompleteTasks.length;
+  const incompletePoints = incompleteTasks.reduce((acc, t) => acc + (t.points || 0), 0);
+
+  const handleCompleteSprint = async () => {
+    if (!activeSprint?.id || !projectId) return;
+    setIsCompleting(true);
+    try {
+      const nextNum = parseInt((activeSprint.name || "").replace(/\D/g, "") || "1") + 1;
+      await api.sprints.completeSprint(projectId, activeSprint.id, {
+        moveToNextSprint: moveTarget === "NEXT_SPRINT",
+        nextSprintName: `Sprint ${nextNum}`,
+      });
+      api.activities.create(projectId, {
+        category: "sprint",
+        action: `đã kết thúc ${activeSprint.name} và ${moveTarget === "NEXT_SPRINT" ? `chuyển giao công việc sang Sprint ${nextNum}` : "chuyển việc về Backlog"}`,
+      }).catch(() => {});
+      window.location.reload();
+    } catch (err) {
+      console.warn("Lỗi khi kết thúc sprint:", err);
+    } finally {
+      setIsCompleting(false);
+      setIsCompleteSprintOpen(false);
+    }
+  };
+
   return (
     <div className="space-y-4 pb-8 flex flex-col min-h-[calc(100vh-13rem)] select-none">
       {/* 1. SPRINT GOAL & PROGRESS HEADER */}
@@ -465,19 +497,31 @@ export default function BoardPage() {
             ) : null}
           </div>
 
-          {/* Velocity & Story Points Progress */}
-          <div className="flex items-center gap-4 shrink-0 bg-background/80 p-2.5 rounded-xl border">
-            <div className="text-right">
-              <div className="text-xs font-semibold text-foreground">
-                Tiến độ: <span className="text-primary font-bold">{donePoints}</span> / {totalPoints} Story Points
+          {/* Velocity & Story Points Progress & Sprint Action */}
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            <div className="flex items-center gap-4 bg-background/80 p-2.5 rounded-xl border">
+              <div className="text-right">
+                <div className="text-xs font-semibold text-foreground">
+                  Tiến độ: <span className="text-primary font-bold">{donePoints}</span> / {totalPoints} Story Points
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">
+                  Đạt {completionRate}% khối lượng Sprint
+                </div>
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                Đạt {completionRate}% khối lượng Sprint
+              <div className="w-24">
+                <Progress value={completionRate} className="h-2" />
               </div>
             </div>
-            <div className="w-24">
-              <Progress value={completionRate} className="h-2" />
-            </div>
+
+            {activeSprint && (
+              <Button
+                size="sm"
+                onClick={() => setIsCompleteSprintOpen(true)}
+                className="text-xs h-10 px-3.5 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
+              >
+                <CheckCircle2 className="h-4 w-4" /> Hoàn thành Sprint
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -874,6 +918,116 @@ export default function BoardPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* COMPLETE SPRINT DIALOG */}
+      <Dialog open={isCompleteSprintOpen} onOpenChange={setIsCompleteSprintOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              Hoàn thành {activeSprint?.name || "Sprint 1"}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Đóng chu kỳ làm việc hiện tại và chuẩn bị cho Sprint tiếp theo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            <div className="p-3 rounded-xl border bg-muted/30 space-y-2">
+              <div className="flex justify-between items-center text-emerald-600 font-semibold">
+                <span>✓ Đã hoàn thành:</span>
+                <span className="font-mono">{doneTasksCount} công việc ({donePoints} SP)</span>
+              </div>
+              <div className="flex justify-between items-center text-amber-600 font-semibold">
+                <span>⚠ Chưa hoàn thành:</span>
+                <span className="font-mono">{incompleteTasksCount} công việc ({incompletePoints} SP)</span>
+              </div>
+            </div>
+
+            {incompleteTasksCount > 0 ? (
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold">
+                  Chọn nơi chuyển {incompleteTasksCount} công việc chưa hoàn thành:
+                </Label>
+                <div className="space-y-2">
+                  <div
+                    onClick={() => setMoveTarget("NEXT_SPRINT")}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 ${
+                      moveTarget === "NEXT_SPRINT"
+                        ? "bg-primary/10 border-primary shadow-2xs"
+                        : "hover:bg-muted/40"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="sprint_target"
+                      checked={moveTarget === "NEXT_SPRINT"}
+                      onChange={() => setMoveTarget("NEXT_SPRINT")}
+                      className="mt-0.5 text-primary"
+                    />
+                    <div>
+                      <div className="font-semibold text-foreground">
+                        Khởi động Sprint 2 (Khuyến nghị chuẩn Scrum)
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Tự động tạo Sprint 2, kích hoạt chu kỳ mới và chuyển toàn bộ việc chưa xong sang Sprint 2.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => setMoveTarget("BACKLOG")}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 ${
+                      moveTarget === "BACKLOG"
+                        ? "bg-primary/10 border-primary shadow-2xs"
+                        : "hover:bg-muted/40"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="sprint_target"
+                      checked={moveTarget === "BACKLOG"}
+                      onChange={() => setMoveTarget("BACKLOG")}
+                      className="mt-0.5 text-primary"
+                    />
+                    <div>
+                      <div className="font-semibold text-foreground">
+                        Chuyển về Product Backlog
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Đưa các việc chưa hoàn thành về kho lưu trữ Backlog để lên kế hoạch lại sau.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900">
+                🎉 Tuyệt vời! Toàn bộ 100% công việc trong Sprint này đã hoàn thành!
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className="pt-2 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCompleteSprintOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleCompleteSprint}
+              disabled={isCompleting}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+            >
+              {isCompleting ? "Đang xử lý..." : "Xác nhận kết thúc Sprint"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

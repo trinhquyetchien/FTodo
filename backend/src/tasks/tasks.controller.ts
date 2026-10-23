@@ -25,6 +25,8 @@ import {
   UpdateTaskStatusDto,
   CreateSprintDto,
   UpdateSprintStatusDto,
+  CompleteSprintDto,
+  StartSprintDto,
 } from './dto/task.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -67,6 +69,34 @@ export class TasksController {
     @Body() dto: UpdateSprintStatusDto,
   ) {
     return this.tasksService.updateSprintStatus(projectId, sprintId, dto);
+  }
+
+  @ApiOperation({
+    summary: 'Hoàn thành / Kết thúc Sprint và chuyển giao việc chưa xong sang Sprint kế tiếp hoặc Backlog',
+  })
+  @ApiParam({ name: 'projectId', description: 'ID của dự án' })
+  @ApiParam({ name: 'sprintId', description: 'ID của Sprint cần kết thúc' })
+  @Post('sprints/:sprintId/complete')
+  completeSprint(
+    @Param('projectId') projectId: string,
+    @Param('sprintId') sprintId: string,
+    @Body() dto: CompleteSprintDto,
+  ) {
+    return this.tasksService.completeSprint(projectId, sprintId, dto);
+  }
+
+  @ApiOperation({
+    summary: 'Bắt đầu / Kích hoạt Sprint',
+  })
+  @ApiParam({ name: 'projectId', description: 'ID của dự án' })
+  @ApiParam({ name: 'sprintId', description: 'ID của Sprint cần kích hoạt' })
+  @Post('sprints/:sprintId/start')
+  startSprint(
+    @Param('projectId') projectId: string,
+    @Param('sprintId') sprintId: string,
+    @Body() dto: StartSprintDto,
+  ) {
+    return this.tasksService.startSprint(projectId, sprintId, dto);
   }
 
   // --- Tasks ---

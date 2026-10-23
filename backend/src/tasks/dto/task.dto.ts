@@ -200,3 +200,49 @@ export class UpdateSprintStatusDto {
   @IsNotEmpty()
   status: string; // 'PLANNED' | 'ACTIVE' | 'COMPLETED'
 }
+
+export class CompleteSprintDto {
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Chuyển các việc chưa xong sang Sprint kế tiếp (Sprint 2)',
+  })
+  @IsOptional()
+  moveToNextSprint?: boolean;
+
+  @ApiPropertyOptional({
+    example: 'Sprint 2',
+    description: 'Tên Sprint mới nếu tự động tạo',
+  })
+  @IsOptional()
+  nextSprintName?: string;
+
+  @ApiPropertyOptional({
+    example: 'sprint-uuid-2',
+    description: 'ID Sprint mục tiêu nếu đã chọn trước, hoặc null nếu chuyển về Backlog',
+  })
+  @IsOptional()
+  targetSprintId?: string | null;
+}
+
+export class StartSprintDto {
+  @ApiPropertyOptional({
+    example: '2026-10-15',
+    description: 'Ngày bắt đầu Sprint',
+  })
+  @IsOptional()
+  startDate?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-10-29',
+    description: 'Ngày kết thúc Sprint',
+  })
+  @IsOptional()
+  endDate?: string;
+
+  @ApiPropertyOptional({
+    example: 'Hoàn thiện thanh toán và báo cáo',
+    description: 'Mục tiêu Sprint',
+  })
+  @IsOptional()
+  goal?: string;
+}

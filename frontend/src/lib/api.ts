@@ -245,6 +245,21 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    updateSprintStatus: (projectId: string, sprintId: string, status: string) =>
+      apiFetch<any>(`/projects/${projectId}/sprints/${sprintId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
+    completeSprint: (projectId: string, sprintId: string, data: any) =>
+      apiFetch<any>(`/projects/${projectId}/sprints/${sprintId}/complete`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    startSprint: (projectId: string, sprintId: string, data: any) =>
+      apiFetch<any>(`/projects/${projectId}/sprints/${sprintId}/start`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   },
 
   costs: {
