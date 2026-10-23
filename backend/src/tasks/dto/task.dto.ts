@@ -61,7 +61,21 @@ export class CreateTaskDto {
     description: 'ID Sprint chứa công việc này',
   })
   @IsOptional()
-  sprintId?: string;
+  sprintId?: string | null;
+
+  @ApiPropertyOptional({
+    example: '2026-10-15',
+    description: 'Ngày bắt đầu công việc',
+  })
+  @IsOptional()
+  startDate?: string | Date;
+
+  @ApiPropertyOptional({
+    example: '2026-10-25',
+    description: 'Hạn chót / Ngày kết thúc công việc',
+  })
+  @IsOptional()
+  endDate?: string | Date;
 
   @ApiPropertyOptional({
     example: 'user-uuid-1',
@@ -120,11 +134,19 @@ export class UpdateTaskDto {
 
   @ApiPropertyOptional({ example: 'sprint-uuid-1' })
   @IsOptional()
-  sprintId?: string;
+  sprintId?: string | null;
+
+  @ApiPropertyOptional({ example: '2026-10-15' })
+  @IsOptional()
+  startDate?: string | Date | null;
+
+  @ApiPropertyOptional({ example: '2026-10-25' })
+  @IsOptional()
+  endDate?: string | Date | null;
 
   @ApiPropertyOptional({ example: 'user-uuid-2' })
   @IsOptional()
-  assigneeId?: string;
+  assigneeId?: string | null;
 }
 
 export class UpdateTaskStatusDto {

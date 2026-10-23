@@ -112,6 +112,8 @@ model Task {
   status      String    @default("TODO") // TODO, IN_PROGRESS, REVIEW, DONE
   priority    String    @default("MEDIUM") // LOW, MEDIUM, HIGH
   points      Int?      @default(0)
+  startDate   DateTime?
+  endDate     DateTime?
   projectId   String
   assigneeId  String?
   sprintId    String?

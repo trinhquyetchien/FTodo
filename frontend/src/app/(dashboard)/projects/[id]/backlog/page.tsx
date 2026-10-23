@@ -69,6 +69,8 @@ export interface BacklogItem {
   status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
   priority: "Cao" | "Trung bình" | "Thấp";
   points: number;
+  startDate?: string;
+  endDate?: string;
   assigneeId?: string;
   assignee: string;
   assigneeName: string;
@@ -102,6 +104,8 @@ export default function BacklogPage() {
   const [newPoints, setNewPoints] = useState<number>(3);
   const [newPriority, setNewPriority] = useState<BacklogItem["priority"]>("Trung bình");
   const [newAssignee, setNewAssignee] = useState<string>("");
+  const [newStartDate, setNewStartDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [newEndDate, setNewEndDate] = useState<string>(new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10));
 
   const availableEpics: WbsEpic[] = useMemo(() => {
     const list: WbsEpic[] = [];
@@ -193,6 +197,8 @@ export default function BacklogPage() {
               status: (t.status || "TODO") as BacklogItem["status"],
               priority: prio as BacklogItem["priority"],
               points: t.points || 1,
+              startDate: t.startDate ? new Date(t.startDate).toISOString().slice(0, 10) : undefined,
+              endDate: t.endDate ? new Date(t.endDate).toISOString().slice(0, 10) : undefined,
               assigneeId: t.assigneeId || t.assignee?.id,
               assignee: t.assignee?.avatar || initials,
               assigneeName: t.assignee?.name || "Chưa phân công",
@@ -220,7 +226,39 @@ export default function BacklogPage() {
     setItems(updated);
   };
 
+  const ensureActiveSprint = async (): Promise<string | null> => {
+    if (activeSprintId) return activeSprintId;
+    if (!project?.id) return null;
+    try {
+      const today = new Date();
+      const twoWeeksLater = new Date(today.getTime() + 14 * 24 * 3600 * 1000);
+      const newSprint = await api.sprints.createSprint(project.id, {
+        name: "Sprint 1",
+        goal: "Sprint mục tiêu khởi đầu dự án",
+        startDate: today.toISOString(),
+        endDate: twoWeeksLater.toISOString(),
+        budget: 10000000,
+      });
+      if (newSprint?.id) {
+        setActiveSprint(newSprint);
+        setActiveSprintId(newSprint.id);
+        return newSprint.id;
+      }
+    } catch (err) {
+      console.warn("Lỗi khi khởi tạo Sprint 1:", err);
+    }
+    return null;
+  };
+
   const moveToSprint = async (id: string, targetSprint: BacklogItem["sprint"]) => {
+    let targetSprintId: string | null = null;
+    if (targetSprint === "SPRINT_1") {
+      targetSprintId = await ensureActiveSprint();
+      if (!targetSprintId) {
+        return;
+      }
+    }
+
     const targetItem = items.find((i) => i.id === id);
     const updated = items.map((item) =>
       item.id === id ? { ...item, sprint: targetSprint } : item
@@ -230,11 +268,48 @@ export default function BacklogPage() {
     if (project?.id && targetItem?.backendId) {
       try {
         await api.tasks.updateTask(project.id, targetItem.backendId, {
-          sprintId: targetSprint === "SPRINT_1" ? activeSprintId || undefined : undefined,
+          sprintId: targetSprint === "SPRINT_1" ? targetSprintId : null,
         });
+        api.activities.create(project.id, {
+          category: "task",
+          action: targetSprint === "SPRINT_1" ? `đã đưa ${targetItem.id} vào Sprint 1` : `đã chuyển ${targetItem.id} về Backlog`,
+          detail: targetItem.title,
+        }).catch(() => {});
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("ftodo_activity_updated"));
+        }
       } catch (err) {
         console.warn("Lỗi khi chuyển sprint trên server:", err);
       }
+    }
+  };
+
+  const handleMoveAllToSprint1 = async () => {
+    const sprintId = await ensureActiveSprint();
+    if (!sprintId || !project?.id) return;
+
+    const backlogOnly = items.filter((i) => i.sprint === "BACKLOG");
+    if (backlogOnly.length === 0) return;
+
+    const updated = items.map((i) => ({ ...i, sprint: "SPRINT_1" as const }));
+    saveItems(updated);
+
+    try {
+      await Promise.allSettled(
+        backlogOnly
+          .filter((i) => i.backendId)
+          .map((i) => api.tasks.updateTask(project.id, i.backendId!, { sprintId }))
+      );
+      api.activities.create(project.id, {
+        category: "task",
+        action: `đã đưa toàn bộ ${backlogOnly.length} công việc từ Backlog vào Sprint 1`,
+        detail: `Số lượng: ${backlogOnly.length} công việc`,
+      }).catch(() => {});
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("ftodo_activity_updated"));
+      }
+    } catch (err) {
+      console.warn("Lỗi khi chuyển tất cả việc vào Sprint 1:", err);
     }
   };
 
@@ -271,11 +346,19 @@ export default function BacklogPage() {
   const handleQuickAdd = async (sprint: BacklogItem["sprint"], title: string, setTitle: (s: string) => void) => {
     if (!title.trim()) return;
 
+    let targetSprintId: string | null = null;
+    if (sprint === "SPRINT_1") {
+      targetSprintId = await ensureActiveSprint();
+    }
+
     const epic = { id: "epic-general", name: "Chung" };
     let createdBackendId: string | undefined;
     let createdCode = `FT-${items.length + 109}`;
     const defaultAssigneeId = user?.id || (members.length > 0 ? members[0].id : undefined);
     const targetMember = members.find((m) => m.id === defaultAssigneeId);
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const defaultEndStr = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
     if (project?.id) {
       try {
@@ -285,7 +368,9 @@ export default function BacklogPage() {
           epic: epic.name,
           points: 3,
           assigneeId: defaultAssigneeId,
-          sprintId: sprint === "SPRINT_1" ? activeSprintId || undefined : undefined,
+          sprintId: sprint === "SPRINT_1" ? targetSprintId : null,
+          startDate: new Date(todayStr).toISOString(),
+          endDate: new Date(defaultEndStr).toISOString(),
         });
         if (res?.id) {
           createdBackendId = res.id;
@@ -316,6 +401,8 @@ export default function BacklogPage() {
       status: "TODO",
       priority: "Trung bình",
       points: 3,
+      startDate: todayStr,
+      endDate: defaultEndStr,
       assigneeId: defaultAssigneeId,
       assignee: targetMember?.avatar || initials,
       assigneeName: targetMember?.name || user?.name || "Chưa phân công",
@@ -332,6 +419,11 @@ export default function BacklogPage() {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
+    let targetSprintId: string | null = null;
+    if (newSprint === "SPRINT_1") {
+      targetSprintId = await ensureActiveSprint();
+    }
+
     const epic = availableEpics.find((e) => e.id === newEpicId) || { id: "epic-general", name: "Chung" };
     const targetMember = members.find((m) => m.id === newAssignee);
     const backendPrio = newPriority === "Cao" ? "HIGH" : newPriority === "Thấp" ? "LOW" : "MEDIUM";
@@ -347,7 +439,9 @@ export default function BacklogPage() {
           points: Number(newPoints) || 1,
           priority: backendPrio,
           assigneeId: newAssignee || undefined,
-          sprintId: newSprint === "SPRINT_1" ? activeSprintId || undefined : undefined,
+          sprintId: newSprint === "SPRINT_1" ? targetSprintId : null,
+          startDate: newStartDate ? new Date(newStartDate).toISOString() : undefined,
+          endDate: newEndDate ? new Date(newEndDate).toISOString() : undefined,
         });
         if (res?.id) {
           createdBackendId = res.id;
@@ -378,6 +472,8 @@ export default function BacklogPage() {
       status: "TODO",
       priority: newPriority,
       points: Number(newPoints) || 1,
+      startDate: newStartDate,
+      endDate: newEndDate,
       assigneeId: newAssignee || undefined,
       assignee: targetMember?.avatar || initials,
       assigneeName: targetMember?.name || "Chưa phân công",
@@ -491,6 +587,16 @@ export default function BacklogPage() {
                   {activeSprint.status === "ACTIVE" ? "Active Sprint" : activeSprint.status}
                 </Badge>
               )}
+              {!activeSprint && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => ensureActiveSprint()}
+                  className="text-xs h-7 gap-1 border-dashed border-primary/50 text-primary hover:bg-primary/5"
+                >
+                  <Plus className="h-3 w-3" /> Khởi tạo Sprint 1
+                </Button>
+              )}
               {activeSprint?.startDate && activeSprint?.endDate && (
                 <span className="text-xs text-muted-foreground font-mono">
                   • {new Date(activeSprint.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })} - {new Date(activeSprint.endDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
@@ -564,6 +670,13 @@ export default function BacklogPage() {
                   <Badge variant="outline" className="text-[10px] py-0 shrink-0 hidden sm:inline-flex bg-muted/40">
                     {item.epicName}
                   </Badge>
+
+                  {item.startDate && item.endDate && (
+                    <Badge variant="secondary" className="text-[10px] py-0 shrink-0 hidden md:inline-flex gap-1 font-mono text-muted-foreground bg-muted/50">
+                      <Clock className="h-3 w-3 text-primary" />
+                      {new Date(item.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })} → {new Date(item.endDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
+                    </Badge>
+                  )}
                 </div>
 
                 {/* Right: Status, Priority, Points, Assignee, Actions */}
@@ -682,11 +795,7 @@ export default function BacklogPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                // Move all backlog items to Sprint 1
-                const updated = items.map((i) => ({ ...i, sprint: "SPRINT_1" as const }));
-                saveItems(updated);
-              }}
+              onClick={handleMoveAllToSprint1}
               className="text-xs h-8 gap-1.5"
             >
               <MoveUp className="h-3.5 w-3.5 text-primary" /> Đưa tất cả vào Sprint 1
@@ -735,6 +844,13 @@ export default function BacklogPage() {
                   <Badge variant="outline" className="text-[10px] py-0 shrink-0 hidden sm:inline-flex bg-muted/40">
                     {item.epicName}
                   </Badge>
+
+                  {item.startDate && item.endDate && (
+                    <Badge variant="secondary" className="text-[10px] py-0 shrink-0 hidden md:inline-flex gap-1 font-mono text-muted-foreground bg-muted/50">
+                      <Clock className="h-3 w-3 text-primary" />
+                      {new Date(item.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })} → {new Date(item.endDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
+                    </Badge>
+                  )}
                 </div>
 
                 {/* Right */}
@@ -938,6 +1054,34 @@ export default function BacklogPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="task-start" className="text-xs font-semibold">
+                  Ngày bắt đầu (Timeline)
+                </Label>
+                <Input
+                  id="task-start"
+                  type="date"
+                  value={newStartDate}
+                  onChange={(e) => setNewStartDate(e.target.value)}
+                  className="text-xs h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="task-end" className="text-xs font-semibold">
+                  Hạn chót / Kết thúc
+                </Label>
+                <Input
+                  id="task-end"
+                  type="date"
+                  value={newEndDate}
+                  onChange={(e) => setNewEndDate(e.target.value)}
+                  className="text-xs h-9"
+                />
+              </div>
             </div>
 
             <DialogFooter className="pt-2 border-t">

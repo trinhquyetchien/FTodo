@@ -22,7 +22,20 @@ export class TasksService {
           select: { tasks: true },
         },
         tasks: {
-          select: { id: true, status: true, points: true },
+          select: {
+            id: true,
+            status: true,
+            points: true,
+            title: true,
+            code: true,
+            priority: true,
+            type: true,
+            startDate: true,
+            endDate: true,
+            assignee: {
+              select: { id: true, name: true, avatar: true },
+            },
+          },
         },
       },
       orderBy: { startDate: 'desc' },
@@ -78,7 +91,7 @@ export class TasksService {
           select: { id: true, name: true, email: true, avatar: true },
         },
         sprint: {
-          select: { id: true, name: true, status: true },
+          select: { id: true, name: true, status: true, startDate: true, endDate: true },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -100,6 +113,8 @@ export class TasksService {
         status: dto.status || 'TODO',
         priority: dto.priority || 'MEDIUM',
         points: dto.points || 0,
+        startDate: dto.startDate ? new Date(dto.startDate) : null,
+        endDate: dto.endDate ? new Date(dto.endDate) : null,
         projectId,
         sprintId: dto.sprintId || null,
         assigneeId: dto.assigneeId || null,
@@ -109,7 +124,7 @@ export class TasksService {
           select: { id: true, name: true, email: true, avatar: true },
         },
         sprint: {
-          select: { id: true, name: true, status: true },
+          select: { id: true, name: true, status: true, startDate: true, endDate: true },
         },
       },
     });
@@ -123,17 +138,29 @@ export class TasksService {
       throw new NotFoundException('Không tìm thấy công việc');
     }
 
+    const updateData: any = { ...dto };
+    if (dto.startDate !== undefined) {
+      updateData.startDate = dto.startDate ? new Date(dto.startDate) : null;
+    }
+    if (dto.endDate !== undefined) {
+      updateData.endDate = dto.endDate ? new Date(dto.endDate) : null;
+    }
+    if (dto.sprintId !== undefined) {
+      updateData.sprintId = dto.sprintId || null;
+    }
+    if (dto.assigneeId !== undefined) {
+      updateData.assigneeId = dto.assigneeId || null;
+    }
+
     return this.prisma.task.update({
       where: { id: taskId },
-      data: {
-        ...dto,
-      },
+      data: updateData,
       include: {
         assignee: {
           select: { id: true, name: true, email: true, avatar: true },
         },
         sprint: {
-          select: { id: true, name: true, status: true },
+          select: { id: true, name: true, status: true, startDate: true, endDate: true },
         },
       },
     });
