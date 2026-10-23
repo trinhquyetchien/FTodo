@@ -157,6 +157,13 @@ export function MembersClient() {
             isDefault: r.isDefault || false,
           }));
           setRoles(mappedRoles);
+
+          const defaultMemberRole = mappedRoles.find(
+            (r: any) => r.isDefault || r.name === "Thành viên" || r.name === "Thành viên bình thường"
+          ) || mappedRoles[0];
+          if (defaultMemberRole) {
+            setNewMemberRoleId(defaultMemberRole.id);
+          }
         }
 
         if (isMounted && membersRes.status === "fulfilled" && Array.isArray(membersRes.value)) {
@@ -166,8 +173,8 @@ export function MembersClient() {
             name: m.name || m.user?.name || "Thành viên",
             email: m.email || m.user?.email || "",
             avatar: m.avatar || m.user?.avatar || (m.name?.includes("Chiến") ? "QC" : m.name?.includes("An") ? "VA" : "TB"),
-            roleId: m.roleGroup?.id || m.roleGroupId || "r2",
-            roleName: m.roleGroup?.name || "DEV",
+            roleId: m.roleGroup?.id || m.roleGroupId || "",
+            roleName: m.roleGroup?.name || "Thành viên",
             extraPermissions: m.extraPermissions || [],
           }));
           setMembers(mappedMembers);
@@ -345,7 +352,12 @@ export function MembersClient() {
   };
 
   const handleDeleteRole = async (roleId: string) => {
-    if (roleId === "r1" || roleId.toLowerCase().includes("admin")) return; // Cannot delete Admin
+    const targetRole = roles.find((r: any) => r.id === roleId);
+    if (!targetRole) return;
+    const isOwnerRole = targetRole.name === "Chủ dự án" || targetRole.name === "Admin" || targetRole.name === "Chủ sở hữu";
+    const isMemberRole = targetRole.name === "Thành viên" || targetRole.name === "Thành viên bình thường" || targetRole.isDefault;
+    if (isOwnerRole || isMemberRole) return; // Không thể xóa 2 nhóm cơ bản Chủ dự án và Thành viên
+
     const updatedRoles = roles.filter((r: any) => r.id !== roleId);
     setRoles(updatedRoles);
     if (typeof window !== "undefined") {
@@ -362,6 +374,10 @@ export function MembersClient() {
   };
 
   const handleRolePermToggle = async (roleId: string, tabId: string) => {
+    const targetRole = roles.find((r: any) => r.id === roleId);
+    const isOwnerRole = targetRole?.name === "Chủ dự án" || targetRole?.name === "Admin" || targetRole?.name === "Chủ sở hữu";
+    if (isOwnerRole) return; // Nhóm Chủ dự án luôn có toàn bộ quyền cố định
+
     let targetPerms: string[] = [];
     const updatedRoles = roles.map((r: any) => {
       if (r.id === roleId) {
@@ -602,15 +618,18 @@ export function MembersClient() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {roles.map((role: any) => {
             const assignedMembers = members.filter((m: any) => m.roleId === role.id);
-            const isAdmin = role.id === "r1";
-            const isCustom = !["r1", "r2", "r3"].includes(role.id);
+            const isOwnerRole = role.name === "Chủ dự án" || role.name === "Admin" || role.name === "Chủ sở hữu";
+            const isMemberRole = role.name === "Thành viên" || role.name === "Thành viên bình thường" || role.isDefault;
+            const isCustom = !isOwnerRole && !isMemberRole;
 
             return (
               <Card
                 key={role.id}
                 className={`relative flex flex-col justify-between transition-all border ${
-                  isAdmin
-                    ? "border-amber-300 dark:border-amber-900/60 bg-amber-50/15 dark:bg-amber-950/10"
+                  isOwnerRole
+                    ? "border-amber-400 dark:border-amber-800 bg-amber-50/25 dark:bg-amber-950/15"
+                    : isMemberRole
+                    ? "border-blue-400 dark:border-blue-800 bg-blue-50/15 dark:bg-blue-950/10"
                     : "hover:border-primary/50 shadow-2xs"
                 }`}
               >
@@ -619,20 +638,40 @@ export function MembersClient() {
                     <div>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-bold text-sm text-foreground">{role.name}</span>
-                        {isAdmin ? (
-                          <Badge className="bg-amber-600 hover:bg-amber-700 text-[10px] py-0">
-                            Mặc định
+                        {isOwnerRole ? (
+                          <Badge className="bg-amber-600 hover:bg-amber-700 text-white text-[10px] py-0 gap-1 font-medium">
+                            <Lock className="h-2.5 w-2.5" /> Chủ dự án (Cố định)
+                          </Badge>
+                        ) : isMemberRole ? (
+                          <Badge className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] py-0 gap-1 font-medium">
+                            <ShieldCheck className="h-2.5 w-2.5" /> Thành viên (Mặc định)
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-[10px] py-0">
-                            {isCustom ? "Tùy chỉnh" : "Hệ thống"}
+                            Tùy chỉnh
                           </Badge>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                        {role.desc || "Quyền hạn của nhóm"}
+                        {isOwnerRole
+                          ? "Nhóm toàn quyền của Chủ dự án, cố định và không thể xóa."
+                          : isMemberRole
+                          ? "Nhóm vai trò mặc định cho thành viên bình thường khi tham gia dự án."
+                          : (role.desc || role.description || "Nhóm quyền tùy chỉnh")}
                       </p>
                     </div>
+
+                    {isOwnerRole && (
+                      <span title="Nhóm quyền Chủ dự án là cố định, không thể xóa" className="p-1 text-amber-600 shrink-0">
+                        <Lock className="h-4 w-4" />
+                      </span>
+                    )}
+
+                    {isMemberRole && (
+                      <span title="Nhóm Thành viên cơ bản mặc định, không thể xóa" className="p-1 text-blue-600 shrink-0">
+                        <ShieldCheck className="h-4 w-4" />
+                      </span>
+                    )}
 
                     {isCustom && isOwner && (
                       <Button
@@ -671,7 +710,7 @@ export function MembersClient() {
                 <CardContent className="p-4 pt-0 space-y-2.5">
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
                     <span>Trang được cấp ({role.permissions.length}/{ALL_AVAILABLE_PERMS.length}):</span>
-                    {isAdmin && <span className="text-amber-600 font-semibold text-[10px]">Toàn quyền</span>}
+                    {isOwnerRole && <span className="text-amber-600 font-semibold text-[10px]">Toàn quyền cố định</span>}
                   </div>
 
                   {/* Badges of granted tabs */}
@@ -694,7 +733,7 @@ export function MembersClient() {
                   </div>
 
                   {/* Interactive toggle matrix trigger */}
-                  {!isAdmin && isOwner && (
+                  {!isOwnerRole && isOwner && (
                     <div className="pt-2 border-t flex justify-end">
                       <Button
                         variant="ghost"
@@ -708,7 +747,7 @@ export function MembersClient() {
                   )}
 
                   {/* Expanded Permission Toggles for this Role */}
-                  {selectedRoleDetail === role.id && !isAdmin && (
+                  {selectedRoleDetail === role.id && !isOwnerRole && (
                     <div className="space-y-2 pt-2 border-t bg-muted/20 p-2.5 rounded-lg">
                       <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                         Tick chọn để bật/tắt trang cho {role.name}:
@@ -1292,16 +1331,21 @@ export function MembersClient() {
 
             <div className="space-y-1.5">
               <Label className="text-sm font-semibold">Nhóm vai trò</Label>
-              <Select value={newMemberRoleId} onValueChange={(val) => setNewMemberRoleId(val || "r2")}>
+              <Select value={newMemberRoleId} onValueChange={(val) => setNewMemberRoleId(val || "")}>
                 <SelectTrigger className="h-11 text-sm px-3.5 rounded-xl">
                   <SelectValue placeholder="Chọn nhóm quyền" />
                 </SelectTrigger>
                 <SelectContent>
-                  {roles.map((r: any) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.name}
-                    </SelectItem>
-                  ))}
+                  {roles.map((r: any) => {
+                    const isOwnerR = r.name === "Chủ dự án" || r.name === "Admin" || r.name === "Chủ sở hữu";
+                    const isMemberR = r.name === "Thành viên" || r.name === "Thành viên bình thường" || r.isDefault;
+
+                    return (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name} {isOwnerR ? "• (Chủ dự án)" : isMemberR ? "• (Thành viên mặc định)" : ""}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -1338,11 +1382,16 @@ export function MembersClient() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {roles.map((r: any) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.name}
-                    </SelectItem>
-                  ))}
+                  {roles.map((r: any) => {
+                    const isOwnerR = r.name === "Chủ dự án" || r.name === "Admin" || r.name === "Chủ sở hữu";
+                    const isMemberR = r.name === "Thành viên" || r.name === "Thành viên bình thường" || r.isDefault;
+
+                    return (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name} {isOwnerR ? "• (Chủ dự án)" : isMemberR ? "• (Thành viên mặc định)" : ""}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

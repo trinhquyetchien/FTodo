@@ -80,13 +80,21 @@ export class InvitationsService {
       where: { id: inviterId },
     });
 
+    let targetRoleGroupId = dto.roleGroupId || null;
+    if (!targetRoleGroupId) {
+      const defaultRole = await this.prisma.roleGroup.findFirst({
+        where: { projectId, isDefault: true },
+      });
+      targetRoleGroupId = defaultRole?.id || null;
+    }
+
     const invitation = await this.prisma.projectInvitation.create({
       data: {
         projectId,
         inviterId,
         recipientEmail: email,
         recipientName: dto.recipientName || existingUser?.name || null,
-        roleGroupId: dto.roleGroupId || null,
+        roleGroupId: targetRoleGroupId,
         status: 'PENDING',
       },
       include: {
@@ -213,11 +221,19 @@ export class InvitationsService {
     });
 
     if (!existingMember) {
+      let finalRoleGroupId = invitation.roleGroupId;
+      if (!finalRoleGroupId) {
+        const defaultRole = await this.prisma.roleGroup.findFirst({
+          where: { projectId: invitation.projectId, isDefault: true },
+        });
+        finalRoleGroupId = defaultRole?.id || null;
+      }
+
       await this.prisma.projectMember.create({
         data: {
           userId: user.id,
           projectId: invitation.projectId,
-          roleGroupId: invitation.roleGroupId,
+          roleGroupId: finalRoleGroupId,
           extraPermissions: [],
         },
       });

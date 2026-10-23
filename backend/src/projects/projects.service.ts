@@ -20,10 +20,11 @@ export class ProjectsService {
       },
     });
 
-    // 2. Create default RoleGroups for this project
-    const adminRole = await this.prisma.roleGroup.create({
+    // 2. Create default RoleGroups for this project:
+    // Nhóm 1: Chủ dự án (cố định và không thể xóa)
+    const ownerRole = await this.prisma.roleGroup.create({
       data: {
-        name: 'Admin',
+        name: 'Chủ dự án',
         permissions: [
           'overview',
           'board',
@@ -44,27 +45,31 @@ export class ProjectsService {
       },
     });
 
-    await this.prisma.roleGroup.createMany({
-      data: [
-        {
-          name: 'DEV',
-          permissions: ['overview', 'board', 'backlog', 'chat'],
-          isDefault: true,
-          projectId: project.id,
-        },
-        {
-          name: 'QA',
-          permissions: ['overview', 'board', 'chat'],
-          isDefault: false,
-          projectId: project.id,
-        },
-        {
-          name: 'Viewer',
-          permissions: ['overview'],
-          isDefault: false,
-          projectId: project.id,
-        },
-      ],
+    // Nhóm 2: Thành viên (nhóm cơ bản mặc định cho thành viên bình thường)
+    await this.prisma.roleGroup.create({
+      data: {
+        name: 'Thành viên',
+        permissions: [
+          'overview',
+          'board',
+          'backlog',
+          'timeline',
+          'issues',
+          'chat',
+        ],
+        isDefault: true,
+        projectId: project.id,
+      },
+    });
+
+    // 2.1 Link project owner as member with Chủ dự án role
+    await this.prisma.projectMember.create({
+      data: {
+        projectId: project.id,
+        userId,
+        roleGroupId: ownerRole.id,
+        extraPermissions: [],
+      },
     });
 
     // 3. Create default Channels for team chat
@@ -83,15 +88,7 @@ export class ProjectsService {
       ],
     });
 
-    // 4. Add creator as project member with Admin role group
-    await this.prisma.projectMember.create({
-      data: {
-        userId,
-        projectId: project.id,
-        roleGroupId: adminRole.id,
-        extraPermissions: [],
-      },
-    });
+
 
     return project;
   }
