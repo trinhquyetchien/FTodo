@@ -438,14 +438,9 @@ export default function ProjectCostPage() {
               {isOwner ? "Quản trị Tài chính & Ngân sách" : "Quản lý Chi phí & Đề xuất Ngân sách"}
             </h1>
             <Badge variant={isOwner ? "default" : "secondary"} className="text-xs">
-              {isOwner ? "Giao diện Chủ dự án (Sếp)" : "Giao diện Nhân viên"}
+              {isOwner ? "Chủ dự án" : "Thành viên"}
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {isOwner
-              ? "Toàn quyền theo dõi ngân sách và phê duyệt chi phí từ đội ngũ thực tế."
-              : "Theo dõi tình hình ngân sách và gửi các đề xuất chi phí phát sinh kèm lý do cho Chủ dự án duyệt."}
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
@@ -524,7 +519,7 @@ export default function ProjectCostPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-xs font-medium text-muted-foreground">
-                  {isOwner ? "Chờ Sếp duyệt" : "Đề xuất đang chờ duyệt"}
+                  {isOwner ? "Chờ duyệt" : "Đề xuất đang chờ duyệt"}
                 </CardTitle>
                 <AlertCircle className="h-4 w-4 text-amber-500" />
               </CardHeader>
@@ -572,14 +567,11 @@ export default function ProjectCostPage() {
                     </div>
                     <div>
                       <CardTitle className="text-base text-amber-950 dark:text-amber-200 flex items-center gap-2">
-                        Yêu cầu chi phí chờ Sếp phê duyệt
+                        Yêu cầu chi phí chờ phê duyệt
                         <Badge className="bg-amber-600 hover:bg-amber-700 text-xs">
                           {pendingList.length} yêu cầu
                         </Badge>
                       </CardTitle>
-                      <CardDescription className="text-xs text-amber-800/80 dark:text-amber-400/80">
-                        Xem lý do đề xuất của nhân viên và quyết định Duyệt chi hoặc Từ chối.
-                      </CardDescription>
                     </div>
                   </div>
                 </div>
@@ -678,7 +670,7 @@ export default function ProjectCostPage() {
             <Card className="lg:col-span-4">
               <CardHeader>
                 <CardTitle className="text-sm font-semibold">Chi tiêu thực tế vs Ngân sách theo Sprint</CardTitle>
-                <CardDescription className="text-xs">Đơn vị: Triệu VNĐ (Dự toán kế hoạch so với thực chi)</CardDescription>
+                <CardDescription className="text-xs">Đơn vị: Triệu VNĐ</CardDescription>
               </CardHeader>
               <CardContent className="h-[260px] pl-0">
                 {sprintBurnData.length === 0 ? (
@@ -707,9 +699,8 @@ export default function ProjectCostPage() {
 
             {/* Category Breakdown Donut / Pie Chart */}
             <Card className="lg:col-span-3">
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold">Cơ cấu danh mục chi phí</CardTitle>
-                <CardDescription className="text-xs">Tỷ lệ phân bổ chi phí toàn dự án</CardDescription>
               </CardHeader>
               <CardContent>
                 {pieData.length === 0 ? (

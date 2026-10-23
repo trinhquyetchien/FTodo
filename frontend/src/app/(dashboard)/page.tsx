@@ -316,7 +316,7 @@ export default function GlobalDashboard() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="p-desc">Mô tả dự án (tùy chọn)</Label>
+                <Label htmlFor="p-desc">Mô tả dự án</Label>
                 <Input
                   id="p-desc"
                   placeholder="Mô tả mục tiêu và phạm vi của dự án..."
@@ -419,7 +419,7 @@ export default function GlobalDashboard() {
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    <Zap className="h-3 w-3 text-amber-500" /> Vận tốc (Velocity)
+                    <Zap className="h-3 w-3 text-amber-500" /> Vận tốc
                   </button>
                   <button
                     onClick={() => setChartView("workmix")}
@@ -447,7 +447,7 @@ export default function GlobalDashboard() {
               {/* Sub-header KPIs */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 text-xs">
                 <div className="p-2 rounded-lg bg-muted/30 border">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Vận tốc TB (Velocity)</span>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Vận tốc TB</span>
                   <div className="font-bold text-foreground text-sm flex items-center gap-1">
                     {avgVelocity} SP <span className="text-[10px] text-emerald-600 font-normal">/ Sprint</span>
                   </div>
@@ -455,13 +455,13 @@ export default function GlobalDashboard() {
                 <div className="p-2 rounded-lg bg-muted/30 border">
                   <span className="text-[10px] text-muted-foreground uppercase font-semibold">Độ tin cậy cam kết</span>
                   <div className="font-bold text-foreground text-sm flex items-center gap-1">
-                    {predictability}% <span className="text-[10px] text-emerald-600 font-normal">Predictability</span>
+                    {predictability}%
                   </div>
                 </div>
                 <div className="p-2 rounded-lg bg-muted/30 border">
                   <span className="text-[10px] text-muted-foreground uppercase font-semibold">Tỷ lệ Bug nợ kỹ thuật</span>
                   <div className="font-bold text-foreground text-sm flex items-center gap-1">
-                    {bugRatio}% <span className="text-[10px] text-emerald-600 font-normal">(Mức an toàn &lt; 20%)</span>
+                    {bugRatio}%
                   </div>
                 </div>
               </div>
@@ -486,9 +486,9 @@ export default function GlobalDashboard() {
                         <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
                         <Tooltip formatter={(value: any) => [`${value} Story Points`, ""]} />
                         <Legend verticalAlign="top" height={32} iconSize={10} wrapperStyle={{ fontSize: "11px" }} />
-                        <Bar dataKey="committed" name="Điểm Cam kết (Committed)" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="completed" name="Điểm Hoàn thành (Completed)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                        <Line type="monotone" dataKey="velocityAvg" name="Mức TB (Velocity Target)" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                        <Bar dataKey="committed" name="Điểm Cam kết" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="completed" name="Điểm Hoàn thành" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                        <Line type="monotone" dataKey="velocityAvg" name="Mức trung bình" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={false} />
                       </ComposedChart>
                     </ResponsiveContainer>
                   )}
@@ -517,8 +517,8 @@ export default function GlobalDashboard() {
                         <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
                         <Tooltip formatter={(val: any, name: any) => [`${val} Story Points`, name === "done" ? "Đã xong" : "Còn lại"]} />
                         <Legend verticalAlign="top" height={32} iconSize={10} wrapperStyle={{ fontSize: "11px" }} />
-                        <Bar dataKey="done" name="Đã bàn giao (Done SP)" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
-                        <Bar dataKey="remaining" name="Còn lại (Remaining SP)" stackId="a" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="done" name="Đã bàn giao" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="remaining" name="Còn lại" stackId="a" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   )}
@@ -594,7 +594,7 @@ export default function GlobalDashboard() {
               <div className="space-y-4">
                 <div className="flex items-center gap-2 border-b pb-2">
                   <Crown className="h-5 w-5 text-amber-500" />
-                  <h2 className="text-lg font-bold tracking-tight">Dự án của bạn (Làm chủ)</h2>
+                  <h2 className="text-lg font-bold tracking-tight">Dự án làm chủ</h2>
                   <Badge variant="secondary" className="ml-2 font-mono">
                     {filteredOwned.length}
                   </Badge>
@@ -668,7 +668,7 @@ export default function GlobalDashboard() {
               <div className="space-y-4">
                 <div className="flex items-center gap-2 border-b pb-2">
                   <UserCheck className="h-5 w-5 text-blue-500" />
-                  <h2 className="text-lg font-bold tracking-tight">Dự án bạn tham gia (Thành viên)</h2>
+                  <h2 className="text-lg font-bold tracking-tight">Dự án tham gia</h2>
                   <Badge variant="secondary" className="ml-2 font-mono">
                     {filteredMember.length}
                   </Badge>

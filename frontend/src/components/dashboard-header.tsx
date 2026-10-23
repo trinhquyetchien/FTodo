@@ -138,7 +138,7 @@ export function DashboardHeader() {
         {!isInsideWorkspace ? (
           /* Default Logo & Title when on main Dashboard / Home */
           <Link href="/" className="flex items-center">
-            <Logo size="sm" subtitleText="Bảng điều khiển tổng quan dự án" />
+            <Logo size="sm" showSubtitle={false} />
           </Link>
         ) : (
           /* When inside Workspace: Mobile hamburger + Project Name only */

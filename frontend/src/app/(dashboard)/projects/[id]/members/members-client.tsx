@@ -517,9 +517,6 @@ export function MembersClient() {
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Users className="h-6 w-6 text-primary" /> Quản lý Nhân sự & Nhóm quyền
           </h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Thiết lập các nhóm vai trò, cấp quyền truy cập các tab dự án và quản lý thành viên đội ngũ.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -781,9 +778,6 @@ export function MembersClient() {
                   {members.length} người
                 </Badge>
               </div>
-              <CardDescription className="text-xs mt-1">
-                Xem nhóm vai trò và quyền hạn trang công cụ thực tế của từng nhân sự.
-              </CardDescription>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
@@ -820,7 +814,7 @@ export function MembersClient() {
               <TableRow>
                 <TableHead className="w-64">Thành viên</TableHead>
                 <TableHead className="w-44">Nhóm quyền</TableHead>
-                <TableHead>Quyền hạn thực tế (Trang được phép xem)</TableHead>
+                <TableHead>Quyền hạn thực tế</TableHead>
                 <TableHead className="w-24 text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
@@ -877,7 +871,7 @@ export function MembersClient() {
                                 }`}
                               >
                                 {tabInfo?.label || permId}
-                                {isExtra && " (Cấp riêng)"}
+                                {isExtra && " • Riêng"}
                               </Badge>
                             );
                           })}
@@ -933,9 +927,6 @@ export function MembersClient() {
                   {sentInvitations.length} lời mời
                 </Badge>
               </div>
-              <CardDescription className="text-xs mt-1">
-                Theo dõi tình trạng phản hồi (Đang chờ, Đã chấp nhận hoặc Đã từ chối) của nhân sự được mời vào dự án này.
-              </CardDescription>
             </div>
 
             <Button

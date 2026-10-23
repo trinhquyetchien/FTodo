@@ -386,17 +386,14 @@ export default function ReportsPage() {
             </h2>
             {isOwner ? (
               <Badge className="bg-amber-600 hover:bg-amber-700 text-xs">
-                Giao diện Quản trị (Admin)
+                Quản trị
               </Badge>
             ) : (
               <Badge variant="secondary" className="text-xs">
-                Giao diện Thành viên
+                Thành viên
               </Badge>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Theo dõi tiến độ Sprint, phân tích chỉ số Agile và gửi/duyệt báo cáo định kỳ cho các Quản trị viên dự án.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -478,9 +475,6 @@ export default function ReportsPage() {
                 <FileText className="h-4 w-4 text-primary" />
                 Hộp thư Báo cáo dự án
               </CardTitle>
-              <CardDescription className="text-xs">
-                Xem danh sách báo cáo gửi cho Admin, tình trạng phê duyệt và tệp tài liệu đính kèm.
-              </CardDescription>
             </div>
 
             <Button
@@ -624,7 +618,7 @@ export default function ReportsPage() {
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <Zap className="h-3 w-3 text-amber-500" /> Vận tốc (Velocity)
+                <Zap className="h-3 w-3 text-amber-500" /> Vận tốc
               </button>
               <button
                 onClick={() => setChartTab("quality")}
@@ -634,7 +628,7 @@ export default function ReportsPage() {
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <Bug className="h-3 w-3 text-rose-500" /> Lỗi (Defects)
+                <Bug className="h-3 w-3 text-rose-500" /> Lỗi & Bug
               </button>
             </div>
           </div>

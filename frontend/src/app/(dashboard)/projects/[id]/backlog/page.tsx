@@ -417,9 +417,6 @@ export default function BacklogPage() {
               Tổng {totalAllPoints} Story Points
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Cấu trúc phân rã công việc WBS (Epic ➔ User Story ➔ Task) và ước lượng khối lượng cho Sprint Planning.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -439,7 +436,7 @@ export default function BacklogPage() {
         <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <Layers className="h-4 w-4 text-primary" />
-            <span>Phân rã WBS theo Epic (Cấp 1 ➔ Cấp 2):</span>
+            <span>Phân rã WBS theo Epic:</span>
           </div>
           <span className="text-[11px] font-normal">Bấm để lọc User Stories theo module</span>
         </div>
@@ -451,7 +448,7 @@ export default function BacklogPage() {
             onClick={() => setSelectedEpicFilter("ALL")}
             className="text-xs h-7 px-3 rounded-lg"
           >
-            Tất cả công việc ({items.length} việc)
+            Tất cả ({items.length})
           </Button>
 
           {availableEpics.map((epic) => {
@@ -673,15 +670,12 @@ export default function BacklogPage() {
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <h3 className="font-bold text-sm text-foreground">
-                Product Backlog (Công việc chưa lên lịch)
+                Product Backlog
               </h3>
               <Badge variant="secondary" className="text-[10px] py-0 font-mono">
                 {backlogItems.length} công việc • {backlogPoints} SP
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Kho công việc dự kiến cho Sprint 2 và Sprint 3. Có thể bấm chuyển lên Sprint 1 khi có chỗ trống.
-            </p>
           </div>
 
           <div className="flex items-center gap-2">

@@ -139,11 +139,8 @@ export default function ProjectActivityPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <History className="h-6 w-6 text-primary" /> Nhật ký & Lịch sử hoạt động (Audit Trail)
+            <History className="h-6 w-6 text-primary" /> Nhật ký & Lịch sử hoạt động
           </h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Ghi nhận minh bạch mọi thao tác trong dự án: nhân viên nào xóa task lúc mấy giờ, sếp duyệt chi phí lúc nào, và ai đã tham gia dự án.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">

@@ -90,7 +90,7 @@ export function ProjectSidebar() {
         {/* 1. Home / Workspace Pages */}
         <Link
           href={`/projects/${projectId}/board`}
-          title={isCollapsed ? "Không gian dự án (Home)" : undefined}
+          title={isCollapsed ? "Không gian dự án" : undefined}
           className={`flex items-center rounded-2xl text-xs font-medium transition-all ${
             isCollapsed
               ? "justify-center p-3 w-11 h-11 mx-auto"
@@ -112,13 +112,6 @@ export function ProjectSidebar() {
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <div className="font-semibold truncate">Không gian dự án</div>
-              <div
-                className={`text-[10px] truncate ${
-                  !isChatActive ? "text-primary-foreground/80 font-normal" : "text-muted-foreground"
-                }`}
-              >
-                Trang làm việc & Scrum
-              </div>
             </div>
           )}
         </Link>
@@ -148,13 +141,6 @@ export function ProjectSidebar() {
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <div className="font-semibold truncate">Kênh chat & Tin nhắn</div>
-              <div
-                className={`text-[10px] truncate ${
-                  isChatActive ? "text-primary-foreground/80 font-normal" : "text-muted-foreground"
-                }`}
-              >
-                Kênh nhóm & Cá nhân
-              </div>
             </div>
           )}
         </Link>
@@ -223,13 +209,6 @@ export function ProjectSidebar() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-semibold truncate">Không gian dự án</div>
-                <div
-                  className={`text-[10px] truncate ${
-                    !isChatActive ? "text-primary-foreground/80 font-normal" : "text-muted-foreground"
-                  }`}
-                >
-                  Trang làm việc & Scrum
-                </div>
               </div>
             </Link>
 
@@ -251,13 +230,6 @@ export function ProjectSidebar() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-semibold truncate">Kênh chat & Tin nhắn</div>
-                <div
-                  className={`text-[10px] truncate ${
-                    isChatActive ? "text-primary-foreground/80 font-normal" : "text-muted-foreground"
-                  }`}
-                >
-                  Kênh nhóm & Cá nhân
-                </div>
               </div>
             </Link>
           </div>

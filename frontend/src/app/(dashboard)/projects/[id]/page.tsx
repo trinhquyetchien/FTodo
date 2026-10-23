@@ -248,7 +248,6 @@ export default function ProjectOverview() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
             <h3 className="text-lg font-bold tracking-tight">Dashboard Quản trị Dự án</h3>
-            <p className="text-xs text-muted-foreground">Chế độ xem dữ liệu thời gian thực từ cơ sở dữ liệu PostgreSQL</p>
           </div>
           <div className="flex items-center gap-2">
             <Badge className="bg-amber-600 hover:bg-amber-700 text-xs">
@@ -338,11 +337,8 @@ export default function ProjectOverview() {
                 <div>
                   <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
                     <BarChart2 className="h-4 w-4 text-primary" />
-                    Phân bổ Trạng thái Công việc ({activeSprint?.name || "Sprint"})
+                    Phân bổ Trạng thái Công việc
                   </CardTitle>
-                  <CardDescription className="text-xs mt-0.5">
-                    Kiểm soát lượng công việc theo trạng thái thực tế từ cơ sở dữ liệu.
-                  </CardDescription>
                 </div>
                 <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">
                   {sprintTasks.length} Tasks
@@ -399,9 +395,6 @@ export default function ProjectOverview() {
                     <Users className="h-4 w-4 text-emerald-500" />
                     Phân bổ Điểm Công việc theo Thành viên
                   </CardTitle>
-                  <CardDescription className="text-xs mt-0.5">
-                    So sánh Story Points đã giao cho từng thành viên trong dự án.
-                  </CardDescription>
                 </div>
                 <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-300">
                   {members.length} Nhân sự
@@ -430,8 +423,8 @@ export default function ProjectOverview() {
                           contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
                         />
                         <Legend verticalAlign="top" height={24} iconSize={8} wrapperStyle={{ fontSize: 10 }} />
-                        <Bar dataKey="assigned" name="Đã giao (SP)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="capacity" name="Năng lực trần (SP)" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="assigned" name="Đã giao" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="capacity" name="Năng lực trần" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -458,9 +451,8 @@ export default function ProjectOverview() {
         {/* 3. Sprint Goal & Assigned Tasks breakdown */}
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Công việc gần đây trong dự án</CardTitle>
-              <CardDescription className="text-xs">Tiến độ chi tiết các đầu việc từ cơ sở dữ liệu</CardDescription>
             </CardHeader>
             <CardContent>
               {tasks.length === 0 ? (
@@ -506,7 +498,7 @@ export default function ProjectOverview() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold">
-                Mục tiêu Sprint ({activeSprint?.name || "Sprint"})
+                Mục tiêu Sprint
               </CardTitle>
               <CardDescription className="text-xs">
                 {activeSprint?.startDate && activeSprint?.endDate
@@ -549,7 +541,6 @@ export default function ProjectOverview() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-bold tracking-tight">Không gian làm việc thành viên</h3>
-          <p className="text-xs text-muted-foreground">Tập trung vào các nhiệm vụ được giao cho bạn trong dự án</p>
         </div>
         <Badge variant="secondary" className="text-xs">
           <UserCheck className="h-3 w-3 mr-1" /> Chế độ Thành viên
@@ -594,9 +585,8 @@ export default function ProjectOverview() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle>Công việc của tôi trong dự án này</CardTitle>
-          <CardDescription>Danh sách task được giao cho bạn thực hiện từ PostgreSQL</CardDescription>
         </CardHeader>
         <CardContent>
           {myTasks.length === 0 ? (

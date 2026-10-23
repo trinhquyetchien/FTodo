@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -101,18 +101,16 @@ export default function AccountPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Cài đặt tài khoản</h1>
-        <p className="text-muted-foreground">Quản lý thông tin cá nhân và bảo mật tài khoản thực tế.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Thông tin hồ sơ */}
         <Card>
           <form onSubmit={handleSaveProfile}>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <CardTitle>Thông tin hồ sơ</CardTitle>
-              <CardDescription>Cập nhật tên và ảnh đại diện thực tế của bạn.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {profileMessage && (
@@ -161,7 +159,7 @@ export default function AccountPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="avatar">Ảnh đại diện (URL hoặc 2 chữ cái viết tắt)</Label>
+                <Label htmlFor="avatar">Ảnh đại diện</Label>
                 <Input
                   id="avatar"
                   value={avatar}
@@ -173,7 +171,6 @@ export default function AccountPage() {
               <div className="space-y-2">
                 <Label htmlFor="email">Email tài khoản</Label>
                 <Input id="email" value={user?.email || ""} disabled className="bg-muted text-muted-foreground" />
-                <p className="text-xs text-muted-foreground">Email là định danh duy nhất không thể thay đổi.</p>
               </div>
             </CardContent>
             <CardFooter>
@@ -188,9 +185,8 @@ export default function AccountPage() {
         {/* Đổi mật khẩu */}
         <Card>
           <form onSubmit={handleChangePassword}>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <CardTitle>Đổi mật khẩu</CardTitle>
-              <CardDescription>Bảo vệ tài khoản bằng mật khẩu mạnh và an toàn.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {passwordMessage && (

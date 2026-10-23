@@ -63,10 +63,10 @@ export interface BoardTask {
 }
 
 const COLUMNS = [
-  { id: "TODO", title: "Cần làm (To Do)", color: "border-slate-300 dark:border-slate-700", badgeColor: "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
-  { id: "IN_PROGRESS", title: "Đang làm (In Progress)", color: "border-blue-400 dark:border-blue-700", badgeColor: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300" },
-  { id: "REVIEW", title: "Đang duyệt (Review)", color: "border-amber-400 dark:border-amber-700", badgeColor: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300" },
-  { id: "DONE", title: "Hoàn thành (Done)", color: "border-emerald-400 dark:border-emerald-700", badgeColor: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" },
+  { id: "TODO", title: "Cần làm", color: "border-slate-300 dark:border-slate-700", badgeColor: "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+  { id: "IN_PROGRESS", title: "Đang làm", color: "border-blue-400 dark:border-blue-700", badgeColor: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300" },
+  { id: "REVIEW", title: "Đang duyệt", color: "border-amber-400 dark:border-amber-700", badgeColor: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300" },
+  { id: "DONE", title: "Hoàn thành", color: "border-emerald-400 dark:border-emerald-700", badgeColor: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" },
 ];
 
 export default function BoardPage() {
@@ -450,7 +450,7 @@ export default function BoardPage() {
               </Badge>
               {sprintStartDate && sprintEndDate && (
                 <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
-                  {sprintStartDate} - {sprintEndDate} {sprintDaysLeft !== null ? `(Còn ${sprintDaysLeft} ngày)` : ""}
+                  {sprintStartDate} - {sprintEndDate} {sprintDaysLeft !== null ? `• Còn ${sprintDaysLeft} ngày` : ""}
                 </Badge>
               )}
             </div>
@@ -507,7 +507,7 @@ export default function BoardPage() {
               <SelectValue placeholder="Người làm" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">Tất cả thành viên ({members.length})</SelectItem>
+              <SelectItem value="ALL">Tất cả thành viên</SelectItem>
               {members.map((m) => (
                 <SelectItem key={m.id} value={m.id}>
                   {m.name}

@@ -567,7 +567,7 @@ export default function ProjectChatPage() {
           {/* SECTION 1: CHANNELS */}
           <div className="space-y-1 mb-5">
             <div className="px-2 py-1 text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-              <span>Kênh Dự án ({channels.length})</span>
+              <span>Kênh Dự án</span>
               <Button
                 variant="ghost"
                 size="icon"
@@ -618,7 +618,7 @@ export default function ProjectChatPage() {
           {/* SECTION 2: DIRECT MESSAGES (EXCLUDES CURRENT USER) */}
           <div className="space-y-1">
             <div className="px-2 py-1 text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-              <span>Cá nhân chat ({directMessageMembers.length})</span>
+              <span>Tin nhắn trực tiếp</span>
               <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
             {directMessageMembers.length === 0 ? (

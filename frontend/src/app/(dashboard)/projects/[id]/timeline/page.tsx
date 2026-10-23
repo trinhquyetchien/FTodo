@@ -224,7 +224,7 @@ export default function TimelinePage() {
       const isCurrent = TODAY >= wStart && TODAY <= wEnd;
       cols.push({
         weekNum: i + 1,
-        label: `Tuần ${i + 1}${isCurrent ? " (Hiện tại)" : ""}`,
+        label: `Tuần ${i + 1}${isCurrent ? " • Hiện tại" : ""}`,
         dateRange: `${formatShort(wStart)} - ${formatShort(wEnd)}`,
         isCurrent,
       });
@@ -243,11 +243,8 @@ export default function TimelinePage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <CalendarRange className="h-6 w-6 text-primary" /> Lộ trình & Lịch tiến độ (Gantt Timeline)
+            <CalendarRange className="h-6 w-6 text-primary" /> Lộ trình & Lịch tiến độ
           </h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Hiển thị chi tiết ngày bắt đầu, ngày kết thúc và tiến độ thực tế của từng Epic trên lộ trình.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

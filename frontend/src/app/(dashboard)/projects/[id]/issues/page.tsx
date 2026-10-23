@@ -219,11 +219,8 @@ export default function IssuesPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <CheckSquare className="h-6 w-6 text-primary" /> Danh sách tác vụ (All Issues)
+            <CheckSquare className="h-6 w-6 text-primary" /> Danh sách tác vụ
           </h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Theo dõi, lọc và tra cứu toàn bộ User Stories, Bugs và Tasks trong dự án Scrum.
-          </p>
         </div>
 
         <Button onClick={() => setIsCreateOpen(true)} className="gap-2 shadow-xs">
