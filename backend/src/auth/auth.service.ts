@@ -7,6 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import type { SignOptions } from 'jsonwebtoken';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -26,11 +27,14 @@ export interface AuthTokens {
 @Injectable()
 export class AuthService {
   private readonly jwtAccessSecret =
-    process.env.JWT_SECRET || 'ftodo-super-secret-jwt-access-key-2026-production';
+    process.env.JWT_SECRET ||
+    'ftodo-super-secret-jwt-access-key-2026-production';
   private readonly jwtRefreshSecret =
-    process.env.JWT_REFRESH_SECRET || 'ftodo-super-secret-jwt-refresh-key-2026-production';
+    process.env.JWT_REFRESH_SECRET ||
+    'ftodo-super-secret-jwt-refresh-key-2026-production';
   private readonly accessExpiresIn = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
-  private readonly refreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
+  private readonly refreshExpiresIn =
+    process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 
   constructor(
     private prisma: PrismaService,
@@ -89,7 +93,9 @@ export class AuthService {
     }
 
     if (!user.isActive) {
-      throw new ForbiddenException('Tài khoản đã bị tạm khóa. Vui lòng liên hệ quản trị viên');
+      throw new ForbiddenException(
+        'Tài khoản đã bị tạm khóa. Vui lòng liên hệ quản trị viên',
+      );
     }
 
     const isMatch = await bcrypt.compare(dto.password, user.password);
@@ -120,7 +126,9 @@ export class AuthService {
         secret: this.jwtRefreshSecret,
       });
     } catch {
-      throw new UnauthorizedException('Refresh Token không hợp lệ hoặc đã hết hạn');
+      throw new UnauthorizedException(
+        'Refresh Token không hợp lệ hoặc đã hết hạn',
+      );
     }
 
     const user = await this.prisma.user.findUnique({
@@ -128,10 +136,15 @@ export class AuthService {
     });
 
     if (!user || !user.isActive || !user.hashedRefreshToken) {
-      throw new UnauthorizedException('Phiên đăng nhập đã bị thu hồi. Vui lòng đăng nhập lại');
+      throw new UnauthorizedException(
+        'Phiên đăng nhập đã bị thu hồi. Vui lòng đăng nhập lại',
+      );
     }
 
-    const tokenSha = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    const tokenSha = crypto
+      .createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
     const isMatch = await bcrypt.compare(tokenSha, user.hashedRefreshToken);
     if (!isMatch) {
       // Token Reuse Detection / Theft Defense: Invalidate token family immediately!
@@ -183,7 +196,11 @@ export class AuthService {
     return user;
   }
 
-  private async generateTokens(userId: string, email: string, role: string): Promise<AuthTokens> {
+  private async generateTokens(
+    userId: string,
+    email: string,
+    role: string,
+  ): Promise<AuthTokens> {
     const accessPayload: TokenPayload = {
       sub: userId,
       email,
@@ -199,19 +216,25 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(accessPayload, {
         secret: this.jwtAccessSecret,
-        expiresIn: this.accessExpiresIn as any,
+        expiresIn: this.accessExpiresIn as SignOptions['expiresIn'],
       }),
       this.jwtService.signAsync(refreshPayload, {
         secret: this.jwtRefreshSecret,
-        expiresIn: this.refreshExpiresIn as any,
+        expiresIn: this.refreshExpiresIn as SignOptions['expiresIn'],
       }),
     ]);
 
     return { accessToken, refreshToken };
   }
 
-  private async updateHashedRefreshToken(userId: string, refreshToken: string): Promise<void> {
-    const tokenSha = crypto.createHash('sha256').update(refreshToken).digest('hex');
+  private async updateHashedRefreshToken(
+    userId: string,
+    refreshToken: string,
+  ): Promise<void> {
+    const tokenSha = crypto
+      .createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(tokenSha, salt);
     await this.prisma.user.update({

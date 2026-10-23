@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   MoreHorizontal,
   Plus,
@@ -47,7 +47,6 @@ import {
 import { useProject } from "../project-context";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
-import { addStoredActivityLog } from "@/lib/activity-invitation-store";
 
 export interface BoardTask {
   id: string;
@@ -79,6 +78,16 @@ export default function BoardPage() {
   const [members, setMembers] = useState<Array<{ id: string; name: string; email: string; avatar?: string }>>([]);
   const [activeSprint, setActiveSprint] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // New task dialog
+  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskType, setNewTaskType] = useState<BoardTask["type"]>("STORY");
+  const [newTaskEpic, setNewTaskEpic] = useState("Xác thực & Bảo mật");
+  const [newTaskStatus, setNewTaskStatus] = useState<BoardTask["status"]>("TODO");
+  const [newTaskPriority, setNewTaskPriority] = useState<BoardTask["priority"]>("Trung bình");
+  const [newTaskPoints, setNewTaskPoints] = useState<number>(3);
+  const [newTaskAssignee, setNewTaskAssignee] = useState<string>("");
 
   // Load project members and sprints from PostgreSQL
   useEffect(() => {
@@ -133,23 +142,27 @@ export default function BoardPage() {
 
   const formatBackendTask = (t: any): BoardTask => {
     const prio = t.priority === "HIGH" ? "Cao" : t.priority === "LOW" ? "Thấp" : "Trung bình";
-    let type: BoardTask["type"] = "TASK";
     const titleLower = (t.title || "").toLowerCase();
-    if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
-      type = "BUG";
-    } else if (titleLower.includes("xác thực") || titleLower.includes("jwt") || titleLower.includes("hệ thống") || (t.points && t.points >= 8)) {
-      type = "STORY";
+    let type: BoardTask["type"] = (t.type ? t.type.toUpperCase() : "TASK") as BoardTask["type"];
+    if (!t.type) {
+      if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
+        type = "BUG";
+      } else if (titleLower.includes("xác thực") || titleLower.includes("jwt") || titleLower.includes("hệ thống") || (t.points && t.points >= 8)) {
+        type = "STORY";
+      }
     }
 
-    let epic = "Kiến trúc Cốt lõi";
-    if (titleLower.includes("jwt") || titleLower.includes("xác thực") || titleLower.includes("bảo mật") || titleLower.includes("rbac")) {
-      epic = "Xác thực & Bảo mật";
-    } else if (titleLower.includes("schema") || titleLower.includes("postgresql") || titleLower.includes("database") || titleLower.includes("docker") || titleLower.includes("backend")) {
-      epic = "Kiến trúc Backend";
-    } else if (titleLower.includes("chi phí") || titleLower.includes("ngân sách")) {
-      epic = "Quản lý Tài chính";
-    } else if (titleLower.includes("chat") || titleLower.includes("thời gian thực")) {
-      epic = "Giao tiếp Đội ngũ";
+    let epic = t.epic || "Kiến trúc Cốt lõi";
+    if (!t.epic) {
+      if (titleLower.includes("jwt") || titleLower.includes("xác thực") || titleLower.includes("bảo mật") || titleLower.includes("rbac")) {
+        epic = "Xác thực & Bảo mật";
+      } else if (titleLower.includes("schema") || titleLower.includes("postgresql") || titleLower.includes("database") || titleLower.includes("docker") || titleLower.includes("backend")) {
+        epic = "Kiến trúc Backend";
+      } else if (titleLower.includes("chi phí") || titleLower.includes("ngân sách")) {
+        epic = "Quản lý Tài chính";
+      } else if (titleLower.includes("chat") || titleLower.includes("thời gian thực")) {
+        epic = "Giao tiếp Đội ngũ";
+      }
     }
 
     const assigneeName = t.assignee?.name || "Chưa phân công";
@@ -181,16 +194,6 @@ export default function BoardPage() {
   const [filterType, setFilterType] = useState<string>("ALL");
   const [filterAssignee, setFilterAssignee] = useState<string>("ALL");
   const [onlyMyTasks, setOnlyMyTasks] = useState<boolean>(false);
-
-  // New task dialog
-  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskType, setNewTaskType] = useState<BoardTask["type"]>("STORY");
-  const [newTaskEpic, setNewTaskEpic] = useState("Xác thực & Bảo mật");
-  const [newTaskStatus, setNewTaskStatus] = useState<BoardTask["status"]>("TODO");
-  const [newTaskPriority, setNewTaskPriority] = useState<BoardTask["priority"]>("Trung bình");
-  const [newTaskPoints, setNewTaskPoints] = useState<number>(3);
-  const [newTaskAssignee, setNewTaskAssignee] = useState<string>("");
 
   // Synchronize live tasks from PostgreSQL backend with Realtime Polling
   useEffect(() => {
@@ -262,18 +265,16 @@ export default function BoardPage() {
       }
     }
 
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    addStoredActivityLog(projectId, {
-      userName: user?.name || "Người dùng",
-      userAvatar: user?.avatar || "US",
-      userRole: user?.role === "owner" ? "Chủ dự án" : "Thành viên",
-      category: "task",
-      action: `đã chuyển công việc ${existingTask.id} sang "${targetCol?.title.split(" (")[0] || targetStatus}"`,
-      detail: `Cập nhật trạng thái của "${existingTask.title}" lúc ${timeStr}.`,
-      timestamp: `${timeStr} - Hôm nay`,
-      timeAgo: "Vừa xong",
-    });
+    if (existingTask && projectId) {
+      api.activities.create(projectId, {
+        category: "task",
+        action: `đã chuyển công việc ${existingTask.id} sang "${targetCol?.title.split(" (")[0] || targetStatus}"`,
+        detail: `Cập nhật trạng thái của "${existingTask.title}".`,
+      }).catch(() => {});
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("ftodo_activity_updated"));
+      }
+    }
   };
 
   const handleDeleteTask = async (taskToDelete: BoardTask) => {
@@ -292,18 +293,16 @@ export default function BoardPage() {
       }
     }
 
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    addStoredActivityLog(projectId, {
-      userName: user?.name || "Người dùng",
-      userAvatar: user?.avatar || "US",
-      userRole: user?.role === "owner" ? "Chủ dự án" : "Thành viên",
-      category: "task",
-      action: `đã xóa công việc ${taskToDelete.id} (${taskToDelete.title})`,
-      detail: `Đã loại bỏ Story Points: ${taskToDelete.points} SP khỏi Sprint lúc ${timeStr}.`,
-      timestamp: `${timeStr} - Hôm nay`,
-      timeAgo: "Vừa xong",
-    });
+    if (projectId) {
+      api.activities.create(projectId, {
+        category: "task",
+        action: `đã xóa công việc ${taskToDelete.id} (${taskToDelete.title})`,
+        detail: `Đã loại bỏ Story Points: ${taskToDelete.points} SP khỏi Sprint.`,
+      }).catch(() => {});
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("ftodo_activity_updated"));
+      }
+    }
   };
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -348,6 +347,8 @@ export default function BoardPage() {
       try {
         const res = await api.tasks.createTask(project.id, {
           title: newTaskTitle.trim(),
+          type: newTaskType,
+          epic: newTaskEpic,
           status: newTaskStatus,
           priority: backendPrio,
           points: Number(newTaskPoints) || 1,
@@ -383,18 +384,16 @@ export default function BoardPage() {
 
     saveTasks([...tasks, newTask]);
 
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    addStoredActivityLog(projectId, {
-      userName: user?.name || "Người dùng",
-      userAvatar: user?.avatar || "US",
-      userRole: user?.role === "owner" ? "Chủ dự án" : "Thành viên",
-      category: "task",
-      action: `đã tạo công việc mới ${newTask.id} (${newTask.title})`,
-      detail: `Loại: ${newTask.type}, Ước tính: ${newTask.points} SP, Người nhận: ${newTask.assigneeName} lúc ${timeStr}.`,
-      timestamp: `${timeStr} - Hôm nay`,
-      timeAgo: "Vừa xong",
-    });
+    if (projectId) {
+      api.activities.create(projectId, {
+        category: "task",
+        action: `đã tạo công việc mới ${newTask.id} (${newTask.title})`,
+        detail: `Loại: ${newTask.type}, Ước tính: ${newTask.points} SP, Người nhận: ${newTask.assigneeName}.`,
+      }).catch(() => {});
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("ftodo_activity_updated"));
+      }
+    }
 
     setNewTaskTitle("");
     setIsAddTaskOpen(false);
@@ -424,7 +423,10 @@ export default function BoardPage() {
   // Real sprint date calculation
   const sprintStartDate = activeSprint?.startDate ? new Date(activeSprint.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : null;
   const sprintEndDate = activeSprint?.endDate ? new Date(activeSprint.endDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : null;
-  const sprintDaysLeft = activeSprint?.endDate ? Math.max(0, Math.ceil((new Date(activeSprint.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : null;
+  const sprintDaysLeft = useMemo(() => {
+    if (!activeSprint?.endDate) return null;
+    return Math.max(0, Math.ceil((new Date(activeSprint.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+  }, [activeSprint?.endDate]);
 
   return (
     <div className="space-y-4 pb-8 flex flex-col min-h-[calc(100vh-13rem)] select-none">

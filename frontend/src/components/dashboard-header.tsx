@@ -28,14 +28,6 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Logo } from "@/components/logo";
-import {
-  getStoredInvitations,
-  respondToInvitation,
-  getStoredActivityLogs,
-  ProjectInvitation,
-  ProjectActivityLog
-} from "@/lib/activity-invitation-store";
-
 export function DashboardHeader() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
@@ -47,28 +39,57 @@ export function DashboardHeader() {
   const isInsideWorkspace = Boolean(projectId && pathname?.startsWith("/projects/"));
 
   const [currentProject, setCurrentProject] = useState<any>(null);
-  const [invitations, setInvitations] = useState<ProjectInvitation[]>([]);
-  const [recentActivities, setRecentActivities] = useState<ProjectActivityLog[]>([]);
+  const [invitations, setInvitations] = useState<any[]>([]);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+
+  const updateInvAndAct = async () => {
+    try {
+      const myInvs = await api.invitations.getMy().catch(() => []);
+      const mapped = myInvs.map((inv: any) => ({
+        id: inv.id,
+        projectId: inv.projectId,
+        projectName: inv.project?.name || "Dự án",
+        inviterName: inv.inviter?.name || "Chủ dự án",
+        roleGroupName: inv.roleGroup?.name || "Thành viên",
+        recipientEmail: inv.recipientEmail,
+        recipientName: inv.recipientName || "Bạn",
+        status: (inv.status || "PENDING").toLowerCase(),
+        createdAt: new Date(inv.createdAt).toLocaleDateString("vi-VN"),
+      }));
+      setInvitations(mapped);
+
+      if (projectId) {
+        const acts = await api.activities.getAll(projectId).catch(() => []);
+        setRecentActivities(acts.slice(0, 4));
+      }
+    } catch {
+      // Ignored cleanly
+    }
+  };
 
   useEffect(() => {
-    const updateInvAndAct = () => {
-      setInvitations(getStoredInvitations());
-      setRecentActivities(getStoredActivityLogs().slice(0, 4));
-    };
     updateInvAndAct();
     window.addEventListener("ftodo_invitations_updated", updateInvAndAct);
     window.addEventListener("ftodo_activity_updated", updateInvAndAct);
-    window.addEventListener("storage", updateInvAndAct);
     return () => {
       window.removeEventListener("ftodo_invitations_updated", updateInvAndAct);
       window.removeEventListener("ftodo_activity_updated", updateInvAndAct);
-      window.removeEventListener("storage", updateInvAndAct);
     };
-  }, []);
+  }, [projectId]);
 
-  const pendingInvitations = invitations.filter(
-    (i) => i.status === "pending" && (i.recipientEmail === user?.email || (user?.name && i.recipientName === user?.name))
-  );
+  const handleRespond = async (invId: string, action: "accepted" | "declined") => {
+    try {
+      await api.invitations.respond(invId, action === "accepted" ? "ACCEPT" : "DECLINE");
+      await updateInvAndAct();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("ftodo_invitations_updated"));
+      }
+    } catch (err: any) {
+      alert(err.message || "Lỗi khi xử lý phản hồi");
+    }
+  };
+
+  const pendingInvitations = invitations.filter((i) => i.status === "pending");
 
   useEffect(() => {
     if (!isInsideWorkspace || !projectId) {
@@ -194,7 +215,7 @@ export function DashboardHeader() {
                     <div className="flex items-center gap-1.5 pt-1">
                       <Button
                         size="sm"
-                        onClick={() => respondToInvitation(inv.id, "accepted")}
+                        onClick={() => handleRespond(inv.id, "accepted")}
                         className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1 flex-1 shadow-xs"
                       >
                         <Check className="h-3 w-3" /> Chấp nhận
@@ -202,7 +223,7 @@ export function DashboardHeader() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => respondToInvitation(inv.id, "declined")}
+                        onClick={() => handleRespond(inv.id, "declined")}
                         className="h-7 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 gap-1 flex-1"
                       >
                         <X className="h-3 w-3" /> Từ chối

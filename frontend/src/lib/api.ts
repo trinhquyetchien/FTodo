@@ -319,5 +319,58 @@ export const api = {
         body: JSON.stringify({ status }),
       }),
   },
+
+  activities: {
+    getAll: (projectId: string) =>
+      apiFetch<any[]>(`/projects/${projectId}/activities`),
+    create: (projectId: string, data: { category: string; action: string; detail?: string }) =>
+      apiFetch<any>(`/projects/${projectId}/activities`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+
+  invitations: {
+    getByProject: (projectId: string) =>
+      apiFetch<any[]>(`/projects/${projectId}/invitations`),
+    send: (
+      projectId: string,
+      data: { recipientEmail: string; recipientName?: string; roleGroupId?: string }
+    ) =>
+      apiFetch<any>(`/projects/${projectId}/invitations`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    cancel: (projectId: string, invitationId: string) =>
+      apiFetch<{ message: string }>(`/projects/${projectId}/invitations/${invitationId}`, {
+        method: "DELETE",
+      }),
+    getMy: () =>
+      apiFetch<any[]>("/invitations/my"),
+    respond: (invitationId: string, action: "ACCEPT" | "DECLINE") =>
+      apiFetch<{ success: boolean; message: string; projectId?: string }>(
+        `/invitations/${invitationId}/respond`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ action }),
+        }
+      ),
+  },
+
+  users: {
+    search: (query: string) =>
+      apiFetch<any[]>(`/users/search?q=${encodeURIComponent(query)}`),
+    updateProfile: (data: { name?: string; avatar?: string }) =>
+      apiFetch<any>("/users/profile", {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    changePassword: (data: { currentPassword: string; newPassword: string }) =>
+      apiFetch<{ message: string }>("/users/change-password", {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+  },
 };
+
 

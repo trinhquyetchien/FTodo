@@ -34,7 +34,9 @@ export class ReportsController {
     return this.reportsService.getReports(projectId);
   }
 
-  @ApiOperation({ summary: 'Gửi một báo cáo công việc lên cho Sếp / Chủ dự án' })
+  @ApiOperation({
+    summary: 'Gửi một báo cáo công việc lên cho Sếp / Chủ dự án',
+  })
   @ApiParam({ name: 'projectId', description: 'ID của dự án' })
   @ApiResponse({ status: 201, description: 'Báo cáo đã được gửi thành công' })
   @Post()
@@ -46,7 +48,9 @@ export class ReportsController {
     return this.reportsService.createReport(projectId, userId, dto);
   }
 
-  @ApiOperation({ summary: 'Cập nhật trạng thái duyệt của báo cáo (Đã xem / Reviewed)' })
+  @ApiOperation({
+    summary: 'Cập nhật trạng thái duyệt của báo cáo (Đã xem / Reviewed)',
+  })
   @ApiParam({ name: 'projectId', description: 'ID của dự án' })
   @ApiParam({ name: 'reportId', description: 'ID của báo cáo' })
   @ApiResponse({ status: 200, description: 'Cập nhật trạng thái thành công' })

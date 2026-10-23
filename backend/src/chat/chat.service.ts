@@ -27,7 +27,7 @@ export class ChatService {
       throw new NotFoundException('Không tìm thấy dự án');
     }
 
-    let channels = await this.prisma.channel.findMany({
+    const channels = await this.prisma.channel.findMany({
       where: { projectId },
       include: {
         members: {
@@ -168,7 +168,11 @@ export class ChatService {
     });
   }
 
-  async createChannel(projectId: string, userId: string, dto: CreateChannelDto) {
+  async createChannel(
+    projectId: string,
+    userId: string,
+    dto: CreateChannelDto,
+  ) {
     const formattedName = dto.name
       .toLowerCase()
       .trim()
@@ -189,7 +193,9 @@ export class ChatService {
     });
 
     if (existing) {
-      throw new ConflictException(`Kênh #${formattedName} đã tồn tại trong dự án`);
+      throw new ConflictException(
+        `Kênh #${formattedName} đã tồn tại trong dự án`,
+      );
     }
 
     const project = await this.prisma.project.findUnique({
@@ -207,7 +213,11 @@ export class ChatService {
       memberIdsToAdd = Array.from(new Set([userId, ...dto.memberIds]));
     } else if (!dto.isPrivate) {
       memberIdsToAdd = Array.from(
-        new Set([userId, project.ownerId, ...project.members.map((m) => m.userId)]),
+        new Set([
+          userId,
+          project.ownerId,
+          ...project.members.map((m) => m.userId),
+        ]),
       );
     } else {
       memberIdsToAdd = [userId];
@@ -257,7 +267,9 @@ export class ChatService {
     }
 
     if (channel.name === 'chung') {
-      throw new ForbiddenException('Không thể xóa kênh chung mặc định của dự án');
+      throw new ForbiddenException(
+        'Không thể xóa kênh chung mặc định của dự án',
+      );
     }
 
     await this.prisma.channel.delete({

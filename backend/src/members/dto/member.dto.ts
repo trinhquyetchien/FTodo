@@ -1,18 +1,27 @@
-import { IsEmail, IsNotEmpty, IsArray, IsOptional } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsArray } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class AddMemberDto {
-  @ApiProperty({ example: 'an@example.com', description: 'Email của thành viên được mời' })
+  @ApiProperty({
+    example: 'an@example.com',
+    description: 'Email của thành viên được mời',
+  })
   @IsEmail({}, { message: 'Email không hợp lệ' })
   email: string;
 
-  @ApiProperty({ example: 'role-group-uuid-1', description: 'ID của nhóm quyền RBAC được gán' })
+  @ApiProperty({
+    example: 'role-group-uuid-1',
+    description: 'ID của nhóm quyền RBAC được gán',
+  })
   @IsNotEmpty({ message: 'Vui lòng chọn nhóm phân quyền' })
   roleGroupId: string;
 }
 
 export class UpdateMemberDto {
-  @ApiProperty({ example: 'role-group-uuid-1', description: 'ID nhóm quyền RBAC mới' })
+  @ApiProperty({
+    example: 'role-group-uuid-1',
+    description: 'ID nhóm quyền RBAC mới',
+  })
   @IsNotEmpty({ message: 'Vui lòng chọn nhóm phân quyền' })
   roleGroupId: string;
 

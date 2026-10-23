@@ -2,22 +2,34 @@ import { IsNotEmpty, IsString, IsIn, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateReportDto {
-  @ApiProperty({ example: 'Báo cáo Sprint 1: Hoàn tất Module Auth', description: 'Tiêu đề báo cáo' })
+  @ApiProperty({
+    example: 'Báo cáo Sprint 1: Hoàn tất Module Auth',
+    description: 'Tiêu đề báo cáo',
+  })
   @IsString()
   @IsNotEmpty({ message: 'Tiêu đề báo cáo không được để trống' })
   title: string;
 
-  @ApiProperty({ example: 'Kính gửi Sếp, em gửi file báo cáo hoàn thành các module tuần này...' })
+  @ApiProperty({
+    example:
+      'Kính gửi Sếp, em gửi file báo cáo hoàn thành các module tuần này...',
+  })
   @IsString()
   @IsNotEmpty({ message: 'Lời nhắn không được để trống' })
   summary: string;
 
-  @ApiPropertyOptional({ example: 'admin-user-uuid', description: 'ID của Admin được chọn nhận báo cáo' })
+  @ApiPropertyOptional({
+    example: 'admin-user-uuid',
+    description: 'ID của Admin được chọn nhận báo cáo',
+  })
   @IsString()
   @IsOptional()
   recipientId?: string;
 
-  @ApiPropertyOptional({ example: 'https://example.com/report.pdf', description: 'File đính kèm hoặc đường dẫn tệp' })
+  @ApiPropertyOptional({
+    example: 'https://example.com/report.pdf',
+    description: 'File đính kèm hoặc đường dẫn tệp',
+  })
   @IsString()
   @IsOptional()
   pdfUrl?: string;
@@ -27,7 +39,9 @@ export class CreateReportDto {
   @IsOptional()
   type?: string;
 
-  @ApiPropertyOptional({ example: '- Thiết kế schema PostgreSQL\n- Xây dựng API JWT' })
+  @ApiPropertyOptional({
+    example: '- Thiết kế schema PostgreSQL\n- Xây dựng API JWT',
+  })
   @IsString()
   @IsOptional()
   completedTasks?: string;

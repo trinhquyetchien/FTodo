@@ -12,6 +12,8 @@ import { CostsModule } from './costs/costs.module';
 import { ChatModule } from './chat/chat.module';
 import { UsersModule } from './users/users.module';
 import { ReportsModule } from './reports/reports.module';
+import { ActivitiesModule } from './activities/activities.module';
+import { InvitationsModule } from './invitations/invitations.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { ReportsModule } from './reports/reports.module';
     ChatModule,
     UsersModule,
     ReportsModule,
+    ActivitiesModule,
+    InvitationsModule,
   ],
   controllers: [AppController],
   providers: [

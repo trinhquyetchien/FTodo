@@ -34,31 +34,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useProject } from "../project-context";
-import {
-  getStoredActivityLogs,
-  ProjectActivityLog
-} from "@/lib/activity-invitation-store";
+import { api } from "@/lib/api";
 
 export default function ProjectActivityPage() {
   const { project, isOwner } = useProject();
-  const projectId = project?.id || "ftodo-core";
+  const projectId = project?.id || "";
 
-  const [logs, setLogs] = useState<ProjectActivityLog[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterMember, setFilterMember] = useState<string>("all");
 
-  const loadLogs = () => {
-    setLogs(getStoredActivityLogs(projectId));
+  const loadLogs = async () => {
+    if (!projectId) return;
+    try {
+      setLoading(true);
+      const data = await api.activities.getAll(projectId);
+      setLogs(data);
+    } catch (err) {
+      console.error("Lỗi khi tải nhật ký hoạt động:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadLogs();
     window.addEventListener("ftodo_activity_updated", loadLogs);
-    window.addEventListener("storage", loadLogs);
     return () => {
       window.removeEventListener("ftodo_activity_updated", loadLogs);
-      window.removeEventListener("storage", loadLogs);
     };
   }, [projectId]);
 
@@ -80,7 +85,7 @@ export default function ProjectActivityPage() {
     return matchesSearch && matchesCategory && matchesMember;
   });
 
-  const getCategoryBadge = (category: ProjectActivityLog["category"]) => {
+  const getCategoryBadge = (category: string) => {
     switch (category) {
       case "task":
         return (

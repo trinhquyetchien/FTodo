@@ -93,6 +93,16 @@ export default function BacklogPage() {
   const [activeSprint, setActiveSprint] = useState<any>(null);
   const [activeSprintId, setActiveSprintId] = useState<string | null>(null);
 
+  // Create Modal
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newType, setNewType] = useState<BacklogItem["type"]>("STORY");
+  const [newEpicId, setNewEpicId] = useState("epic-auth");
+  const [newSprint, setNewSprint] = useState<BacklogItem["sprint"]>("SPRINT_1");
+  const [newPoints, setNewPoints] = useState<number>(3);
+  const [newPriority, setNewPriority] = useState<BacklogItem["priority"]>("Trung bình");
+  const [newAssignee, setNewAssignee] = useState<string>("");
+
   const availableEpics: WbsEpic[] = useMemo(() => {
     const list: WbsEpic[] = [];
     items.forEach((item) => {
@@ -155,12 +165,14 @@ export default function BacklogPage() {
         if (isMounted && tasksRes.status === "fulfilled" && Array.isArray(tasksRes.value)) {
           const mapped: BacklogItem[] = tasksRes.value.map((t: any) => {
             const prio = t.priority === "HIGH" ? "Cao" : t.priority === "LOW" ? "Thấp" : "Trung bình";
-            let type: BacklogItem["type"] = "TASK";
             const titleLower = (t.title || "").toLowerCase();
-            if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
-              type = "BUG";
-            } else if (titleLower.includes("xác thực") || titleLower.includes("jwt") || titleLower.includes("hệ thống") || t.points >= 8) {
-              type = "STORY";
+            let type: BacklogItem["type"] = (t.type ? t.type.toUpperCase() : "TASK") as BacklogItem["type"];
+            if (!t.type) {
+              if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
+                type = "BUG";
+              } else if (titleLower.includes("xác thực") || titleLower.includes("jwt") || titleLower.includes("hệ thống") || t.points >= 8) {
+                type = "STORY";
+              }
             }
 
             const epicName = t.epic || (titleLower.includes("lỗi") || titleLower.includes("bug") ? "Lỗi & Sự cố" : "Chung");
@@ -203,16 +215,6 @@ export default function BacklogPage() {
   const [selectedEpicFilter, setSelectedEpicFilter] = useState<string>("ALL");
   const [quickTitleSprint1, setQuickTitleSprint1] = useState("");
   const [quickTitleBacklog, setQuickTitleBacklog] = useState("");
-
-  // Create Modal
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newType, setNewType] = useState<BacklogItem["type"]>("STORY");
-  const [newEpicId, setNewEpicId] = useState("epic-auth");
-  const [newSprint, setNewSprint] = useState<BacklogItem["sprint"]>("SPRINT_1");
-  const [newPoints, setNewPoints] = useState<number>(3);
-  const [newPriority, setNewPriority] = useState<BacklogItem["priority"]>("Trung bình");
-  const [newAssignee, setNewAssignee] = useState<string>("");
 
   const saveItems = (updated: BacklogItem[]) => {
     setItems(updated);
@@ -279,6 +281,8 @@ export default function BacklogPage() {
       try {
         const res = await api.tasks.createTask(project.id, {
           title: title.trim(),
+          type: "STORY",
+          epic: epic.name,
           points: 3,
           assigneeId: defaultAssigneeId,
           sprintId: sprint === "SPRINT_1" ? activeSprintId || undefined : undefined,
@@ -287,6 +291,11 @@ export default function BacklogPage() {
           createdBackendId = res.id;
           if (res.code) createdCode = res.code;
         }
+        api.activities.create(project.id, {
+          category: "task",
+          action: `đã tạo nhanh công việc ${createdCode}`,
+          detail: `Tiêu đề: ${title.trim()} (3 SP).`,
+        }).catch(() => {});
       } catch (err) {
         console.warn("Lỗi khi tạo nhanh task lên server:", err);
       }
@@ -313,6 +322,9 @@ export default function BacklogPage() {
     };
 
     saveItems([...items, newItem]);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("ftodo_activity_updated"));
+    }
     setTitle("");
   };
 
@@ -330,6 +342,8 @@ export default function BacklogPage() {
       try {
         const res = await api.tasks.createTask(project.id, {
           title: newTitle.trim(),
+          type: newType,
+          epic: epic.name,
           points: Number(newPoints) || 1,
           priority: backendPrio,
           assigneeId: newAssignee || undefined,
@@ -339,6 +353,11 @@ export default function BacklogPage() {
           createdBackendId = res.id;
           if (res.code) createdCode = res.code;
         }
+        api.activities.create(project.id, {
+          category: "task",
+          action: `đã tạo công việc mới ${createdCode}`,
+          detail: `Loại: ${newType}, Epic: ${epic.name}, Tiêu đề: ${newTitle.trim()} (${newPoints} SP).`,
+        }).catch(() => {});
       } catch (err) {
         console.warn("Lỗi khi tạo task chi tiết lên server:", err);
       }

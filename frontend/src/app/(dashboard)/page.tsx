@@ -57,13 +57,6 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import { MockProject } from "@/lib/mock-data";
-import {
-  getStoredInvitations,
-  respondToInvitation,
-  getStoredActivityLogs,
-  ProjectInvitation,
-  ProjectActivityLog
-} from "@/lib/activity-invitation-store";
 
 export default function GlobalDashboard() {
   const { user } = useAuth();
@@ -77,65 +70,74 @@ export default function GlobalDashboard() {
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "owned" | "member">("all");
-  const [invitations, setInvitations] = useState<ProjectInvitation[]>([]);
-  const [recentActivities, setRecentActivities] = useState<ProjectActivityLog[]>([]);
+  const [invitations, setInvitations] = useState<any[]>([]);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
 
-  // Load projects, tasks, and sprints from PostgreSQL database
+  // Load projects, tasks, sprints, invitations and activities from PostgreSQL database
+  const loadData = async () => {
+    try {
+      setIsLoadingProjects(true);
+      const [res, myInvs] = await Promise.all([
+        api.projects.getAll().catch(() => ({ owned: [], memberOf: [] })),
+        api.invitations.getMy().catch(() => []),
+      ]);
+
+      const list = [...(res?.owned || []), ...(res?.memberOf || [])];
+      setAllProjects(list);
+
+      const mappedInvs = (myInvs || []).map((inv: any) => ({
+        id: inv.id,
+        projectId: inv.projectId,
+        projectName: inv.project?.name || "Dự án",
+        projectDescription: inv.project?.description || "",
+        inviterName: inv.inviter?.name || "Chủ dự án",
+        inviterEmail: inv.inviter?.email || "",
+        roleGroupName: inv.roleGroup?.name || "Thành viên",
+        recipientEmail: inv.recipientEmail,
+        recipientName: inv.recipientName || "Bạn",
+        status: (inv.status || "PENDING").toLowerCase(),
+        createdAt: new Date(inv.createdAt).toLocaleDateString("vi-VN"),
+      }));
+      setInvitations(mappedInvs);
+
+      // Fetch tasks and sprints from primary projects to calculate real metrics
+      if (list.length > 0) {
+        const topProjects = list.slice(0, 3);
+        const taskPromises = topProjects.map((p) => api.tasks.getTasks(p.id).catch(() => []));
+        const sprintPromises = topProjects.map((p) => api.sprints.getSprints(p.id).catch(() => []));
+        const [tasksResults, sprintsResults, activitiesRes] = await Promise.all([
+          Promise.all(taskPromises),
+          Promise.all(sprintPromises),
+          api.activities.getAll(list[0].id).catch(() => []),
+        ]);
+        setAllTasks(tasksResults.flat());
+        setAllSprints(sprintsResults.flat());
+        setRecentActivities(activitiesRes.slice(0, 5));
+      }
+    } catch (err) {
+      console.error("Lỗi khi tải dữ liệu từ PostgreSQL:", err);
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  };
+
   useEffect(() => {
-    let isMounted = true;
-    const loadData = async () => {
-      try {
-        setIsLoadingProjects(true);
-        const res = await api.projects.getAll();
-        if (isMounted && res) {
-          const list = [...(res.owned || []), ...(res.memberOf || [])];
-          setAllProjects(list);
-
-          // Fetch tasks and sprints from primary projects to calculate real metrics
-          if (list.length > 0) {
-            const topProjects = list.slice(0, 3);
-            const taskPromises = topProjects.map((p) => api.tasks.getTasks(p.id).catch(() => []));
-            const sprintPromises = topProjects.map((p) => api.sprints.getSprints(p.id).catch(() => []));
-            const [tasksResults, sprintsResults] = await Promise.all([
-              Promise.all(taskPromises),
-              Promise.all(sprintPromises),
-            ]);
-            if (isMounted) {
-              setAllTasks(tasksResults.flat());
-              setAllSprints(sprintsResults.flat());
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Lỗi khi tải dự án từ PostgreSQL:", err);
-      } finally {
-        if (isMounted) setIsLoadingProjects(false);
-      }
-      if (isMounted) {
-        setInvitations(getStoredInvitations());
-        setRecentActivities(getStoredActivityLogs().slice(0, 5));
-      }
-    };
-
     loadData();
     window.addEventListener("ftodo_invitations_updated", loadData);
     window.addEventListener("ftodo_activity_updated", loadData);
-    window.addEventListener("storage", loadData);
     return () => {
-      isMounted = false;
       window.removeEventListener("ftodo_invitations_updated", loadData);
       window.removeEventListener("ftodo_activity_updated", loadData);
-      window.removeEventListener("storage", loadData);
     };
   }, [user]);
 
-  const handleInvitationAction = (invId: string, action: "accepted" | "declined") => {
-    respondToInvitation(invId, action);
-    api.projects.getAll().then((res) => {
-      if (res) {
-        setAllProjects([...(res.owned || []), ...(res.memberOf || [])]);
-      }
-    }).catch(() => {});
+  const handleInvitationAction = async (invId: string, action: "accepted" | "declined") => {
+    try {
+      await api.invitations.respond(invId, action === "accepted" ? "ACCEPT" : "DECLINE");
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || "Lỗi khi xử lý phản hồi lời mời");
+    }
   };
 
   const handleCreateProject = async (e: React.FormEvent) => {
@@ -214,12 +216,14 @@ export default function GlobalDashboard() {
     let bugCount = 0, bugPoints = 0;
 
     allTasks.forEach((t) => {
-      const titleLower = (t.title || "").toLowerCase();
       const pts = t.points || 1;
-      if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
+      const tType = (t.type || "").toUpperCase();
+      const titleLower = (t.title || "").toLowerCase();
+
+      if (tType === "BUG" || titleLower.includes("lỗi") || titleLower.includes("bug")) {
         bugCount++;
         bugPoints += pts;
-      } else if (titleLower.includes("xác thực") || titleLower.includes("jwt") || titleLower.includes("hệ thống") || (t.points && t.points >= 8)) {
+      } else if (tType === "STORY" || titleLower.includes("xác thực") || titleLower.includes("jwt") || titleLower.includes("hệ thống") || (t.points && t.points >= 8)) {
         storyCount++;
         storyPoints += pts;
       } else {

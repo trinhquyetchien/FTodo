@@ -55,7 +55,9 @@ export class TasksController {
     return this.tasksService.createSprint(projectId, dto);
   }
 
-  @ApiOperation({ summary: 'Cập nhật trạng thái Sprint (PLANNED, ACTIVE, COMPLETED)' })
+  @ApiOperation({
+    summary: 'Cập nhật trạng thái Sprint (PLANNED, ACTIVE, COMPLETED)',
+  })
   @ApiParam({ name: 'projectId', description: 'ID của dự án' })
   @ApiParam({ name: 'sprintId', description: 'ID của Sprint' })
   @Patch('sprints/:sprintId/status')
@@ -71,7 +73,11 @@ export class TasksController {
 
   @ApiOperation({ summary: 'Lấy danh sách công việc của dự án' })
   @ApiParam({ name: 'projectId', description: 'ID của dự án' })
-  @ApiQuery({ name: 'sprintId', required: false, description: 'Lọc theo Sprint ID (tùy chọn)' })
+  @ApiQuery({
+    name: 'sprintId',
+    required: false,
+    description: 'Lọc theo Sprint ID (tùy chọn)',
+  })
   @Get('tasks')
   getTasks(
     @Param('projectId') projectId: string,
@@ -103,7 +109,10 @@ export class TasksController {
     return this.tasksService.updateTask(projectId, taskId, dto);
   }
 
-  @ApiOperation({ summary: 'Cập nhật trạng thái kéo thả bảng Scrum (TODO, IN_PROGRESS, REVIEW, DONE)' })
+  @ApiOperation({
+    summary:
+      'Cập nhật trạng thái kéo thả bảng Scrum (TODO, IN_PROGRESS, REVIEW, DONE)',
+  })
   @ApiParam({ name: 'projectId', description: 'ID của dự án' })
   @ApiParam({ name: 'taskId', description: 'ID của công việc' })
   @Patch('tasks/:taskId/status')

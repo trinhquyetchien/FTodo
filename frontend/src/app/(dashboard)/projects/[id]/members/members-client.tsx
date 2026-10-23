@@ -52,12 +52,6 @@ import { useProject } from "../project-context";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import {
-  getStoredInvitations,
-  saveStoredInvitations,
-  addStoredActivityLog,
-  ProjectInvitation
-} from "@/lib/activity-invitation-store";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -223,22 +217,39 @@ export function MembersClient() {
   const [selectedRoleDetail, setSelectedRoleDetail] = useState<string | null>(null);
 
   // Invitations state
-  const [invitations, setInvitations] = useState<ProjectInvitation[]>([]);
+  const [invitations, setInvitations] = useState<any[]>([]);
+
+  const loadInvitations = async () => {
+    if (!projectId) return;
+    try {
+      const res = await api.invitations.getByProject(projectId);
+      if (Array.isArray(res)) {
+        const mapped = res.map((inv: any) => ({
+          id: inv.id,
+          projectId: inv.projectId,
+          recipientEmail: inv.recipientEmail,
+          recipientName: inv.recipientName || inv.recipientEmail,
+          roleGroupId: inv.roleGroupId,
+          roleGroupName: inv.roleGroup?.name || "Thành viên",
+          status: (inv.status || "PENDING").toLowerCase(),
+          createdAt: new Date(inv.createdAt).toLocaleDateString("vi-VN") + " lúc " + new Date(inv.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+        }));
+        setInvitations(mapped);
+      }
+    } catch (err) {
+      console.warn("Lỗi tải danh sách lời mời:", err);
+    }
+  };
 
   useEffect(() => {
-    const loadInv = () => {
-      setInvitations(getStoredInvitations());
-    };
-    loadInv();
-    window.addEventListener("ftodo_invitations_updated", loadInv);
-    window.addEventListener("storage", loadInv);
+    loadInvitations();
+    window.addEventListener("ftodo_invitations_updated", loadInvitations);
     return () => {
-      window.removeEventListener("ftodo_invitations_updated", loadInv);
-      window.removeEventListener("storage", loadInv);
+      window.removeEventListener("ftodo_invitations_updated", loadInvitations);
     };
-  }, []);
+  }, [projectId]);
 
-  const sentInvitations = invitations.filter((i) => i.projectId === projectId);
+  const sentInvitations = invitations;
 
   if (!isOwner && !hasPermission("members")) {
     return (
@@ -430,63 +441,23 @@ export function MembersClient() {
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMemberEmail || !newMemberName || !newMemberRoleId) return;
+    if (!newMemberEmail || !newMemberRoleId) return;
 
-    let createdId = "u-" + Date.now();
-    if (project?.id) {
+    if (projectId) {
       try {
-        const res = await api.members.addMember(project.id, {
-          email: newMemberEmail.trim(),
+        await api.invitations.send(projectId, {
+          recipientEmail: newMemberEmail.trim(),
+          recipientName: newMemberName.trim() || undefined,
           roleGroupId: newMemberRoleId,
         });
-        if (res?.id) createdId = res.id;
-      } catch (err) {
-        console.warn("Lỗi khi thêm thành viên lên server:", err);
+        await loadInvitations();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("ftodo_activity_updated"));
+        }
+      } catch (err: any) {
+        alert(err.message || "Lỗi khi gửi lời mời tham gia dự án");
       }
     }
-
-    const newMember = {
-      id: createdId,
-      name: newMemberName.trim(),
-      email: newMemberEmail.trim(),
-      roleId: newMemberRoleId,
-      extraPermissions: [],
-    };
-    const updated = [...members, newMember];
-    setMembers(updated);
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("ftodo_permissions_updated"));
-    }
-
-    // Also record sent invitation
-    const roleObj = roles.find((r: any) => r.id === newMemberRoleId);
-    const newInvitation: ProjectInvitation = {
-      id: "inv-" + Date.now(),
-      projectId,
-      projectName: project?.name || "Dự án Scrum",
-      projectDescription: project?.description || "Không gian làm việc Scrum FTodo",
-      inviterName: user?.name || project?.owner?.name || "Chủ dự án",
-      inviterEmail: user?.email || project?.owner?.email || "owner@example.com",
-      roleGroupId: newMemberRoleId,
-      roleGroupName: roleObj?.name || "Lập trình viên (DEV)",
-      recipientEmail: newMemberEmail.trim(),
-      recipientName: newMemberName.trim(),
-      createdAt: new Date().toLocaleDateString("vi-VN") + " lúc " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-      status: "pending",
-    };
-    const currentInvs = getStoredInvitations();
-    saveStoredInvitations([newInvitation, ...currentInvs]);
-
-    addStoredActivityLog(projectId, {
-      userName: user?.name || "Chủ dự án",
-      userAvatar: user?.avatar || "QC",
-      userRole: "Chủ dự án (Owner)",
-      category: "member",
-      action: "đã gửi lời mời tham gia dự án",
-      detail: `Gửi lời mời đến ${newMemberName.trim()} (${newMemberEmail.trim()}) với nhóm vai trò '${roleObj?.name}'`,
-      timestamp: new Date().toLocaleDateString("vi-VN") + " lúc " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-      timeAgo: "Vừa xong",
-    });
 
     setIsAddMemberOpen(false);
     setNewMemberEmail("");
@@ -494,44 +465,36 @@ export function MembersClient() {
     setNewMemberRoleId("r2");
   };
 
-  const handleResendInvitation = (invId: string) => {
-    const current = getStoredInvitations();
-    const updated = current.map((i) =>
-      i.id === invId
-        ? {
-            ...i,
-            status: "pending" as const,
-            createdAt: "Vừa gửi lại (" + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) + ")",
-          }
-        : i
-    );
-    saveStoredInvitations(updated);
-    addStoredActivityLog(projectId, {
-      userName: user?.name || "Chủ dự án",
-      userAvatar: user?.avatar || "QC",
-      userRole: "Chủ dự án (Owner)",
-      category: "member",
-      action: "đã gửi lại lời mời tham gia dự án",
-      detail: `Gửi lại lời mời tham gia cho thành viên`,
-      timestamp: new Date().toLocaleDateString("vi-VN") + " lúc " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-      timeAgo: "Vừa xong",
-    });
+  const handleResendInvitation = async (invId: string) => {
+    const inv = invitations.find((i) => i.id === invId);
+    if (!inv || !projectId) return;
+    try {
+      await api.invitations.cancel(projectId, invId);
+      await api.invitations.send(projectId, {
+        recipientEmail: inv.recipientEmail,
+        recipientName: inv.recipientName,
+        roleGroupId: inv.roleGroupId,
+      });
+      await loadInvitations();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("ftodo_activity_updated"));
+      }
+    } catch (err: any) {
+      alert(err.message || "Lỗi khi gửi lại lời mời");
+    }
   };
 
-  const handleCancelInvitation = (invId: string) => {
-    const current = getStoredInvitations();
-    const updated = current.filter((i) => i.id !== invId);
-    saveStoredInvitations(updated);
-    addStoredActivityLog(projectId, {
-      userName: user?.name || "Chủ dự án",
-      userAvatar: user?.avatar || "QC",
-      userRole: "Chủ dự án (Owner)",
-      category: "member",
-      action: "đã thu hồi lời mời tham gia dự án",
-      detail: `Thu hồi lời mời của thành viên`,
-      timestamp: new Date().toLocaleDateString("vi-VN") + " lúc " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-      timeAgo: "Vừa xong",
-    });
+  const handleCancelInvitation = async (invId: string) => {
+    if (!confirm("Bạn có chắc muốn hủy lời mời này?") || !projectId) return;
+    try {
+      await api.invitations.cancel(projectId, invId);
+      await loadInvitations();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("ftodo_activity_updated"));
+      }
+    } catch (err: any) {
+      alert(err.message || "Lỗi khi hủy lời mời");
+    }
   };
 
   const editingMember = members.find((m: any) => m.id === editingMemberId);
@@ -1011,10 +974,10 @@ export function MembersClient() {
                       <div className="flex items-center gap-2">
                         <Avatar className="h-7 w-7">
                           <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
-                            {inv.recipientName.slice(0, 2).toUpperCase()}
+                            {(inv.recipientName || inv.recipientEmail || "US").slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <span>{inv.recipientName}</span>
+                        <span>{inv.recipientName || inv.recipientEmail}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground font-mono">

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateTaskDto,
@@ -33,6 +34,7 @@ export class TasksService {
       data: {
         name: dto.name,
         goal: dto.goal,
+        budget: dto.budget || 0,
         startDate: new Date(dto.startDate),
         endDate: new Date(dto.endDate),
         projectId,
@@ -62,7 +64,7 @@ export class TasksService {
   // --- Tasks ---
 
   async getTasks(projectId: string, sprintId?: string) {
-    const where: any = { projectId };
+    const where: Prisma.TaskWhereInput = { projectId };
     if (sprintId === 'backlog') {
       where.sprintId = null;
     } else if (sprintId) {
@@ -93,6 +95,8 @@ export class TasksService {
         code,
         title: dto.title,
         description: dto.description,
+        type: dto.type || 'TASK',
+        epic: dto.epic || null,
         status: dto.status || 'TODO',
         priority: dto.priority || 'MEDIUM',
         points: dto.points || 0,

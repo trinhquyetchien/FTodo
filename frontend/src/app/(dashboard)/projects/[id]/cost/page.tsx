@@ -37,7 +37,6 @@ import {
 import { useProject } from "../project-context";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
-import { addStoredActivityLog } from "@/lib/activity-invitation-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -122,6 +121,7 @@ export default function ProjectCostPage() {
 
   // Real expenses state from PostgreSQL
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [sprints, setSprints] = useState<any[]>([]);
 
   // Sync with PostgreSQL backend
   useEffect(() => {
@@ -129,9 +129,17 @@ export default function ProjectCostPage() {
     const loadCosts = async () => {
       if (!project?.id) return;
       try {
-        const res = await api.costs.getCosts(project.id);
-        if (isMounted && res?.costs && Array.isArray(res.costs)) {
-          const mapped: Expense[] = res.costs.map((c: any) => ({
+        const [costsRes, sprintsRes] = await Promise.all([
+          api.costs.getCosts(project.id).catch(() => null),
+          api.sprints.getSprints(project.id).catch(() => []),
+        ]);
+
+        if (isMounted && sprintsRes) {
+          setSprints(sprintsRes);
+        }
+
+        if (isMounted && costsRes?.costs && Array.isArray(costsRes.costs)) {
+          const mapped: Expense[] = costsRes.costs.map((c: any) => ({
             id: c.id,
             title: c.title,
             category: (c.category?.toLowerCase() || "other") as Expense["category"],
@@ -160,11 +168,15 @@ export default function ProjectCostPage() {
     };
   }, [project?.id, projectId]);
 
-  // Dynamic sprint burn rate calculated from real expenses
-  // Dynamic sprint burn rate calculated from real expenses
+  // Dynamic sprint burn rate calculated from real expenses & sprint budgets
   const sprintBurnData = React.useMemo(() => {
-    if (expenses.length === 0) return [];
     const sprintMap: Record<string, { budget: number; actual: number }> = {};
+
+    // Pre-populate with real sprint budgets from PostgreSQL
+    sprints.forEach((s) => {
+      sprintMap[s.name] = { budget: (s.budget || 0) / 1000000, actual: 0 };
+    });
+
     expenses.forEach((e) => {
       const sName = e.sprint || "Khoản chi chung";
       if (!sprintMap[sName]) {
@@ -174,12 +186,13 @@ export default function ProjectCostPage() {
         sprintMap[sName].actual += e.amount / 1000000;
       }
     });
+
     return Object.entries(sprintMap).map(([name, val]) => ({
       name,
       budget: val.budget,
       actual: Number(val.actual.toFixed(1)),
     }));
-  }, [expenses]);
+  }, [expenses, sprints]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -327,17 +340,15 @@ export default function ProjectCostPage() {
       }
     }
 
-    if (targetItem) {
-      addStoredActivityLog(projectId, {
-        userName: user?.name || project?.owner?.name || "Chủ dự án",
-        userAvatar: user?.avatar || (user?.name ? user.name.slice(0, 2).toUpperCase() : "US"),
-        userRole: isOwner ? "Chủ dự án (Owner)" : "Thành viên",
+    if (targetItem && project?.id) {
+      api.activities.create(project.id, {
         category: "cost",
         action: "đã phê duyệt đề xuất chi phí",
         detail: `Khoản chi: ${targetItem.title} (${targetItem.amount.toLocaleString()} đ - Đề xuất bởi ${targetItem.requester})`,
-        timestamp: new Date().toLocaleDateString("vi-VN") + " lúc " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-        timeAgo: "Vừa xong",
-      });
+      }).catch(() => {});
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("ftodo_activity_updated"));
+      }
     }
 
     setReviewingExpense(null);

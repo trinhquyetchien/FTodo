@@ -12,7 +12,8 @@ export class CreateProjectDto {
   name: string;
 
   @ApiPropertyOptional({
-    example: 'Hệ thống quản lý công việc và phát triển phần mềm theo Agile Scrum',
+    example:
+      'Hệ thống quản lý công việc và phát triển phần mềm theo Agile Scrum',
     description: 'Mô tả chi tiết mục tiêu dự án',
   })
   @IsOptional()

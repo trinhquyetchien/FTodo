@@ -43,7 +43,10 @@ export class ProjectsController {
 
   @ApiOperation({ summary: 'Lấy thông tin chi tiết một dự án' })
   @ApiParam({ name: 'id', description: 'Mã định danh ID của dự án' })
-  @ApiResponse({ status: 200, description: 'Chi tiết dự án và danh sách thành viên' })
+  @ApiResponse({
+    status: 200,
+    description: 'Chi tiết dự án và danh sách thành viên',
+  })
   @Get(':id')
   findOne(@Param('id') id: string, @GetUser('id') userId: string) {
     return this.projectsService.findOne(id, userId);
@@ -56,7 +59,7 @@ export class ProjectsController {
   update(
     @Param('id') id: string,
     @GetUser('id') userId: string,
-    @Body() dto: { name?: string; description?: string },
+    @Body() dto: { name?: string; description?: string; budget?: number },
   ) {
     return this.projectsService.update(id, userId, dto);
   }

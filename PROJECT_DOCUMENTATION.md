@@ -277,19 +277,25 @@ Toàn bộ Backend NestJS được trang bị **Swagger OpenAPI 3.0**. Các lậ
 ### 5.1. Các Nhóm Endpoint Chính
 - **Xác thực (`/api/auth`):**
   - `POST /api/auth/register`: Đăng ký tài khoản người dùng mới.
-  - `POST /api/auth/login`: Xác thực và cấp phát JWT Bearer Access Token.
+  - `POST /api/auth/login`: Xác thực và cấp phát JWT Bearer Access Token & Refresh Token.
   - `GET /api/auth/profile`: Lấy thông tin tài khoản hiện tại.
+  - `POST /api/auth/refresh`: Cấp mới token khi hết hạn.
+- **Người dùng & Tài khoản (`/api/users`):**
+  - `GET /api/users/search?q=:email`: Tìm kiếm người dùng theo email để mời vào dự án.
+  - `PATCH /api/users/profile`: Cập nhật thông tin hồ sơ (Họ tên, ảnh đại diện).
+  - `PATCH /api/users/change-password`: Đổi mật khẩu với xác thực mật khẩu cũ bằng bcrypt.
 - **Quản lý Dự án (`/api/projects`):**
-  - `GET /api/projects`: Lấy danh sách dự án (cả làm chủ và tham gia).
-  - `POST /api/projects`: Khởi tạo dự án mới.
-  - `GET /api/projects/:id`: Lấy thông tin chi tiết cấu hình dự án.
-  - `PATCH /api/projects/:id`: Cập nhật thông tin dự án.
+  - `GET /api/projects`: Lấy danh sách dự án (cả làm chủ `owned` và tham gia `memberOf`).
+  - `POST /api/projects`: Khởi tạo dự án mới (hỗ trợ nhập ngân sách dự án `budget`).
+  - `GET /api/projects/:id`: Lấy thông tin chi tiết cấu hình và ngân sách dự án.
+  - `PATCH /api/projects/:id`: Cập nhật thông tin và ngân sách dự án (`budget`).
   - `DELETE /api/projects/:id`: Xóa dự án (chỉ dành cho Owner).
 - **Quản lý Công việc & Sprint (`/api/tasks`):**
-  - `GET /api/tasks?projectId=:id`: Lấy danh sách công việc trong dự án.
-  - `POST /api/tasks`: Tạo công việc mới (kèm Story Points và Epic).
+  - `GET /api/tasks?projectId=:id`: Lấy danh sách công việc trong dự án (bao gồm `type`: STORY/TASK/BUG và `epic`).
+  - `POST /api/tasks`: Tạo công việc mới (kèm loại tác vụ `type`, `epic`, Story Points, assignee).
   - `PATCH /api/tasks/:id/status`: Kéo thả cập nhật trạng thái cột Scrum.
   - `PATCH /api/tasks/:id/sprint`: Điều chuyển công việc giữa Backlog và Sprint.
+  - `POST /api/tasks/sprint`: Tạo Sprint mới (hỗ trợ chỉ định ngân sách sprint `budget`).
 - **Quản trị Tài chính & Chi phí (`/api/costs`):**
   - `GET /api/costs?projectId=:id`: Lấy danh sách chi phí và tổng kết EVM/ROI.
   - `POST /api/costs/request`: Nhân viên gửi đề xuất chi phí mới kèm lý do.
@@ -298,6 +304,15 @@ Toàn bộ Backend NestJS được trang bị **Swagger OpenAPI 3.0**. Các lậ
   - `GET /api/members?projectId=:id`: Danh sách thành viên và nhóm quyền.
   - `POST /api/members/invite`: Gửi lời mời tham gia dự án tới email.
   - `PATCH /api/members/:id/permissions`: Cấp quyền riêng lẻ cho thành viên.
+- **Lời mời Dự án (`/api/invitations`):**
+  - `GET /api/projects/:projectId/invitations`: Lấy danh sách lời mời đã gửi của dự án.
+  - `POST /api/projects/:projectId/invitations`: Gửi lời mời dự án tới email và phân nhóm quyền.
+  - `DELETE /api/projects/:projectId/invitations/:id`: Thu hồi / hủy lời mời đang chờ.
+  - `GET /api/invitations/my`: Lấy danh sách lời mời gửi tới email của tài khoản đang đăng nhập.
+  - `PATCH /api/invitations/:id/respond`: Phản hồi lời mời (`status: "ACCEPTED" | "DECLINED"`), tự động thêm vào `ProjectMember` và ghi log kiểm toán khi chấp nhận.
+- **Nhật ký Hoạt động / Audit Trail (`/api/activities`):**
+  - `GET /api/projects/:projectId/activities`: Lấy toàn bộ dòng thời gian hoạt động của dự án từ PostgreSQL.
+  - `POST /api/projects/:projectId/activities`: Ghi lại sự kiện / nhật ký kiểm toán hệ thống.
 
 ---
 
@@ -341,8 +356,7 @@ Dưới đây là kịch bản gợi ý giúp bạn quay video demo sản phẩm
 2. Mở trình xem **Văn bản Báo cáo Chuẩn PDF**: Giới thiệu giao diện toàn màn hình, khuôn mẫu chuẩn hành chính, con dấu điện tử và chữ ký.
 3. Mở trang **Nhân sự**: Giới thiệu danh sách nhóm quyền, tính năng cấp quyền riêng lẻ (Extra Permissions) và bảng theo dõi Lời mời đã gửi.
 
-### Phần 5: Phân hệ Chat Độc lập & Tổng kết (05:30 - 06:30)
-1. Bấm vào mục **Kênh chat & Tin nhắn** trên menu trái: Chỉ ra giao diện đã chuyển sang chế độ toàn màn hình không có thanh công cụ ngang.
+### Phần 5: Phân hệ Chat Độc lập & Tổng kết (05:30 - 06:30). Bấm vào mục **Kênh chat & Tin nhắn** trên menu trái: Chỉ ra giao diện đã chuyển sang chế độ toàn màn hình không có thanh công cụ ngang.
 2. Trình diễn chuyển đổi giữa các **Kênh nhóm** (`#chung`, `#phat-trien`) và **Cá nhân chat** (click vào Nguyễn Văn An, Trần Thị Bình để xem tin nhắn riêng).
 3. Gửi một tin nhắn mới và thả cảm xúc reaction.
 4. Mở tab Swagger tại `http://localhost:4000/api/docs` để chứng minh hệ sinh thái backend hoàn chỉnh và kết thúc video.

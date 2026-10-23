@@ -29,12 +29,15 @@ model User {
   notifications Notification[]
   sentReports     Report[]        @relation("SentReports")
   receivedReports Report[]        @relation("ReceivedReports")
+  activities      ActivityLog[]
+  sentInvitations ProjectInvitation[] @relation("SentInvitations")
 }
 
 model Project {
   id          String          @id @default(uuid())
   name        String
   description String?
+  budget      Float           @default(0)
   ownerId     String
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -47,6 +50,8 @@ model Project {
   costs       Cost[]
   channels    Channel[]
   reports     Report[]
+  activities  ActivityLog[]
+  invitations ProjectInvitation[]
 }
 
 model RoleGroup {
@@ -60,6 +65,7 @@ model RoleGroup {
 
   project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   members     ProjectMember[]
+  invitations ProjectInvitation[]
 
   @@unique([projectId, name])
 }
@@ -83,6 +89,7 @@ model Sprint {
   id        String   @id @default(uuid())
   name      String   // e.g. "Sprint 1"
   goal      String?
+  budget    Float    @default(0)
   startDate DateTime
   endDate   DateTime
   status    String   @default("PLANNED") // PLANNED, ACTIVE, COMPLETED
@@ -100,6 +107,8 @@ model Task {
   code        String?   // e.g. "FT-101"
   title       String
   description String?
+  type        String    @default("TASK") // STORY, TASK, BUG
+  epic        String?   // e.g. "Xác thực & Bảo mật", "Kiến trúc Backend"
   status      String    @default("TODO") // TODO, IN_PROGRESS, REVIEW, DONE
   priority    String    @default("MEDIUM") // LOW, MEDIUM, HIGH
   points      Int?      @default(0)
@@ -206,4 +215,37 @@ model Report {
   recipient      User?     @relation("ReceivedReports", fields: [recipientId], references: [id], onDelete: SetNull)
   project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  projectId  String
+  userId     String?
+  userName   String
+  userAvatar String?
+  userRole   String?
+  category   String   // task, cost, member, report, settings
+  action     String
+  detail     String
+  createdAt  DateTime @default(now())
+
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model ProjectInvitation {
+  id             String      @id @default(uuid())
+  projectId      String
+  inviterId      String
+  roleGroupId    String?
+  recipientEmail String
+  recipientName  String?
+  status         String      @default("PENDING") // PENDING, ACCEPTED, DECLINED
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  project        Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inviter        User        @relation("SentInvitations", fields: [inviterId], references: [id], onDelete: Cascade)
+  roleGroup      RoleGroup?  @relation(fields: [roleGroupId], references: [id], onDelete: SetNull)
+}
+
 

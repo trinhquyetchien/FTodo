@@ -13,6 +13,7 @@ interface AuthContextType {
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   quickSwitch: (roleKey: "owner" | "dev" | "qa") => Promise<void>;
+  updateUser: (updated: Partial<MockUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -163,6 +164,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateUser = (updated: Partial<MockUser>) => {
+    setUser((prev) => (prev ? { ...prev, ...updated } : null));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -173,6 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         logout,
         quickSwitch,
+        updateUser,
       }}
     >
       {children}

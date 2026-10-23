@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 
@@ -137,10 +141,25 @@ export class ProjectsService {
       orderBy: { joinedAt: 'desc' },
     });
 
-    const formatProjectWithStats = (p: any, role: string) => {
+    interface ProjectWithStatsInput {
+      id: string;
+      name: string;
+      description: string | null;
+      _count?: {
+        members?: number;
+        tasks?: number;
+      };
+      tasks?: Array<{ status: string }>;
+      createdAt: Date;
+      updatedAt: Date;
+    }
+
+    const formatProjectWithStats = (p: ProjectWithStatsInput, role: string) => {
       const totalTasks = p._count?.tasks || 0;
-      const completedTasks = p.tasks?.filter((t: any) => t.status === 'DONE').length || 0;
-      const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      const completedTasks =
+        p.tasks?.filter((t) => t.status === 'DONE').length || 0;
+      const progress =
+        totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
       return {
         id: p.id,
@@ -158,7 +177,9 @@ export class ProjectsService {
 
     return {
       owned: owned.map((p) => formatProjectWithStats(p, 'owner')),
-      memberOf: memberships.map((m) => formatProjectWithStats(m.project, 'member')),
+      memberOf: memberships.map((m) =>
+        formatProjectWithStats(m.project, 'member'),
+      ),
     };
   }
 
@@ -230,7 +251,11 @@ export class ProjectsService {
     };
   }
 
-  async update(projectId: string, userId: string, dto: { name?: string; description?: string }) {
+  async update(
+    projectId: string,
+    userId: string,
+    dto: { name?: string; description?: string; budget?: number },
+  ) {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
     });
@@ -240,7 +265,9 @@ export class ProjectsService {
     }
 
     if (project.ownerId !== userId) {
-      throw new ForbiddenException('Chỉ chủ dự án mới có quyền chỉnh sửa thông tin dự án');
+      throw new ForbiddenException(
+        'Chỉ chủ dự án mới có quyền chỉnh sửa thông tin dự án',
+      );
     }
 
     return this.prisma.project.update({
@@ -248,6 +275,7 @@ export class ProjectsService {
       data: {
         ...(dto.name && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.budget !== undefined && { budget: dto.budget }),
       },
     });
   }

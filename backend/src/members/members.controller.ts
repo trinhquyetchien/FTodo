@@ -34,7 +34,9 @@ export class MembersController {
 
   // --- Member endpoints ---
 
-  @ApiOperation({ summary: 'Lấy danh sách thành viên dự án và nhóm quyền của họ' })
+  @ApiOperation({
+    summary: 'Lấy danh sách thành viên dự án và nhóm quyền của họ',
+  })
   @ApiParam({ name: 'projectId', description: 'ID của dự án' })
   @Get('members')
   getMembers(@Param('projectId') projectId: string) {
@@ -43,7 +45,10 @@ export class MembersController {
 
   @ApiOperation({ summary: 'Mời thành viên mới vào dự án' })
   @ApiParam({ name: 'projectId', description: 'ID của dự án' })
-  @ApiResponse({ status: 201, description: 'Thành viên đã được thêm vào dự án' })
+  @ApiResponse({
+    status: 201,
+    description: 'Thành viên đã được thêm vào dự án',
+  })
   @Post('members')
   addMember(
     @Param('projectId') projectId: string,
@@ -53,7 +58,9 @@ export class MembersController {
     return this.membersService.addMember(projectId, userId, dto);
   }
 
-  @ApiOperation({ summary: 'Cập nhật vai trò hoặc quyền riêng lẻ của thành viên' })
+  @ApiOperation({
+    summary: 'Cập nhật vai trò hoặc quyền riêng lẻ của thành viên',
+  })
   @ApiParam({ name: 'projectId', description: 'ID của dự án' })
   @ApiParam({ name: 'memberId', description: 'ID bản ghi thành viên dự án' })
   @Put('members/:memberId')
@@ -80,7 +87,9 @@ export class MembersController {
 
   // --- Role Groups endpoints ---
 
-  @ApiOperation({ summary: 'Lấy danh sách các nhóm quyền (Role Groups) trong dự án' })
+  @ApiOperation({
+    summary: 'Lấy danh sách các nhóm quyền (Role Groups) trong dự án',
+  })
   @ApiParam({ name: 'projectId', description: 'ID của dự án' })
   @Get('roles')
   getRoleGroups(@Param('projectId') projectId: string) {

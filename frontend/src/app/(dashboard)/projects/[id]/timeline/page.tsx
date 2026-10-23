@@ -51,18 +51,24 @@ interface Epic {
   color: string;
 }
 
-// Timeline period: 01/10/2026 -> 15/11/2026 (46 days)
-const TIMELINE_START = new Date("2026-10-01");
-const TOTAL_DAYS = 46;
+// Today line calculation
+const TODAY = new Date();
+const TODAY_FORMATTED = TODAY.toLocaleDateString("vi-VN");
+const TODAY_SHORT = `${TODAY.getDate()}/${TODAY.getMonth() + 1}`;
 
-const calcGanttPos = (startStr: string, endStr: string) => {
+const calcGanttPos = (
+  startStr: string,
+  endStr: string,
+  timelineStart: Date = new Date("2026-10-01"),
+  totalDays: number = 46
+) => {
   const start = new Date(startStr);
   const end = new Date(endStr);
-  const diffStartDays = Math.max(0, (start.getTime() - TIMELINE_START.getTime()) / (1000 * 3600 * 24));
+  const diffStartDays = Math.max(0, (start.getTime() - timelineStart.getTime()) / (1000 * 3600 * 24));
   const duration = Math.max(1, (end.getTime() - start.getTime()) / (1000 * 3600 * 24) + 1);
 
-  const startPercent = (diffStartDays / TOTAL_DAYS) * 100;
-  const widthPercent = (duration / TOTAL_DAYS) * 100;
+  const startPercent = (diffStartDays / totalDays) * 100;
+  const widthPercent = (duration / totalDays) * 100;
 
   return {
     startOffsetPercent: Math.min(Math.max(startPercent, 0), 95),
@@ -71,19 +77,22 @@ const calcGanttPos = (startStr: string, endStr: string) => {
   };
 };
 
-// Today line calculation
-const TODAY = new Date();
-const TODAY_FORMATTED = TODAY.toLocaleDateString("vi-VN");
-const TODAY_SHORT = `${TODAY.getDate()}/${TODAY.getMonth() + 1}`;
-const TODAY_OFFSET_PERCENT =
-  ((TODAY.getTime() - TIMELINE_START.getTime()) / (1000 * 3600 * 24) / TOTAL_DAYS) * 100;
-
 export default function TimelinePage() {
   const { project, isOwner } = useProject();
   const { user } = useAuth();
+  const [timelineStart, setTimelineStart] = useState<Date>(new Date("2026-10-01"));
+  const [totalDays, setTotalDays] = useState<number>(46);
   const [epics, setEpics] = useState<Epic[]>([]);
   const [members, setMembers] = useState<Array<{ id: string; name: string }>>([]);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+
+  // Add Epic modal
+  const [isAddEpicOpen, setIsAddEpicOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newStart, setNewStart] = useState("2026-10-15");
+  const [newEnd, setNewEnd] = useState("2026-10-30");
+  const [newAssignee, setNewAssignee] = useState(user?.name || "Chủ dự án");
+  const [newPoints, setNewPoints] = useState(10);
 
   // Sync timeline epics & sprints live from PostgreSQL
   useEffect(() => {
@@ -113,6 +122,24 @@ export default function TimelinePage() {
 
         if (isMounted && sprintsRes.status === "fulfilled" && Array.isArray(sprintsRes.value)) {
           const sprints = sprintsRes.value;
+          let calculatedStart = new Date("2026-10-01");
+          let calculatedDays = 46;
+
+          if (sprints.length > 0) {
+            let minTime = Infinity;
+            let maxTime = -Infinity;
+            sprints.forEach((s: any) => {
+              if (s.startDate) minTime = Math.min(minTime, new Date(s.startDate).getTime());
+              if (s.endDate) maxTime = Math.max(maxTime, new Date(s.endDate).getTime());
+            });
+            if (minTime !== Infinity && maxTime !== -Infinity) {
+              calculatedStart = new Date(minTime);
+              calculatedDays = Math.max(30, Math.ceil((maxTime + 14 * 86400000 - minTime) / 86400000));
+              setTimelineStart(calculatedStart);
+              setTotalDays(calculatedDays);
+            }
+          }
+
           const mapped: Epic[] = sprints.map((s: any, idx: number) => {
             const startStr = s.startDate ? new Date(s.startDate).toISOString().slice(0, 10) : "2026-10-01";
             const endStr = s.endDate ? new Date(s.endDate).toISOString().slice(0, 10) : "2026-10-25";
@@ -130,7 +157,7 @@ export default function TimelinePage() {
               endDate: endStr,
               startDisplay: new Date(startStr).toLocaleDateString("vi-VN"),
               endDisplay: new Date(endStr).toLocaleDateString("vi-VN"),
-              ...calcGanttPos(startStr, endStr),
+              ...calcGanttPos(startStr, endStr, calculatedStart, calculatedDays),
               progress: sProgress,
               points: sTotalPts,
               assignee: "Toàn đội",
@@ -149,19 +176,11 @@ export default function TimelinePage() {
     };
   }, [project?.id, project?.owner, user?.name]);
 
-  // Add Epic modal
-  const [isAddEpicOpen, setIsAddEpicOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newStart, setNewStart] = useState("2026-10-15");
-  const [newEnd, setNewEnd] = useState("2026-10-30");
-  const [newAssignee, setNewAssignee] = useState(user?.name || "Chủ dự án");
-  const [newPoints, setNewPoints] = useState(10);
-
   const handleCreateEpic = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
-    const gantt = calcGanttPos(newStart, newEnd);
+    const gantt = calcGanttPos(newStart, newEnd, timelineStart, totalDays);
     const startParts = newStart.split("-");
     const endParts = newEnd.split("-");
 
@@ -194,6 +213,29 @@ export default function TimelinePage() {
   const completedPoints = epics
     .filter((e) => e.status === "done")
     .reduce((sum, e) => sum + e.points, 0);
+
+  const weekColumns = React.useMemo(() => {
+    const cols = [];
+    const weekDays = Math.max(5, Math.ceil(totalDays / 6));
+    const formatShort = (d: Date) => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+    for (let i = 0; i < 6; i++) {
+      const wStart = new Date(timelineStart.getTime() + i * weekDays * 86400000);
+      const wEnd = new Date(timelineStart.getTime() + ((i + 1) * weekDays - 1) * 86400000);
+      const isCurrent = TODAY >= wStart && TODAY <= wEnd;
+      cols.push({
+        weekNum: i + 1,
+        label: `Tuần ${i + 1}${isCurrent ? " (Hiện tại)" : ""}`,
+        dateRange: `${formatShort(wStart)} - ${formatShort(wEnd)}`,
+        isCurrent,
+      });
+    }
+    return cols;
+  }, [timelineStart, totalDays]);
+
+  const todayOffsetPercent = Math.min(
+    100,
+    Math.max(0, ((TODAY.getTime() - timelineStart.getTime()) / (1000 * 3600 * 24) / totalDays) * 100)
+  );
 
   return (
     <div className="space-y-6 pb-12 select-none">
@@ -322,30 +364,29 @@ export default function TimelinePage() {
                 Hạng mục Epic / Công việc
               </div>
               <div className="col-span-8 grid grid-cols-6 divide-x divide-border text-center">
-                <div className="p-2">
-                  <div className="font-bold text-foreground">Tuần 1</div>
-                  <div className="text-[10px] text-muted-foreground">01/10 - 07/10</div>
-                </div>
-                <div className="p-2 bg-rose-50/30 dark:bg-rose-950/20">
-                  <div className="font-bold text-rose-600 dark:text-rose-400">Tuần 2 (Hiện tại)</div>
-                  <div className="text-[10px] text-rose-500">08/10 - 14/10</div>
-                </div>
-                <div className="p-2">
-                  <div className="font-bold text-foreground">Tuần 3</div>
-                  <div className="text-[10px] text-muted-foreground">15/10 - 21/10</div>
-                </div>
-                <div className="p-2">
-                  <div className="font-bold text-foreground">Tuần 4</div>
-                  <div className="text-[10px] text-muted-foreground">22/10 - 28/10</div>
-                </div>
-                <div className="p-2">
-                  <div className="font-bold text-foreground">Tuần 5</div>
-                  <div className="text-[10px] text-muted-foreground">29/10 - 04/11</div>
-                </div>
-                <div className="p-2">
-                  <div className="font-bold text-foreground">Tuần 6</div>
-                  <div className="text-[10px] text-muted-foreground">05/11 - 15/11</div>
-                </div>
+                {weekColumns.map((col) => (
+                  <div
+                    key={col.weekNum}
+                    className={`p-2 ${col.isCurrent ? "bg-rose-50/30 dark:bg-rose-950/20" : ""}`}
+                  >
+                    <div
+                      className={`font-bold ${
+                        col.isCurrent
+                          ? "text-rose-600 dark:text-rose-400"
+                          : "text-foreground"
+                      }`}
+                    >
+                      {col.label}
+                    </div>
+                    <div
+                      className={`text-[10px] ${
+                        col.isCurrent ? "text-rose-500" : "text-muted-foreground"
+                      }`}
+                    >
+                      {col.dateRange}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -355,7 +396,7 @@ export default function TimelinePage() {
               <div
                 className="absolute top-0 bottom-0 z-10 pointer-events-none"
                 style={{
-                  left: `calc(33.333% + (66.666% * ${TODAY_OFFSET_PERCENT / 100}))`,
+                  left: `calc(33.333% + (66.666% * ${todayOffsetPercent / 100}))`,
                 }}
               >
                 <div className="h-full w-0.5 bg-rose-500 shadow-sm relative">

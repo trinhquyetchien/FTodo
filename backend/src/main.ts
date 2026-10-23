@@ -16,8 +16,21 @@ async function bootstrap() {
   );
 
   // 2. Hardened CORS configuration
+  const allowedOrigins = process.env.FRONTEND_URL
+    ? [
+        process.env.FRONTEND_URL,
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:3001',
+      ]
+    : [
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:3001',
+      ];
+
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
@@ -80,4 +93,4 @@ async function bootstrap() {
   console.log(`Backend server is running on: http://localhost:${port}/api`);
   console.log(`Swagger UI is available at: http://localhost:${port}/api/docs`);
 }
-bootstrap();
+void bootstrap();

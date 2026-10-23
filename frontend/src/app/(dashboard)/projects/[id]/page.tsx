@@ -94,6 +94,9 @@ export default function ProjectOverview() {
     };
 
     loadRealData();
+    return () => {
+      isMounted = false;
+    };
   }, [projectId]);
 
   // Calculations from real PostgreSQL database

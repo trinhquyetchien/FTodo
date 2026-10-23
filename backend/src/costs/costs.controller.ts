@@ -27,7 +27,9 @@ import { GetUser } from '../auth/get-user.decorator';
 export class CostsController {
   constructor(private readonly costsService: CostsService) {}
 
-  @ApiOperation({ summary: 'Lấy danh sách các khoản chi và ngân sách của dự án' })
+  @ApiOperation({
+    summary: 'Lấy danh sách các khoản chi và ngân sách của dự án',
+  })
   @ApiParam({ name: 'projectId', description: 'ID của dự án' })
   @Get()
   getCosts(@Param('projectId') projectId: string) {
@@ -36,7 +38,10 @@ export class CostsController {
 
   @ApiOperation({ summary: 'Tạo hoặc đề xuất một khoản chi phí mới' })
   @ApiParam({ name: 'projectId', description: 'ID của dự án' })
-  @ApiResponse({ status: 201, description: 'Khoản chi phí đã được tạo/đề xuất' })
+  @ApiResponse({
+    status: 201,
+    description: 'Khoản chi phí đã được tạo/đề xuất',
+  })
   @Post()
   createCost(
     @Param('projectId') projectId: string,
@@ -46,7 +51,10 @@ export class CostsController {
     return this.costsService.createCost(projectId, userId, dto);
   }
 
-  @ApiOperation({ summary: 'Phê duyệt hoặc cập nhật trạng thái chi phí (PAID, APPROVED, PENDING)' })
+  @ApiOperation({
+    summary:
+      'Phê duyệt hoặc cập nhật trạng thái chi phí (PAID, APPROVED, PENDING)',
+  })
   @ApiParam({ name: 'projectId', description: 'ID của dự án' })
   @ApiParam({ name: 'costId', description: 'ID của khoản chi phí' })
   @Patch(':costId/status')

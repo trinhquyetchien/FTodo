@@ -25,7 +25,9 @@ export class MembersService {
       throw new NotFoundException('Không tìm thấy dự án');
     }
     if (project.ownerId !== userId) {
-      throw new ForbiddenException('Chỉ chủ dự án mới có quyền thực hiện thao tác này');
+      throw new ForbiddenException(
+        'Chỉ chủ dự án mới có quyền thực hiện thao tác này',
+      );
     }
     return project;
   }
@@ -52,7 +54,9 @@ export class MembersService {
     return members.map((m) => {
       const basePerms = m.roleGroup?.permissions || [];
       const extraPerms = m.extraPermissions || [];
-      const effectivePermissions = Array.from(new Set([...basePerms, ...extraPerms]));
+      const effectivePermissions = Array.from(
+        new Set([...basePerms, ...extraPerms]),
+      );
 
       return {
         id: m.id,
@@ -75,7 +79,9 @@ export class MembersService {
       where: { email: dto.email.toLowerCase() },
     });
     if (!userToAdd) {
-      throw new NotFoundException(`Không tìm thấy người dùng với email ${dto.email}`);
+      throw new NotFoundException(
+        `Không tìm thấy người dùng với email ${dto.email}`,
+      );
     }
 
     const existingMember = await this.prisma.projectMember.findUnique({
@@ -94,7 +100,9 @@ export class MembersService {
       where: { id: dto.roleGroupId, projectId },
     });
     if (!roleGroup) {
-      throw new BadRequestException('Nhóm phân quyền không hợp lệ trong dự án này');
+      throw new BadRequestException(
+        'Nhóm phân quyền không hợp lệ trong dự án này',
+      );
     }
 
     return this.prisma.projectMember.create({
@@ -155,7 +163,11 @@ export class MembersService {
     });
   }
 
-  async removeMember(projectId: string, memberId: string, currentUserId: string) {
+  async removeMember(
+    projectId: string,
+    memberId: string,
+    currentUserId: string,
+  ) {
     const project = await this.verifyProjectOwner(projectId, currentUserId);
 
     const member = await this.prisma.projectMember.findUnique({
@@ -242,7 +254,11 @@ export class MembersService {
     });
   }
 
-  async deleteRoleGroup(projectId: string, roleGroupId: string, currentUserId: string) {
+  async deleteRoleGroup(
+    projectId: string,
+    roleGroupId: string,
+    currentUserId: string,
+  ) {
     await this.verifyProjectOwner(projectId, currentUserId);
 
     const role = await this.prisma.roleGroup.findFirst({

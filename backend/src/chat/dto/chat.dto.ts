@@ -1,12 +1,24 @@
-import { IsNotEmpty, IsOptional, IsBoolean, IsArray, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+  IsArray,
+  IsString,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateChannelDto {
-  @ApiProperty({ example: 'general', description: 'Tên kênh trao đổi thảo luận' })
+  @ApiProperty({
+    example: 'general',
+    description: 'Tên kênh trao đổi thảo luận',
+  })
   @IsNotEmpty({ message: 'Tên kênh không được để trống' })
   name: string;
 
-  @ApiPropertyOptional({ example: 'Kênh trao đổi chung toàn dự án', description: 'Mô tả kênh' })
+  @ApiPropertyOptional({
+    example: 'Kênh trao đổi chung toàn dự án',
+    description: 'Mô tả kênh',
+  })
   @IsOptional()
   @IsString()
   description?: string;
@@ -16,29 +28,44 @@ export class CreateChannelDto {
   @IsBoolean()
   isPrivate?: boolean;
 
-  @ApiPropertyOptional({ example: ['user-id-1', 'user-id-2'], description: 'Danh sách ID thành viên ban đầu' })
+  @ApiPropertyOptional({
+    example: ['user-id-1', 'user-id-2'],
+    description: 'Danh sách ID thành viên ban đầu',
+  })
   @IsOptional()
   @IsArray()
   memberIds?: string[];
 }
 
 export class AddChannelMemberDto {
-  @ApiProperty({ example: 'user-id-123', description: 'ID người dùng được thêm vào kênh' })
+  @ApiProperty({
+    example: 'user-id-123',
+    description: 'ID người dùng được thêm vào kênh',
+  })
   @IsNotEmpty({ message: 'User ID không được để trống' })
   userId: string;
 
-  @ApiPropertyOptional({ example: 'MEMBER', description: 'Vai trò trong kênh (ADMIN, MEMBER)' })
+  @ApiPropertyOptional({
+    example: 'MEMBER',
+    description: 'Vai trò trong kênh (ADMIN, MEMBER)',
+  })
   @IsOptional()
   @IsString()
   role?: string;
 }
 
 export class SendMessageDto {
-  @ApiProperty({ example: 'Chào cả nhóm, hôm nay chúng ta Daily Scrum lúc 9h30 nhé!', description: 'Nội dung tin nhắn' })
+  @ApiProperty({
+    example: 'Chào cả nhóm, hôm nay chúng ta Daily Scrum lúc 9h30 nhé!',
+    description: 'Nội dung tin nhắn',
+  })
   @IsNotEmpty({ message: 'Nội dung tin nhắn không được để trống' })
   content: string;
 
-  @ApiPropertyOptional({ example: 'https://cdn.example.com/spec-v1.pdf', description: 'Đường dẫn tệp đính kèm' })
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/spec-v1.pdf',
+    description: 'Đường dẫn tệp đính kèm',
+  })
   @IsOptional()
   attachment?: string;
 }
