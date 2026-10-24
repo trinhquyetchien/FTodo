@@ -87,7 +87,7 @@ export const TAB_CATEGORIES = [
     category: "Theo dõi & Giao tiếp",
     items: [
       { id: "issues", label: "Tất cả tác vụ", desc: "Toàn bộ Bugs, Tasks, Stories", icon: CheckSquare },
-      { id: "reports", label: "Báo cáo & Burndown", desc: "Biểu đồ Burndown, Velocity", icon: BarChart3 },
+      { id: "reports", label: "Báo cáo & Vận tốc", desc: "Biểu đồ Vận tốc, Chất lượng", icon: BarChart3 },
       { id: "chat", label: "Kênh chat & Tin nhắn", desc: "Trao đổi công việc nội bộ và chat nhóm", icon: MessageSquare },
     ],
   },

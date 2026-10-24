@@ -81,7 +81,7 @@ export function ProjectNav() {
       name: "Báo cáo",
       href: `/projects/${id}/reports`,
       icon: BarChart3,
-      description: "Biểu đồ Burndown, Velocity & CFD",
+      description: "Biểu đồ Vận tốc, Nghiệm thu & Chất lượng",
     },
     {
       id: "cost",

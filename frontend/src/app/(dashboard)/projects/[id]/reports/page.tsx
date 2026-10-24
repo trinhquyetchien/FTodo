@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   BarChart3,
-  TrendingDown,
   Activity,
   CheckCircle2,
   Calendar,
@@ -54,7 +53,6 @@ import {
 } from "@/components/ui/select";
 import {
   ResponsiveContainer,
-  LineChart,
   Line,
   BarChart,
   Bar,
@@ -142,22 +140,6 @@ export default function ReportsPage() {
   const totalSP = useMemo(() => tasks.reduce((sum, t) => sum + (t.points || 0), 0), [tasks]);
   const remainingSP = Math.max(0, totalSP - completedSP);
   const cycleTime = totalTasksCount > 0 ? (totalSP / Math.max(1, completedTasksCount)).toFixed(1) : "0";
-
-  // Dynamic Burndown Data based on real story points
-  const burndownData = useMemo(() => {
-    if (totalSP === 0) return [];
-    const points = totalSP;
-    const done = completedSP;
-    const remaining = Math.max(0, points - done);
-    return [
-      { day: "Bắt đầu", ideal: points, actual: points },
-      { day: "Giai đoạn 1", ideal: Math.round(points * 0.8), actual: Math.round(points * 0.85) },
-      { day: "Giai đoạn 2", ideal: Math.round(points * 0.5), actual: Math.round(points * 0.55) },
-      { day: "Giai đoạn 3", ideal: Math.round(points * 0.3), actual: Math.round((points + remaining) / 2) },
-      { day: "Hiện tại", ideal: Math.round(points * 0.15), actual: remaining },
-      { day: "Kết thúc", ideal: 0, actual: 0 },
-    ];
-  }, [totalSP, completedSP]);
 
   // Dynamic Velocity Trend Data
   const velocityTrendData = useMemo(() => {
@@ -273,7 +255,7 @@ export default function ReportsPage() {
   }, [projectId, project?.ownerId]);
 
   // Modal: Submit report (For member/admin)
-  const [chartTab, setChartTab] = useState<"burndown" | "velocity" | "quality">("burndown");
+  const [chartTab, setChartTab] = useState<"velocity" | "quality">("velocity");
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
   const [reportTitle, setReportTitle] = useState("");
   const [reportSummary, setReportSummary] = useState("");
@@ -587,12 +569,10 @@ export default function ReportsPage() {
             <div>
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-primary" />
-                {chartTab === "burndown" && "Biểu đồ Sprint Burndown (Khối lượng Story Points còn lại)"}
                 {chartTab === "velocity" && "Biểu đồ Vận tốc qua các Sprint (Velocity Trend & Predictability)"}
                 {chartTab === "quality" && "Biểu đồ Lỗi & Xu hướng Ổn định Chất lượng (Defect Influx vs Resolution)"}
               </CardTitle>
               <CardDescription className="text-xs mt-0.5">
-                {chartTab === "burndown" && "Theo dõi tiến trình thiêu đốt Story Points theo ngày thực tế so với đường Guideline lý tưởng."}
                 {chartTab === "velocity" && "Đo lường độ ổn định cam kết hoàn thành (Cam kết vs Hoàn thành) và xu hướng năng suất team."}
                 {chartTab === "quality" && "Theo dõi số lượng bug mở mới vs bug đã khắc phục; hệ thống sẵn sàng bàn giao khi Resolved > Opened."}
               </CardDescription>
@@ -600,16 +580,6 @@ export default function ReportsPage() {
 
             {/* View Switcher Tabs */}
             <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 text-xs shrink-0">
-              <button
-                onClick={() => setChartTab("burndown")}
-                className={`px-2.5 py-1 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
-                  chartTab === "burndown"
-                    ? "bg-background text-foreground shadow-2xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <TrendingDown className="h-3 w-3 text-blue-500" /> Burndown
-              </button>
               <button
                 onClick={() => setChartTab("velocity")}
                 className={`px-2.5 py-1 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
@@ -635,45 +605,6 @@ export default function ReportsPage() {
         </CardHeader>
 
         <CardContent className="h-[280px] pl-0 pt-4">
-          {chartTab === "burndown" && (
-            burndownData.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-                <TrendingDown className="h-8 w-8 text-muted-foreground/30 mb-2" />
-                <p className="text-xs">Chưa có dữ liệu Story Points để hiển thị biểu đồ Burndown</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={burndownData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                  <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={11} />
-                  <YAxis axisLine={false} tickLine={false} fontSize={11} unit=" pts" />
-                  <Tooltip
-                    formatter={(value: any, name: any) => [`${value} Story Points`, name]}
-                    contentStyle={{ backgroundColor: "rgba(15, 23, 42, 0.9)", color: "#fff", borderRadius: 8, fontSize: 11 }}
-                  />
-                  <Legend verticalAlign="top" height={36} iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                  <Line
-                    type="monotone"
-                    dataKey="ideal"
-                    name="Đường lý tưởng (Guideline)"
-                    stroke="#94a3b8"
-                    strokeDasharray="5 5"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="actual"
-                    name="Thực tế còn lại (Remaining)"
-                    stroke="#3b82f6"
-                    strokeWidth={3}
-                    dot={{ r: 4, fill: "#3b82f6" }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )
-          )}
-
           {chartTab === "velocity" && (
             velocityTrendData.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
@@ -734,17 +665,6 @@ export default function ReportsPage() {
 
         {/* Footer Sub-stats for PM / Lead */}
         <CardFooter className="border-t py-2.5 px-4 bg-muted/20 text-xs">
-          {chartTab === "burndown" && (
-            <div className="flex flex-wrap items-center justify-between w-full gap-2">
-              <span className="text-muted-foreground flex items-center gap-1">
-                <TrendingDown className="h-3.5 w-3.5 text-blue-500" />
-                Tiến độ: <strong className="text-foreground">{completedSP > 0 ? `Đã hoàn tất ${completedSP} Story Points` : "Đang thực hiện"}</strong>
-              </span>
-              <span className="text-muted-foreground">
-                Còn lại: <strong className="text-blue-600">{remainingSP} / {totalSP} Story Points</strong> • {inProgressTasksCount} tasks dở dang
-              </span>
-            </div>
-          )}
           {chartTab === "velocity" && (
             <div className="flex flex-wrap items-center justify-between w-full gap-2">
               <span className="text-muted-foreground flex items-center gap-1">

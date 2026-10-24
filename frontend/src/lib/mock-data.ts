@@ -41,7 +41,7 @@ export const PROJECT_TABS = [
   { id: "backlog", name: "Backlog", path: "/backlog", icon: "ListTodo", description: "Kế hoạch Sprint & User Stories" },
   { id: "timeline", name: "Lộ trình (Roadmap)", path: "/timeline", icon: "CalendarRange", description: "Sơ đồ Gantt tiến độ tính năng & Milestone" },
   { id: "issues", name: "Tất cả tác vụ", path: "/issues", icon: "CheckSquare", description: "Toàn bộ Bugs, Tasks, Stories theo bộ lọc" },
-  { id: "reports", name: "Báo cáo & Burndown", path: "/reports", icon: "BarChart3", description: "Biểu đồ Burndown, Velocity & CFD" },
+  { id: "reports", name: "Báo cáo & Vận tốc", path: "/reports", icon: "BarChart3", description: "Biểu đồ Vận tốc, Nghiệm thu & Chất lượng" },
   { id: "cost", name: "Tiền & Chi phí", path: "/cost", icon: "DollarSign", description: "Ngân sách, burn-rate & chi tiêu" },
   { id: "members", name: "Nhân sự & Phân quyền", path: "/members", icon: "Users", description: "Quản lý nhóm quyền & thành viên" },
   { id: "activity", name: "Lịch sử hoạt động", path: "/activity", icon: "History", description: "Audit trail ghi nhận lịch sử thao tác dự án" },
