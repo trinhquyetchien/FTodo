@@ -2,6 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import { join } from 'path';
+import * as express from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -50,6 +52,9 @@ async function bootstrap() {
 
   // Set global API prefix
   app.setGlobalPrefix('api');
+
+  // Serve static uploaded files at /api/uploads
+  app.use('/api/uploads', express.static(join(process.cwd(), 'uploads')));
 
   // Swagger Documentation Setup
   const config = new DocumentBuilder()

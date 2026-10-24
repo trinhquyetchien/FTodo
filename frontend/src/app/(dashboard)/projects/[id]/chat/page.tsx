@@ -23,7 +23,12 @@ import {
   UserMinus,
   Lock,
   Shield,
-  AlertCircle
+  AlertCircle,
+  Download,
+  FileText,
+  Image as ImageIcon,
+  Loader2,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +46,7 @@ import {
 } from "@/components/ui/dialog";
 import { useProject } from "../project-context";
 import { useAuth } from "@/lib/auth-context";
-import { api } from "@/lib/api";
+import { api, getFileUrl } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -55,7 +60,7 @@ interface Message {
   content: string;
   timestamp: string;
   reactions: { emoji: string; count: number; users: string[] }[];
-  attachment?: { name: string; size: string; type: string };
+  attachment?: { name: string; size: string; type: string; url?: string };
   isSystem?: boolean;
 }
 
@@ -117,6 +122,11 @@ export default function ProjectChatPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showRightSidebar, setShowRightSidebar] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // File Attachment State
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Channel Members State for Active Channel
   const [activeChannelMembers, setActiveChannelMembers] = useState<ChannelMemberInfo[]>([]);
@@ -228,7 +238,26 @@ export default function ProjectChatPage() {
         ? new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
         : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       reactions: Array.isArray(m.reactions) ? m.reactions : [],
-      attachment: m.attachment ? { name: m.attachment, size: "1.2 MB", type: "file" } : undefined,
+      attachment: (() => {
+        if (!m.attachment) return undefined;
+        try {
+          if (typeof m.attachment === "string" && m.attachment.startsWith("{")) {
+            const parsed = JSON.parse(m.attachment);
+            return {
+              name: parsed.name || "Tệp đính kèm",
+              size: parsed.size || "Tệp tin",
+              type: parsed.type || "file",
+              url: parsed.url,
+            };
+          }
+        } catch {}
+        return {
+          name: typeof m.attachment === "string" ? m.attachment : "Tệp đính kèm",
+          size: "Tệp tin",
+          type: "file",
+          url: typeof m.attachment === "string" && m.attachment.startsWith("/api") ? m.attachment : undefined,
+        };
+      })(),
     };
   }, [user?.id, user?.email, user?.name, user?.avatar, project?.ownerId]);
 
@@ -395,13 +424,49 @@ export default function ProjectChatPage() {
     m.content.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      alert("Kích thước tệp tin vượt quá giới hạn 20MB!");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    setSelectedFile(file);
+  };
+
   // Send message handler (both Channel & DM)
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || !activeChat.id) return;
+    if ((!inputMessage.trim() && !selectedFile) || !activeChat.id || isUploading) return;
 
-    const trimmed = inputMessage.trim();
+    let attachmentPayload: string | undefined = undefined;
+    let localAttachmentObj: any = undefined;
+
+    if (selectedFile) {
+      setIsUploading(true);
+      try {
+        const uploadRes = await api.chat.uploadFile(selectedFile);
+        localAttachmentObj = {
+          name: uploadRes.name,
+          size: uploadRes.size,
+          type: uploadRes.type,
+          url: uploadRes.url,
+        };
+        attachmentPayload = JSON.stringify(localAttachmentObj);
+      } catch (err: any) {
+        alert(err?.message || "Tải tệp tin thất bại. Vui lòng thử lại!");
+        setIsUploading(false);
+        return;
+      } finally {
+        setIsUploading(false);
+      }
+    }
+
+    const trimmed = inputMessage.trim() || (selectedFile ? `[Tệp đính kèm: ${selectedFile.name}]` : "");
     setInputMessage("");
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
 
     // Optimistic message
     const tempId = "temp-" + Date.now();
@@ -417,6 +482,7 @@ export default function ProjectChatPage() {
       content: trimmed,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       reactions: [],
+      attachment: localAttachmentObj,
     };
 
     if (isChannel) {
@@ -426,7 +492,10 @@ export default function ProjectChatPage() {
       }));
 
       try {
-        const saved = await api.chat.sendMessage(activeChat.id, { content: trimmed });
+        const saved = await api.chat.sendMessage(activeChat.id, {
+          content: trimmed,
+          attachment: attachmentPayload,
+        });
         if (saved && saved.id) {
           const realMsg = formatMessage(saved);
           setChannelMessages((prev) => ({
@@ -447,7 +516,10 @@ export default function ProjectChatPage() {
       }));
 
       try {
-        const saved = await api.chat.sendDirectMessage(project.id, activeChat.id, { content: trimmed });
+        const saved = await api.chat.sendDirectMessage(project.id, activeChat.id, {
+          content: trimmed,
+          attachment: attachmentPayload,
+        });
         if (saved && saved.id) {
           const realMsg = formatMessage(saved);
           setDmMessages((prev) => ({
@@ -995,15 +1067,56 @@ export default function ProjectChatPage() {
                         <p className="whitespace-pre-wrap">{msg.content}</p>
 
                         {/* Attachment */}
-                        {msg.attachment && (
-                          <div className="mt-2.5 p-2 rounded-xl bg-black/10 dark:bg-white/10 flex items-center justify-between gap-3 text-xs border border-white/10">
-                            <div className="flex items-center gap-2 truncate">
-                              <Paperclip className="h-3.5 w-3.5 shrink-0" />
-                              <span className="truncate font-medium">{msg.attachment.name}</span>
+                        {msg.attachment && (() => {
+                          const isImg =
+                            msg.attachment.type?.startsWith("image/") ||
+                            /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(msg.attachment.name);
+                          const downloadUrl = msg.attachment.url ? getFileUrl(msg.attachment.url) : undefined;
+
+                          return (
+                            <div className="mt-2.5 space-y-1.5">
+                              {isImg && downloadUrl && (
+                                <a
+                                  href={downloadUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block rounded-xl overflow-hidden border border-white/20 shadow-sm max-w-xs hover:opacity-95 transition-opacity"
+                                >
+                                  <img
+                                    src={downloadUrl}
+                                    alt={msg.attachment.name}
+                                    className="max-h-60 w-auto object-cover rounded-xl"
+                                  />
+                                </a>
+                              )}
+                              <div className="p-2 rounded-xl bg-black/10 dark:bg-white/10 flex items-center justify-between gap-3 text-xs border border-white/10">
+                                <div className="flex items-center gap-2 truncate">
+                                  {isImg ? (
+                                    <ImageIcon className="h-3.5 w-3.5 shrink-0" />
+                                  ) : (
+                                    <FileText className="h-3.5 w-3.5 shrink-0" />
+                                  )}
+                                  <span className="truncate font-medium">{msg.attachment.name}</span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-[10px] opacity-80 font-mono">{msg.attachment.size}</span>
+                                  {downloadUrl && (
+                                    <a
+                                      href={downloadUrl}
+                                      download={msg.attachment.name}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
+                                      title="Tải tệp về máy"
+                                    >
+                                      <Download className="h-3.5 w-3.5" />
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <span className="text-[10px] opacity-80 shrink-0 font-mono">{msg.attachment.size}</span>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
 
                       {/* Reactions & Actions */}
@@ -1048,6 +1161,45 @@ export default function ProjectChatPage() {
 
         {/* Message Input Box - PERMANENTLY ANCHORED TO BOTTOM */}
         <div className="p-3 sm:p-4 border-t bg-card/95 backdrop-blur-md shrink-0 z-20 sticky bottom-0 w-full shadow-xs">
+          {/* Hidden File Input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.rar,.txt"
+          />
+
+          {/* Selected File Attachment Preview */}
+          {selectedFile && (
+            <div className="flex items-center justify-between gap-3 p-2.5 px-3.5 mb-2.5 max-w-5xl mx-auto rounded-xl bg-primary/10 border border-primary/20 text-xs shadow-2xs">
+              <div className="flex items-center gap-2.5 truncate">
+                {selectedFile.type.startsWith("image/") ? (
+                  <ImageIcon className="h-4 w-4 text-primary shrink-0" />
+                ) : (
+                  <FileText className="h-4 w-4 text-primary shrink-0" />
+                )}
+                <span className="font-semibold truncate">{selectedFile.name}</span>
+                <span className="text-[11px] text-muted-foreground font-mono">
+                  ({(selectedFile.size / (1024 * 1024)).toFixed(2)} MB)
+                </span>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full"
+                onClick={() => {
+                  setSelectedFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                title="Hủy đính kèm"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+
           <form onSubmit={handleSendMessage} className="flex items-center gap-2.5 max-w-5xl mx-auto">
             <div className="relative flex-1">
               <Input
@@ -1066,7 +1218,8 @@ export default function ProjectChatPage() {
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                  title="Đính kèm tệp"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Đính kèm tệp tin / hình ảnh (tối đa 20MB)"
                 >
                   <Paperclip className="h-4 w-4" />
                 </Button>
@@ -1085,9 +1238,14 @@ export default function ProjectChatPage() {
               type="submit" 
               size="icon" 
               className="h-10 w-10 shrink-0 rounded-xl shadow-sm" 
-              disabled={!inputMessage.trim() || !activeChat.id}
+              disabled={(!inputMessage.trim() && !selectedFile) || !activeChat.id || isUploading}
+              title={isUploading ? "Đang tải tệp lên..." : "Gửi tin nhắn"}
             >
-              <Send className="h-4 w-4" />
+              {isUploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
             </Button>
           </form>
           <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1.5 mt-2 max-w-5xl mx-auto">

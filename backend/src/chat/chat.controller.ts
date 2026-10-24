@@ -7,6 +7,9 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,7 +18,13 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { ChatService } from './chat.service';
 import {
   CreateChannelDto,
@@ -154,5 +163,59 @@ export class ChatController {
   @Get('chat/presence')
   getPresence(@Query('projectId') projectId?: string) {
     return this.chatService.getPresence(projectId);
+  }
+
+  @ApiOperation({ summary: 'Tải lên tệp đính kèm cho tin nhắn (ảnh, tài liệu, zip)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @Post('chat/upload')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const uploadPath = join(process.cwd(), 'uploads');
+          if (!existsSync(uploadPath)) {
+            mkdirSync(uploadPath, { recursive: true });
+          }
+          cb(null, uploadPath);
+        },
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const sanitizedOriginalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+          cb(null, `${uniqueSuffix}-${sanitizedOriginalName}`);
+        },
+      }),
+      limits: {
+        fileSize: 20 * 1024 * 1024, // 20 MB max
+      },
+    }),
+  )
+  uploadFile(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Vui lòng chọn tệp tin cần tải lên');
+    }
+    const fileUrl = `/api/uploads/${file.filename}`;
+    const sizeInMB = file.size / (1024 * 1024);
+    const formattedSize =
+      sizeInMB >= 1
+        ? `${sizeInMB.toFixed(1)} MB`
+        : `${Math.round(file.size / 1024)} KB`;
+
+    return {
+      url: fileUrl,
+      name: file.originalname,
+      size: formattedSize,
+      type: file.mimetype,
+    };
   }
 }

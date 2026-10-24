@@ -1,5 +1,14 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
+export function getFileUrl(pathOrUrl?: string): string {
+  if (!pathOrUrl) return "";
+  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://") || pathOrUrl.startsWith("data:")) {
+    return pathOrUrl;
+  }
+  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api").replace(/\/api$/, "");
+  return `${baseUrl}${pathOrUrl.startsWith("/") ? "" : "/"}${pathOrUrl}`;
+}
+
 export function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("ftodo_token");
@@ -327,6 +336,17 @@ export const api = {
       apiFetch<{ onlineUserIds: string[]; statuses: Record<string, "online" | "busy" | "offline"> }>(
         `/chat/presence${projectId ? `?projectId=${projectId}` : ""}`
       ),
+    uploadFile: (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return apiFetch<{ url: string; name: string; size: string; type: string }>(
+        "/chat/upload",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+    },
   },
 
   reports: {
