@@ -23,7 +23,9 @@ import {
   Filter,
   Check,
   User,
-  ExternalLink
+  ExternalLink,
+  History,
+  ChevronUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +68,7 @@ export interface BacklogItem {
   epicId: string;
   epicName: string;
   sprint: "SPRINT_1" | "BACKLOG";
+  sprintId?: string | null;
   status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
   priority: "Cao" | "Trung bình" | "Thấp";
   points: number;
@@ -100,6 +103,23 @@ export default function BacklogPage() {
   const [isCompleteSprintOpen, setIsCompleteSprintOpen] = useState(false);
   const [moveTarget, setMoveTarget] = useState<"NEXT_SPRINT" | "BACKLOG">("NEXT_SPRINT");
   const [isCompleting, setIsCompleting] = useState(false);
+  const [customNextSprintName, setCustomNextSprintName] = useState("");
+  const [selectedTargetSprintId, setSelectedTargetSprintId] = useState<string>("NEW_SPRINT");
+  const [expandedSprintIds, setExpandedSprintIds] = useState<Record<string, boolean>>({});
+
+  const toggleSprintExpand = (sprintId: string) => {
+    setExpandedSprintIds((prev) => ({
+      ...prev,
+      [sprintId]: !prev[sprintId],
+    }));
+  };
+
+  useEffect(() => {
+    if (activeSprint?.name) {
+      const num = parseInt((activeSprint.name || "").replace(/\D/g, "") || "1");
+      setCustomNextSprintName(`Sprint ${num + 1}`);
+    }
+  }, [activeSprint?.name]);
 
   // Create Sprint Modal
   const [isCreateSprintOpen, setIsCreateSprintOpen] = useState(false);
@@ -207,7 +227,8 @@ export default function BacklogPage() {
               type,
               epicId,
               epicName,
-              sprint: t.sprintId ? "SPRINT_1" : "BACKLOG",
+              sprint: (t.sprintId && sprintId && t.sprintId === sprintId) ? "SPRINT_1" : "BACKLOG",
+              sprintId: t.sprintId || null,
               status: (t.status || "TODO") as BacklogItem["status"],
               priority: prio as BacklogItem["priority"],
               points: t.points || 1,
@@ -275,7 +296,13 @@ export default function BacklogPage() {
 
     const targetItem = items.find((i) => i.id === id);
     const updated = items.map((item) =>
-      item.id === id ? { ...item, sprint: targetSprint } : item
+      item.id === id
+        ? {
+            ...item,
+            sprint: targetSprint,
+            sprintId: targetSprint === "SPRINT_1" ? targetSprintId : null,
+          }
+        : item
     );
     saveItems(updated);
 
@@ -302,10 +329,12 @@ export default function BacklogPage() {
     const sprintId = await ensureActiveSprint();
     if (!sprintId || !project?.id) return;
 
-    const backlogOnly = items.filter((i) => i.sprint === "BACKLOG");
+    const backlogOnly = items.filter((i) => !i.sprintId);
     if (backlogOnly.length === 0) return;
 
-    const updated = items.map((i) => ({ ...i, sprint: "SPRINT_1" as const }));
+    const updated = items.map((i) =>
+      !i.sprintId ? { ...i, sprint: "SPRINT_1" as const, sprintId } : i
+    );
     saveItems(updated);
 
     try {
@@ -412,6 +441,7 @@ export default function BacklogPage() {
       epicId: epic.id,
       epicName: epic.name,
       sprint,
+      sprintId: sprint === "SPRINT_1" ? targetSprintId : null,
       status: "TODO",
       priority: "Trung bình",
       points: 3,
@@ -483,6 +513,7 @@ export default function BacklogPage() {
       epicId: epic.id,
       epicName: epic.name,
       sprint: newSprint,
+      sprintId: newSprint === "SPRINT_1" ? targetSprintId : null,
       status: "TODO",
       priority: newPriority,
       points: Number(newPoints) || 1,
@@ -504,8 +535,11 @@ export default function BacklogPage() {
     return item.epicId === selectedEpicFilter;
   });
 
-  const sprint1Items = filteredItems.filter((i) => i.sprint === "SPRINT_1");
-  const backlogItems = filteredItems.filter((i) => i.sprint === "BACKLOG");
+  const sprint1Items = filteredItems.filter((i) => (activeSprint?.id && i.sprintId === activeSprint.id) || (!i.sprintId && i.sprint === "SPRINT_1"));
+  const backlogItems = filteredItems.filter((i) => !i.sprintId && i.sprint === "BACKLOG");
+
+  const plannedSprints = rawSprints.filter((s: any) => s.status === "PLANNED" && s.id !== activeSprint?.id);
+  const completedSprints = rawSprints.filter((s: any) => s.status === "COMPLETED");
 
   const sprint1Points = sprint1Items.reduce((sum, i) => sum + (i.points || 0), 0);
   const sprint1DonePoints = sprint1Items
@@ -523,14 +557,18 @@ export default function BacklogPage() {
     if (!activeSprint?.id || !projectId) return;
     setIsCompleting(true);
     try {
-      const nextNum = parseInt((activeSprint.name || "").replace(/\D/g, "") || "1") + 1;
+      const currentNum = parseInt((activeSprint.name || "").replace(/\D/g, "") || "1");
+      const finalNextName = customNextSprintName.trim() || `Sprint ${currentNum + 1}`;
+      const isNextSprint = moveTarget === "NEXT_SPRINT";
+
       await api.sprints.completeSprint(projectId, activeSprint.id, {
-        moveToNextSprint: moveTarget === "NEXT_SPRINT",
-        nextSprintName: `Sprint ${nextNum}`,
+        moveToNextSprint: isNextSprint,
+        nextSprintName: finalNextName,
+        targetSprintId: isNextSprint && selectedTargetSprintId !== "NEW_SPRINT" ? selectedTargetSprintId : undefined,
       });
       api.activities.create(projectId, {
         category: "sprint",
-        action: `đã kết thúc ${activeSprint.name} và ${moveTarget === "NEXT_SPRINT" ? `chuyển giao công việc sang Sprint ${nextNum}` : "chuyển việc về Backlog"}`,
+        action: `đã kết thúc ${activeSprint.name} và ${isNextSprint ? `chuyển giao công việc sang ${finalNextName}` : "chuyển việc về Backlog"}`,
       }).catch(() => {});
       window.location.reload();
     } catch (err) {
@@ -1016,6 +1054,124 @@ export default function BacklogPage() {
       </div>
 
       {/* ======================================================== */}
+      {/* 4. COMPLETED SPRINTS ARCHIVE (LỊCH SỬ SPRINT ĐÃ HOÀN THÀNH) */}
+      {/* ======================================================== */}
+      {completedSprints.length > 0 && (
+        <div className="space-y-4 pt-4 border-t">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <History className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-base font-bold text-foreground">
+                Lịch sử các Sprint đã hoàn thành ({completedSprints.length})
+              </h2>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Tra cứu lại các chu kỳ Sprint đã kết thúc và khối lượng Story Points đã nghiệm thu
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {completedSprints.map((cs: any) => {
+              const csTasks = items.filter((i) => i.sprintId === cs.id);
+              const csDoneTasks = csTasks.filter((t) => t.status === "DONE");
+              const csTotalPoints = csTasks.reduce((sum, t) => sum + (t.points || 0), 0);
+              const csDonePoints = csDoneTasks.reduce((sum, t) => sum + (t.points || 0), 0);
+              const isExpanded = expandedSprintIds[cs.id] ?? false;
+              const startDateStr = cs.startDate ? new Date(cs.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
+              const endDateStr = cs.endDate ? new Date(cs.endDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
+
+              return (
+                <div key={cs.id} className="border rounded-2xl bg-card overflow-hidden shadow-2xs">
+                  {/* Header Card */}
+                  <div
+                    onClick={() => toggleSprintExpand(cs.id)}
+                    className="p-4 bg-muted/20 hover:bg-muted/30 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          {cs.name}
+                        </span>
+                        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] hover:bg-emerald-100">
+                          Đã hoàn thành
+                        </Badge>
+                        {startDateStr && endDateStr && (
+                          <span className="text-[11px] text-muted-foreground font-mono">
+                            {startDateStr} - {endDateStr}
+                          </span>
+                        )}
+                      </div>
+                      {cs.goal && (
+                        <p className="text-xs text-muted-foreground line-clamp-1">
+                          <strong>Mục tiêu:</strong> {cs.goal}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-right text-xs">
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          {csDonePoints} / {csTotalPoints} SP
+                        </span>
+                        <span className="text-muted-foreground ml-1 font-mono text-[11px]">
+                          ({csDoneTasks.length}/{csTasks.length} việc DONE)
+                        </span>
+                      </div>
+
+                      <Link
+                        href={`/projects/${projectId}/board?sprintId=${cs.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button size="sm" variant="outline" className="text-xs h-7 gap-1 bg-background font-medium">
+                          Xem Bảng Scrum <ExternalLink className="h-3 w-3" />
+                        </Button>
+                      </Link>
+
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground">
+                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Expanded Task List */}
+                  {isExpanded && (
+                    <div className="divide-y border-t bg-background">
+                      {csTasks.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-muted-foreground">
+                          Không có dữ liệu chi tiết công việc của Sprint này.
+                        </div>
+                      ) : (
+                        csTasks.map((t) => (
+                          <div key={t.id} className="p-3 hover:bg-muted/10 flex items-center justify-between gap-3 text-xs">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {t.type === "STORY" && <Bookmark className="h-3.5 w-3.5 text-blue-500 fill-blue-500/20 shrink-0" />}
+                              {t.type === "BUG" && <Bug className="h-3.5 w-3.5 text-rose-500 shrink-0" />}
+                              {t.type === "TASK" && <CheckSquare className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
+                              <span className="font-mono text-[11px] text-muted-foreground shrink-0">{t.id}</span>
+                              <span className="font-medium text-foreground truncate">{t.title}</span>
+                            </div>
+                            <div className="flex items-center gap-2.5 shrink-0">
+                              <Badge variant="outline" className={`text-[10px] ${t.status === "DONE" ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400" : ""}`}>
+                                {t.status === "DONE" ? "Hoàn thành" : t.status}
+                              </Badge>
+                              <Badge variant="secondary" className="text-[10px] font-mono">
+                                {t.points} SP
+                              </Badge>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
       {/* 5. CREATE DETAILED USER STORY / TASK DIALOG              */}
       {/* ======================================================== */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -1183,7 +1339,7 @@ export default function BacklogPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              Hoàn thành {activeSprint?.name || "Sprint 1"}
+              Hoàn thành {activeSprint?.name || "Sprint"}
             </DialogTitle>
             <DialogDescription className="text-xs">
               Đóng chu kỳ làm việc hiện tại và chuẩn bị cho Sprint tiếp theo.
@@ -1223,13 +1379,55 @@ export default function BacklogPage() {
                       onChange={() => setMoveTarget("NEXT_SPRINT")}
                       className="mt-0.5 text-primary"
                     />
-                    <div>
-                      <div className="font-semibold text-foreground">
-                        Khởi động Sprint 2 (Khuyến nghị chuẩn Scrum)
+                    <div className="flex-1 space-y-2">
+                      <div>
+                        <div className="font-semibold text-foreground">
+                          Chuyển sang Sprint tiếp theo (Khuyến nghị chuẩn Scrum)
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Kích hoạt chu kỳ mới và tự động chuyển toàn bộ {incompleteTasksCount} việc chưa xong sang đó.
+                        </p>
                       </div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Tự động tạo Sprint 2, kích hoạt chu kỳ mới và chuyển toàn bộ việc chưa xong sang Sprint 2.
-                      </p>
+
+                      {moveTarget === "NEXT_SPRINT" && (
+                        <div className="pt-2 border-t space-y-2" onClick={(e) => e.stopPropagation()}>
+                          {plannedSprints.length > 0 && (
+                            <div className="space-y-1">
+                              <Label className="text-[11px] text-muted-foreground font-medium">Sprint đích:</Label>
+                              <Select
+                                value={selectedTargetSprintId}
+                                onValueChange={(val) => setSelectedTargetSprintId(val || "NEW_SPRINT")}
+                              >
+                                <SelectTrigger className="h-8 text-xs bg-background">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="NEW_SPRINT">
+                                    + Tạo Sprint mới tự động
+                                  </SelectItem>
+                                  {plannedSprints.map((s: any) => (
+                                    <SelectItem key={s.id} value={s.id}>
+                                      {s.name} (Đã lên kế hoạch)
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+
+                          {selectedTargetSprintId === "NEW_SPRINT" && (
+                            <div className="space-y-1">
+                              <Label className="text-[11px] text-muted-foreground font-medium">Tên Sprint mới:</Label>
+                              <Input
+                                value={customNextSprintName}
+                                onChange={(e) => setCustomNextSprintName(e.target.value)}
+                                placeholder="Ví dụ: Sprint 2, Sprint 3..."
+                                className="h-8 text-xs bg-background"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1260,9 +1458,25 @@ export default function BacklogPage() {
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900">
-                🎉 Tuyệt vời! Toàn bộ 100% công việc trong Sprint này đã hoàn thành!
-              </p>
+              <div className="space-y-3">
+                <p className="text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900">
+                  🎉 Tuyệt vời! Toàn bộ 100% công việc trong Sprint này đã hoàn thành!
+                </p>
+                <div className="space-y-1.5 p-3 rounded-xl border bg-muted/20">
+                  <Label className="text-[11px] font-semibold text-foreground">
+                    Tên Sprint tiếp theo để bắt đầu chu kỳ mới:
+                  </Label>
+                  <Input
+                    value={customNextSprintName}
+                    onChange={(e) => setCustomNextSprintName(e.target.value)}
+                    placeholder="Ví dụ: Sprint 2, Sprint 3..."
+                    className="h-8 text-xs bg-background"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Hệ thống sẽ tạo và kích hoạt Sprint mới này ngay khi bạn xác nhận.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
 
@@ -1278,7 +1492,7 @@ export default function BacklogPage() {
             <Button
               size="sm"
               onClick={handleCompleteSprint}
-              disabled={isCompleting}
+              disabled={isCompleting || (moveTarget === "NEXT_SPRINT" && selectedTargetSprintId === "NEW_SPRINT" && !customNextSprintName.trim())}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
             >
               {isCompleting ? "Đang xử lý..." : "Xác nhận kết thúc Sprint"}

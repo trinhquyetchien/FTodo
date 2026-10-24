@@ -100,11 +100,11 @@ export class TasksService {
 
     let nextSprint: any = null;
 
-    if (dto.moveToNextSprint && incompleteTasks.length > 0) {
+    if (dto.moveToNextSprint) {
       let targetSprintId = dto.targetSprintId;
 
       if (!targetSprintId) {
-        // Automatically create next sprint (Sprint 2, Sprint 3, etc.)
+        // Automatically create next sprint
         const sprintCount = await this.prisma.sprint.count({ where: { projectId } });
         const nextName = dto.nextSprintName || `Sprint ${sprintCount + 1}`;
         const today = new Date();
@@ -113,7 +113,7 @@ export class TasksService {
         nextSprint = await this.prisma.sprint.create({
           data: {
             name: nextName,
-            goal: `Tiếp tục mục tiêu công việc từ ${sprint.name}`,
+            goal: `Tiếp tục mục tiêu công việc cho ${nextName}`,
             startDate: today,
             endDate: twoWeeksLater,
             status: 'ACTIVE',
@@ -121,18 +121,26 @@ export class TasksService {
           },
         });
         targetSprintId = nextSprint.id;
+      } else {
+        // Activate the selected planned sprint
+        nextSprint = await this.prisma.sprint.update({
+          where: { id: targetSprintId },
+          data: { status: 'ACTIVE' },
+        });
       }
 
-      // Move incomplete tasks to target sprint
-      await this.prisma.task.updateMany({
-        where: {
-          id: { in: incompleteTasks.map((t) => t.id) },
-        },
-        data: {
-          sprintId: targetSprintId,
-        },
-      });
-    } else if (dto.targetSprintId === null || (!dto.moveToNextSprint && incompleteTasks.length > 0)) {
+      // Move incomplete tasks to target sprint if any
+      if (incompleteTasks.length > 0) {
+        await this.prisma.task.updateMany({
+          where: {
+            id: { in: incompleteTasks.map((t) => t.id) },
+          },
+          data: {
+            sprintId: targetSprintId,
+          },
+        });
+      }
+    } else if (incompleteTasks.length > 0) {
       // Move incomplete tasks back to backlog
       await this.prisma.task.updateMany({
         where: {

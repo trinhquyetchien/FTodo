@@ -78,6 +78,8 @@ export default function BoardPage() {
   const [tasks, setTasks] = useState<BoardTask[]>([]);
   const [members, setMembers] = useState<Array<{ id: string; name: string; email: string; avatar?: string }>>([]);
   const [activeSprint, setActiveSprint] = useState<any>(null);
+  const [allSprints, setAllSprints] = useState<any[]>([]);
+  const [selectedSprintId, setSelectedSprintId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
 
   // New task dialog
@@ -127,8 +129,16 @@ export default function BoardPage() {
         }
 
         if (isMounted && sprintsRes.status === "fulfilled" && Array.isArray(sprintsRes.value) && sprintsRes.value.length > 0) {
+          setAllSprints(sprintsRes.value);
           const active = sprintsRes.value.find((s: any) => s.status === "ACTIVE") || sprintsRes.value[0];
           setActiveSprint(active);
+
+          const urlSprintId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("sprintId") : null;
+          if (urlSprintId && sprintsRes.value.some((s: any) => s.id === urlSprintId)) {
+            setSelectedSprintId(urlSprintId);
+          } else {
+            setSelectedSprintId(active.id);
+          }
         }
       } catch (err) {
         console.warn("Lỗi tải thông tin sprint/thành viên:", err);
@@ -276,6 +286,10 @@ export default function BoardPage() {
   };
 
   const moveTask = async (taskId: string, targetStatus: string) => {
+    if (isViewingCompletedSprint) {
+      alert("Sprint này đã hoàn thành và lưu trữ, không thể chỉnh sửa trạng thái công việc.");
+      return;
+    }
     const targetCol = COLUMNS.find((c) => c.id === targetStatus);
     const existingTask = tasks.find((t) => t.id === taskId);
     if (!existingTask || existingTask.status === targetStatus) return;
@@ -398,7 +412,7 @@ export default function BoardPage() {
           priority: backendPrio,
           points: Number(newTaskPoints) || 1,
           assigneeId: newTaskAssignee || undefined,
-          sprintId: activeSprint?.id || undefined,
+          sprintId: (currentSprint?.status === "ACTIVE" ? currentSprint?.id : activeSprint?.id) || undefined,
         });
         if (res?.id) {
           createdBackendId = res.id;
@@ -444,13 +458,19 @@ export default function BoardPage() {
     setIsAddTaskOpen(false);
   };
 
-  // Filtering: Only show tasks of the current active sprint on the Scrum Board
+  const currentSprint = useMemo(() => {
+    return allSprints.find((s) => s.id === selectedSprintId) || activeSprint;
+  }, [allSprints, selectedSprintId, activeSprint]);
+
+  const isViewingCompletedSprint = currentSprint?.status === "COMPLETED";
+
+  // Filtering: Only show tasks of the selected sprint on the Scrum Board
   const filteredTasks = tasks.filter((t) => {
-    // If an active sprint is running, only show its tasks; exclude backlog & past sprints
-    if (activeSprint?.id) {
-      if (t.sprintId !== activeSprint.id) return false;
+    // If a sprint is selected, only show its tasks; exclude backlog & other sprints
+    if (currentSprint?.id) {
+      if (t.sprintId !== currentSprint.id) return false;
     } else {
-      // If no active sprint is running, exclude backlog items
+      // If no sprint exists, exclude backlog items
       if (!t.sprintId) return false;
     }
 
@@ -468,9 +488,9 @@ export default function BoardPage() {
   });
 
   const sprintTasks = useMemo(() => {
-    if (!activeSprint?.id) return [];
-    return tasks.filter((t) => t.sprintId === activeSprint.id);
-  }, [tasks, activeSprint?.id]);
+    if (!currentSprint?.id) return [];
+    return tasks.filter((t) => t.sprintId === currentSprint.id);
+  }, [tasks, currentSprint?.id]);
 
   const totalPoints = sprintTasks.reduce((acc, t) => acc + (t.points || 0), 0);
   const donePoints = sprintTasks
@@ -479,12 +499,12 @@ export default function BoardPage() {
   const completionRate = totalPoints > 0 ? Math.round((donePoints / totalPoints) * 100) : 0;
 
   // Real sprint date calculation
-  const sprintStartDate = activeSprint?.startDate ? new Date(activeSprint.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : null;
-  const sprintEndDate = activeSprint?.endDate ? new Date(activeSprint.endDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : null;
+  const sprintStartDate = currentSprint?.startDate ? new Date(currentSprint.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : null;
+  const sprintEndDate = currentSprint?.endDate ? new Date(currentSprint.endDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : null;
   const sprintDaysLeft = useMemo(() => {
-    if (!activeSprint?.endDate) return null;
-    return Math.max(0, Math.ceil((new Date(activeSprint.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-  }, [activeSprint?.endDate]);
+    if (!currentSprint?.endDate || currentSprint?.status === "COMPLETED") return null;
+    return Math.max(0, Math.ceil((new Date(currentSprint.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+  }, [currentSprint?.endDate, currentSprint?.status]);
 
   return (
     <div className="space-y-4 pb-8 flex flex-col min-h-[calc(100vh-13rem)] select-none">
@@ -493,30 +513,63 @@ export default function BoardPage() {
         <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-extrabold text-base text-foreground tracking-tight flex items-center gap-1.5">
-                <Flame className="h-4 w-4 text-orange-500 shrink-0" />
-                {activeSprint ? activeSprint.name : "Chưa có Sprint kích hoạt"}
-              </span>
-              {activeSprint && (
-                <Badge className="bg-emerald-600 hover:bg-emerald-700 text-[10px]">
-                  {activeSprint.status === "ACTIVE" ? "Active Sprint" : activeSprint.status}
+              {allSprints.length > 1 ? (
+                <div className="flex items-center gap-1.5">
+                  <Flame className="h-4 w-4 text-orange-500 shrink-0" />
+                  <Select value={selectedSprintId || currentSprint?.id} onValueChange={(val) => setSelectedSprintId(val)}>
+                    <SelectTrigger className="h-8 text-xs font-bold bg-background w-auto min-w-[160px]">
+                      <SelectValue placeholder="Chọn Sprint" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allSprints.map((s) => (
+                        <SelectItem key={s.id} value={s.id} className="text-xs">
+                          {s.name} {s.status === "ACTIVE" ? "⚡ (Đang chạy)" : s.status === "COMPLETED" ? "✓ (Đã hoàn thành)" : "⏳ (Kế hoạch)"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <span className="font-extrabold text-base text-foreground tracking-tight flex items-center gap-1.5">
+                  <Flame className="h-4 w-4 text-orange-500 shrink-0" />
+                  {currentSprint ? currentSprint.name : "Chưa có Sprint kích hoạt"}
+                </span>
+              )}
+
+              {currentSprint && (
+                <Badge
+                  className={`text-[10px] ${
+                    currentSprint.status === "ACTIVE"
+                      ? "bg-emerald-600 hover:bg-emerald-700"
+                      : currentSprint.status === "COMPLETED"
+                      ? "bg-slate-600 hover:bg-slate-700"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  {currentSprint.status === "ACTIVE"
+                    ? "Active Sprint"
+                    : currentSprint.status === "COMPLETED"
+                    ? "Đã hoàn thành"
+                    : "Lên kế hoạch"}
                 </Badge>
               )}
-              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center gap-1 font-medium">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Realtime Live Sync
-              </Badge>
+              {currentSprint?.status === "ACTIVE" && (
+                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Realtime Live Sync
+                </Badge>
+              )}
               {sprintStartDate && sprintEndDate && (
                 <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
                   {sprintStartDate} - {sprintEndDate} {sprintDaysLeft !== null ? `• Còn ${sprintDaysLeft} ngày` : ""}
                 </Badge>
               )}
             </div>
-            {activeSprint?.goal ? (
+            {currentSprint?.goal ? (
               <p className="text-xs text-muted-foreground">
-                <strong>Mục tiêu Sprint:</strong> {activeSprint.goal}
+                <strong>Mục tiêu Sprint:</strong> {currentSprint.goal}
               </p>
-            ) : !activeSprint ? (
+            ) : !currentSprint ? (
               <p className="text-xs text-muted-foreground">
                 Hãy tạo hoặc kích hoạt Sprint trong Backlog để theo dõi các đầu việc trên bảng Scrum.
               </p>
@@ -541,6 +594,28 @@ export default function BoardPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ARCHIVE NOTICE BANNER IF VIEWING COMPLETED SPRINT */}
+      {isViewingCompletedSprint && (
+        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 px-4 py-2.5 rounded-xl text-xs flex items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              Bạn đang xem lại dữ liệu lưu trữ của <strong>{currentSprint.name}</strong> (Sprint đã hoàn thành). Dữ liệu được bảo toàn để tra cứu lịch sử.
+            </span>
+          </div>
+          {activeSprint && activeSprint.id !== currentSprint.id && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setSelectedSprintId(activeSprint.id)}
+              className="h-7 text-xs bg-background shrink-0 font-medium"
+            >
+              Quay lại {activeSprint.name} (Đang chạy)
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* 2. TOOLBAR & AGILE QUICK FILTERS */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
