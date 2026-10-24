@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   MoreHorizontal,
   Plus,
@@ -195,20 +195,48 @@ export default function BoardPage() {
   const [filterAssignee, setFilterAssignee] = useState<string>("ALL");
   const [onlyMyTasks, setOnlyMyTasks] = useState<boolean>(false);
 
+  // Optimistic protection against polling rollback & sync jitter
+  const pendingStatusUpdatesRef = useRef<Map<string, { status: string; expiry: number }>>(new Map());
+  const isDraggingRef = useRef(false);
+  const isAddTaskOpenRef = useRef(false);
+  const pausePollingUntilRef = useRef<number>(0);
+
+  useEffect(() => {
+    isAddTaskOpenRef.current = isAddTaskOpen;
+  }, [isAddTaskOpen]);
+
   // Synchronize live tasks from PostgreSQL backend with Realtime Polling
   useEffect(() => {
     let isMounted = true;
     if (!project?.id) return;
 
     const loadBackendTasks = async (showLoading = false) => {
-      // Do not overwrite while dragging or creating task
-      if (draggedTaskId || isAddTaskOpen) return;
+      // Do not sync while user is actively dragging or in the middle of a drop mutation
+      if (isDraggingRef.current || isAddTaskOpenRef.current) return;
+      if (Date.now() < pausePollingUntilRef.current) return;
 
       try {
         if (showLoading) setIsLoading(true);
         const data = await api.tasks.getTasks(project.id);
         if (isMounted && Array.isArray(data)) {
-          const mapped: BoardTask[] = data.map((t: any) => formatBackendTask(t));
+          const now = Date.now();
+          const mapped: BoardTask[] = data.map((t: any) => {
+            const formatted = formatBackendTask(t);
+            // Apply optimistic protection if task was recently moved by user
+            if (formatted.backendId) {
+              const pending = pendingStatusUpdatesRef.current.get(formatted.backendId);
+              if (pending) {
+                if (now < pending.expiry && formatted.status !== pending.status) {
+                  // Retain optimistic status until server catches up
+                  formatted.status = pending.status as any;
+                } else {
+                  pendingStatusUpdatesRef.current.delete(formatted.backendId);
+                }
+              }
+            }
+            return formatted;
+          });
+
           setTasks((prev) => {
             const prevSignature = prev.map((p) => `${p.backendId}:${p.status}:${p.title}`).join("|");
             const nextSignature = mapped.map((m) => `${m.backendId}:${m.status}:${m.title}`).join("|");
@@ -227,16 +255,16 @@ export default function BoardPage() {
 
     loadBackendTasks(true);
 
-    // Live sync polling every 2s for multi-user real-time interaction
+    // Live sync polling every 4s (smooth, low overhead, protected by optimistic reconciliation)
     const pollInterval = setInterval(() => {
       loadBackendTasks(false);
-    }, 2000);
+    }, 4000);
 
     return () => {
       isMounted = false;
       clearInterval(pollInterval);
     };
-  }, [project?.id, projectId, draggedTaskId, isAddTaskOpen]);
+  }, [project?.id]);
 
   const saveTasks = (newTasks: BoardTask[]) => {
     setTasks(newTasks);
@@ -250,13 +278,26 @@ export default function BoardPage() {
     const existingTask = tasks.find((t) => t.id === taskId);
     if (!existingTask || existingTask.status === targetStatus) return;
 
+    const targetBackendId = existingTask.backendId || (existingTask.id.includes("-") ? undefined : existingTask.id);
+
+    // 1. Immediately protect this task from server polling rollback for 6 seconds
+    if (targetBackendId) {
+      pendingStatusUpdatesRef.current.set(targetBackendId, {
+        status: targetStatus,
+        expiry: Date.now() + 6000,
+      });
+    }
+
+    // 2. Pause background polling for 2.5s so PostgreSQL has time to commit
+    pausePollingUntilRef.current = Date.now() + 2500;
+
+    // 3. Instant local optimistic update
     const updated = tasks.map((t) =>
       t.id === taskId ? { ...t, status: targetStatus as any } : t
     );
     saveTasks(updated);
 
-    // Call backend API to persist status change
-    const targetBackendId = existingTask.backendId || (existingTask.id.includes("-") ? undefined : existingTask.id);
+    // 4. Call backend API to persist status change
     if (targetBackendId && project?.id) {
       try {
         await api.tasks.updateTaskStatus(project.id, targetBackendId, targetStatus);
@@ -306,6 +347,7 @@ export default function BoardPage() {
   };
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
+    isDraggingRef.current = true;
     setDraggedTaskId(id);
     e.dataTransfer.setData("text/plain", id);
     e.dataTransfer.effectAllowed = "move";
@@ -328,6 +370,7 @@ export default function BoardPage() {
   const handleDrop = (e: React.DragEvent, targetStatus: string) => {
     e.preventDefault();
     const taskId = e.dataTransfer.getData("text/plain") || draggedTaskId;
+    isDraggingRef.current = false;
     setDragOverColumn(null);
     setDraggedTaskId(null);
     if (!taskId) return;
@@ -624,6 +667,11 @@ export default function BoardPage() {
                       key={task.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, task.id)}
+                      onDragEnd={() => {
+                        isDraggingRef.current = false;
+                        setDraggedTaskId(null);
+                        setDragOverColumn(null);
+                      }}
                       className={`p-3 rounded-xl border bg-card shadow-2xs cursor-grab active:cursor-grabbing transition-all hover:border-primary/50 hover:shadow-xs space-y-2.5 ${
                         isBeingDragged ? "opacity-40 scale-95 border-dashed border-primary" : ""
                       }`}
