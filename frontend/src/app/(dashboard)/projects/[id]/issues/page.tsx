@@ -83,11 +83,18 @@ export default function IssuesPage() {
               prio === "low" ? "low" : "medium";
 
             let type: Issue["type"] = "task";
-            const titleLower = (t.title || "").toLowerCase();
-            if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
-              type = "bug";
-            } else if (titleLower.includes("jwt") || titleLower.includes("xác thực") || t.points >= 5) {
-              type = "story";
+            if (t.type) {
+              const tType = String(t.type).toLowerCase();
+              if (tType === "bug") type = "bug";
+              else if (tType === "story") type = "story";
+              else type = "task";
+            } else {
+              const titleLower = (t.title || "").toLowerCase();
+              if (titleLower.includes("lỗi") || titleLower.includes("bug")) {
+                type = "bug";
+              } else if (titleLower.includes("jwt") || titleLower.includes("xác thực") || t.points >= 5) {
+                type = "story";
+              }
             }
 
             const stat = (t.status || "TODO").toLowerCase();
