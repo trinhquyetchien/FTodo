@@ -192,7 +192,7 @@ export default function BacklogPage() {
         let sprintId: string | null = null;
         if (sprintsRes.status === "fulfilled" && Array.isArray(sprintsRes.value) && sprintsRes.value.length > 0) {
           if (isMounted) setRawSprints(sprintsRes.value);
-          const act = sprintsRes.value.find((s: any) => s.status === "ACTIVE") || sprintsRes.value[0];
+          const act = sprintsRes.value.find((s: any) => s.status === "ACTIVE") || sprintsRes.value.find((s: any) => s.status === "PLANNED") || sprintsRes.value[0];
           sprintId = act.id;
           if (isMounted) {
             setActiveSprint(act);
@@ -579,6 +579,20 @@ export default function BacklogPage() {
     }
   };
 
+  const handleStartSprint = async () => {
+    if (!activeSprint?.id || !projectId) return;
+    try {
+      await api.sprints.startSprint(projectId, activeSprint.id, {});
+      api.activities.create(projectId, {
+        category: "sprint",
+        action: `đã bắt đầu chu kỳ ${activeSprint.name}`,
+      }).catch(() => {});
+      window.location.reload();
+    } catch (err) {
+      console.warn("Lỗi khi bắt đầu sprint:", err);
+    }
+  };
+
   const handleCreateNewSprint = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSprintName.trim() || !projectId) return;
@@ -729,13 +743,22 @@ export default function BacklogPage() {
                 ({sprint1Items.length} việc)
               </span>
             </div>
-            {activeSprint && (
+            {activeSprint && activeSprint.status === "ACTIVE" && (
               <Button
                 size="sm"
                 onClick={() => setIsCompleteSprintOpen(true)}
                 className="text-xs h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" /> Hoàn thành Sprint
+              </Button>
+            )}
+            {activeSprint && activeSprint.status === "PLANNED" && (
+              <Button
+                size="sm"
+                onClick={handleStartSprint}
+                className="text-xs h-8 gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs"
+              >
+                <Play className="h-3.5 w-3.5 fill-current" /> Bắt đầu Sprint
               </Button>
             )}
             <Link href={`/projects/${projectId}/board`}>
@@ -749,10 +772,26 @@ export default function BacklogPage() {
         {/* Sprint 1 Tasks List */}
         <div className="divide-y">
           {sprint1Items.length === 0 ? (
-            <div className="p-6 text-center text-xs text-muted-foreground">
-              {activeSprint
-                ? "Không có công việc nào trong Sprint này phù hợp với bộ lọc."
-                : "Dự án chưa có Sprint nào đang hoạt động. Các công việc nằm trong Backlog bên dưới."}
+            <div className="p-8 text-center space-y-3">
+              <div className="p-3 bg-muted/40 rounded-full w-fit mx-auto text-muted-foreground">
+                <Layers className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-foreground">
+                  {activeSprint?.name || "Sprint"} hiện chưa có công việc nào
+                </p>
+                <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
+                  Hãy nhấn <strong>&ldquo;Đưa vào Sprint&rdquo;</strong> ở các công việc bên dưới Product Backlog để xếp việc vào chu kỳ này.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleMoveAllToSprint1}
+                className="text-xs h-7 gap-1.5"
+              >
+                Đưa tất cả việc Backlog vào {activeSprint?.name || "Sprint"}
+              </Button>
             </div>
           ) : (
             sprint1Items.map((item) => (
