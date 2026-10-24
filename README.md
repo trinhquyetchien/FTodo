@@ -21,101 +21,30 @@
 
 ---
 
-## 🎬 Video Demo Trực quan
-
-> 💡 **Khám phá toàn bộ luồng hoạt động của FTodo qua video trải nghiệm trực tiếp:**
-
-<div align="center">
-
-<!-- ======================================================== -->
-<!-- CHỖ DÀNH CHO VIDEO DEMO DỰ ÁN                            -->
-<!-- Cách 1: Chèn ảnh thumbnail dẫn tới link YouTube / Loom   -->
-<!-- Cách 2: Kéo thả file video .mp4 trực tiếp vào ô soạn thảo -->
-<!-- ======================================================== -->
-
-<a href="https://www.youtube.com/watch?v=YOUR_VIDEO_ID" target="_blank" title="Bấm để xem Video Demo FTodo">
-  <img src="assets/screenshots/demo-video-thumbnail.png" alt="FTodo Demo Video Preview" width="850" style="max-width: 100%; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);" onerror="this.src='https://placehold.co/1280x720/1e293b/ffffff?text=%E2%96%B6+B%E1%BA%A5m+%C4%91%E1%BB%83+xem+Video+Demo+FTodo+(YouTube+/+Loom)';" />
-</a>
-
-<p align="center">
-  <i>(Bấm vào hình trên để xem toàn màn hình video trình diễn các tính năng Scrum & Quản trị tài chính)</i>
-</p>
-
-</div>
-
----
-
 ## 📸 Hình ảnh Giao diện & Tính năng (Screenshots)
 
 ### 1. 📊 Bảng điều khiển Tổng quan & Chỉ số Năng lực (Dashboard & Analytics)
 > Tổng hợp danh mục dự án, tiến độ hoàn thành, đo lường Velocity qua các Sprint và cơ cấu phân bổ công việc (Stories vs Bugs).
 
-<div align="center">
-  <img src="assets/screenshots/01-dashboard.png" alt="Tổng quan hệ thống & Chỉ số vận hành" width="900" style="border-radius: 10px; border: 1px solid #e2e8f0;" onerror="this.src='https://placehold.co/1200x675/f8fafc/334155?text=%F0%9F%93%8A+H%C3%ACnh+%E1%BA%A3nh:+T%E1%BB%95ng+quan+H%E1%BB%87+th%E1%BB%91ng+(Dashboard+%26+Velocity)';" />
-</div>
 
-<br/>
+![](assets/20261024-161616.png)
 
 ### 2. 🎯 Bảng Scrum Kéo thả Tương tác (Interactive Kanban Board)
 > Kéo thả mượt mà qua các cột *To Do, In Progress, Review, Done*, bộ lọc 1-chạm *"Việc của tôi"*, điểm Story Points Fibonacci và hiển thị mục tiêu Sprint.
 
-<div align="center">
-  <img src="assets/screenshots/02-scrum-board.png" alt="Bảng Scrum kéo thả" width="900" style="border-radius: 10px; border: 1px solid #e2e8f0;" onerror="this.src='https://placehold.co/1200x675/f8fafc/334155?text=%F0%9F%8E%AF+H%C3%ACnh+%E1%BA%A3nh:+B%E1%BA%A3ng+Scrum+Kanban+K%C3%A9o+Th%E1%BA%A3';" />
-</div>
+![](assets/20261024-161713.png)
 
-<br/>
-
-### 3. 🌳 Cấu trúc Phân rã WBS & Product Backlog (Sprint Planning)
-> Quản lý User Stories theo Epics, phân bổ công việc linh hoạt giữa *Active Sprint* và *Backlog*, điều chỉnh Story Points trực tiếp.
-
-<div align="center">
-  <img src="assets/screenshots/03-backlog.png" alt="Product Backlog & Kế hoạch Sprint" width="900" style="border-radius: 10px; border: 1px solid #e2e8f0;" onerror="this.src='https://placehold.co/1200x675/f8fafc/334155?text=%F0%9F%8C%B3+H%C3%ACnh+%E1%BA%A3nh:+WBS+Ph%C3%A2n+r%C3%A3+C%C3%B4ng+vi%E1%BB%87c+%26+Product+Backlog';" />
-</div>
-
-<br/>
-
-### 4. 📅 Lộ trình Dự án Gantt Chart (Roadmap & Timeline)
+### 3. 📅 Lộ trình Dự án Gantt Chart (Roadmap & Timeline)
 > Biểu đồ Gantt trực quan theo ngày/tuần/tháng, vạch mốc thời gian thực *"Hôm nay"*, đo lường tiến độ bàn giao các tính năng quan trọng.
 
-<div align="center">
-  <img src="assets/screenshots/04-roadmap.png" alt="Lộ trình dự án Gantt Chart" width="900" style="border-radius: 10px; border: 1px solid #e2e8f0;" onerror="this.src='https://placehold.co/1200x675/f8fafc/334155?text=%F0%9F%93%85+H%C3%ACnh+%E1%BA%A3nh:+L%E1%BB%99+tr%C3%ACnh+D%E1%BB%B1+%C3%A1n+Gantt+Chart';" />
-</div>
 
-<br/>
+![](assets/20261024-161929.png)
 
-### 5. 💵 Quản trị Tài chính Chiến lược & Chỉ số ROI / EVM
-> Kiểm soát chi phí thực tế (Hạ tầng, Nhân sự, Bản quyền), luồng đề xuất kèm lý do bắt buộc, hộp thư phê duyệt của Sếp và thanh trượt mô phỏng ROI.
-
-<div align="center">
-  <img src="assets/screenshots/05-cost-governance.png" alt="Quản trị Tài chính & Duyệt chi" width="900" style="border-radius: 10px; border: 1px solid #e2e8f0;" onerror="this.src='https://placehold.co/1200x675/f8fafc/334155?text=%F0%9F%92%B5+H%C3%ACnh+%E1%BA%A3nh:+Qu%E1%BA%A3n+tr%E1%BB%8B+T%C3%A0i+ch%C3%ADnh%2C+ROI+%26+Duy%E1%BB%87t+Chi';" />
-</div>
-
-<br/>
-
-### 6. 👥 Quản lý Nhân sự & Khởi tạo Nhóm quyền (Dynamic RBAC)
-> Thẻ nhóm quyền trực tiếp (*Admin, DEV, QA*), form tạo nhóm quyền rộng rãi hỗ trợ preset vai trò (*Designer, DevOps, BA, Kế toán*) và ma trận cấp phép logic.
-
-<div align="center">
-  <img src="assets/screenshots/06-role-groups.png" alt="Quản lý Nhân sự & Phân quyền nhóm" width="900" style="border-radius: 10px; border: 1px solid #e2e8f0;" onerror="this.src='https://placehold.co/1200x675/f8fafc/334155?text=%F0%9F%91%A5+H%C3%ACnh+%E1%BA%A3nh:+Qu%E1%BA%A3n+l%C3%BD+Nh%C3%A2n+s%E1%BB%B1+%26+Kh%E1%BB%9Fi+t%E1%BA%A1o+Nh%C3%B3m+quy%E1%BB%81n';" />
-</div>
-
-<br/>
-
-### 7. 📑 Báo cáo Tiến độ & Trình đọc Văn bản PDF (Document Viewer)
-> Báo cáo định kỳ Sprint & sự cố kỹ thuật, tích hợp trình hiển thị văn bản chuẩn định dạng PDF có quốc hiệu, chữ ký số và nút ký duyệt.
-
-<div align="center">
-  <img src="assets/screenshots/07-reports-pdf.png" alt="Báo cáo tiến độ & Đọc văn bản PDF" width="900" style="border-radius: 10px; border: 1px solid #e2e8f0;" onerror="this.src='https://placehold.co/1200x675/f8fafc/334155?text=%F0%9F%93%91+H%C3%ACnh+%E1%BA%A3nh:+B%C3%A1o+c%C3%A1o+Ti%E1%BA%BFn+%C4%91%E1%BB%99+%26+Tr%C3%ACnh+%C4%91%E1%BB%8Dc+PDF';" />
-</div>
-
-<br/>
-
-### 8. 💬 Kênh Trao đổi Chat Nhóm & Cá nhân Thời gian thực
+### 4. 💬 Kênh Trao đổi Chat Nhóm & Cá nhân Thời gian thực
 > Phân chia kênh trao đổi (#chung, #phat-trien) kèm phản hồi emoji và trao đổi trực tiếp giữa các thành viên dự án.
 
-<div align="center">
-  <img src="assets/screenshots/08-chat.png" alt="Kênh trao đổi Chat realtime" width="900" style="border-radius: 10px; border: 1px solid #e2e8f0;" onerror="this.src='https://placehold.co/1200x675/f8fafc/334155?text=%F0%9F%92%AC+H%C3%ACnh+%E1%BA%A3nh:+K%C3%AAnh+trao+%C4%91%E1%BB%95i+Chat+Realtime';" />
-</div>
+
+![](assets/20261024-161851.png)
 
 ---
 
