@@ -139,6 +139,73 @@ export default function ProjectChatPage() {
   const [isDeleteChannelOpen, setIsDeleteChannelOpen] = useState(false);
   const [isDeletingChannel, setIsDeletingChannel] = useState(false);
 
+  // Real-time Presence State
+  const [presence, setPresence] = useState<{
+    onlineUserIds: string[];
+    statuses: Record<string, "online" | "busy" | "offline">;
+  }>({ onlineUserIds: [], statuses: {} });
+  const [myStatus, setMyStatus] = useState<"online" | "busy" | "offline">("online");
+  const [isConnectionHealthy, setIsConnectionHealthy] = useState(true);
+
+  // Helper to determine accurate presence status: ONLY "online" if active/heartbeat present!
+  const getMemberStatus = useCallback(
+    (memberId?: string, memberEmail?: string): "online" | "busy" | "offline" => {
+      if (!memberId && !memberEmail) return "offline";
+      if (memberId === user?.id || (memberEmail && memberEmail === user?.email)) {
+        return myStatus;
+      }
+      if (memberId && presence.onlineUserIds.includes(memberId)) {
+        return presence.statuses[memberId] || "online";
+      }
+      return "offline";
+    },
+    [user?.id, user?.email, myStatus, presence]
+  );
+
+  // Heartbeat loop & Realtime Presence Polling
+  useEffect(() => {
+    if (!project?.id || !user?.id) return;
+    let isMounted = true;
+
+    const syncPresence = async () => {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (isMounted) setIsConnectionHealthy(false);
+        return;
+      }
+      try {
+        await api.chat.sendHeartbeat({ projectId: project.id, status: myStatus });
+        const pres = await api.chat.getPresence(project.id);
+        if (isMounted) {
+          if (pres) setPresence(pres);
+          setIsConnectionHealthy(true);
+        }
+      } catch {
+        if (isMounted) setIsConnectionHealthy(false);
+      }
+    };
+
+    syncPresence();
+    const timer = setInterval(syncPresence, 8000);
+
+    const handleOnline = () => {
+      setIsConnectionHealthy(true);
+      syncPresence();
+    };
+    const handleOffline = () => {
+      setIsConnectionHealthy(false);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [project?.id, user?.id, myStatus]);
+
   // Filter out the current user from Direct Messages list (cannot chat with oneself)
   const directMessageMembers = members.filter(
     (m) => m.id !== user?.id && m.email !== user?.email
@@ -206,7 +273,7 @@ export default function ProjectChatPage() {
           id: m.userId || m.id,
           name: m.name || m.user?.name || "Thành viên",
           role: m.roleGroup?.name || "DEV",
-          status: "online",
+          status: "offline",
           avatar: m.avatar || m.user?.avatar || (m.name ? m.name.slice(0, 2).toUpperCase() : "US"),
           email: m.email || m.user?.email || "",
         }));
@@ -562,6 +629,38 @@ export default function ProjectChatPage() {
           <Badge variant="outline" className="text-[11px] bg-background">Scrum Room</Badge>
         </div>
 
+        {/* User Presence Status Selector */}
+        <div className="px-3.5 py-2 border-b bg-card/40 flex items-center justify-between text-xs shrink-0">
+          <div className="flex items-center gap-2 truncate">
+            <span
+              className={`h-2 w-2 rounded-full shrink-0 ${
+                myStatus === "online" && isConnectionHealthy
+                  ? "bg-emerald-500 animate-pulse"
+                  : myStatus === "busy"
+                  ? "bg-amber-500"
+                  : "bg-slate-400"
+              }`}
+            />
+            <span className="truncate font-medium text-muted-foreground text-[11px]">
+              {myStatus === "online" && isConnectionHealthy
+                ? "Đang trực tuyến"
+                : myStatus === "busy"
+                ? "Đang bận"
+                : "Ngoại tuyến"}
+            </span>
+          </div>
+          <select
+            value={myStatus}
+            onChange={(e) => setMyStatus(e.target.value as any)}
+            className="text-[11px] bg-background border rounded px-1.5 py-0.5 font-medium cursor-pointer focus:outline-none"
+            title="Đổi trạng thái hiển thị của bạn"
+          >
+            <option value="online">🟢 Trực tuyến</option>
+            <option value="busy">🟡 Bận</option>
+            <option value="offline">⚪ Ngoại tuyến</option>
+          </select>
+        </div>
+
         {/* Scrollable list */}
         <ScrollArea className="flex-1 p-2">
           {/* SECTION 1: CHANNELS */}
@@ -628,6 +727,10 @@ export default function ProjectChatPage() {
             ) : (
               directMessageMembers.map((member) => {
                 const isActive = activeChat.type === "dm" && activeChat.id === member.id;
+                const mStatus = getMemberStatus(member.id, member.email);
+                const isOnline = mStatus === "online";
+                const isBusy = mStatus === "busy";
+
                 return (
                   <button
                     key={member.id}
@@ -647,24 +750,32 @@ export default function ProjectChatPage() {
                           {member.avatar}
                         </AvatarFallback>
                       </Avatar>
+                      {/* DẤU CHẤM XANH CHỈ HIỂN THỊ KHI ONLINE */}
                       <span
                         className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ${
                           isActive ? "ring-primary" : "ring-background"
                         } ${
-                          member.status === "online"
-                            ? "bg-emerald-500"
-                            : member.status === "busy"
+                          isOnline
+                            ? "bg-emerald-500 ring-emerald-100 dark:ring-emerald-950"
+                            : isBusy
                             ? "bg-amber-500"
-                            : "bg-slate-400"
+                            : "bg-slate-300 dark:bg-slate-600"
                         }`}
+                        title={isOnline ? "Đang trực tuyến" : isBusy ? "Đang bận" : "Ngoại tuyến"}
                       />
                     </div>
                     <div className="flex-1 truncate">
-                      <div className="font-medium truncate leading-tight">
-                        {member.name}
+                      <div className="font-medium truncate leading-tight flex items-center justify-between">
+                        <span className="truncate">{member.name}</span>
+                        {isOnline && (
+                          <span
+                            className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0 ml-1"
+                            title="Đang trực tuyến"
+                          />
+                        )}
                       </div>
                       <div className={`text-[10px] truncate ${isActive ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                        {member.role}
+                        {isOnline ? "Trực tuyến" : isBusy ? "Đang bận" : "Ngoại tuyến"} • {member.role}
                       </div>
                     </div>
                     {member.unreadCount && member.unreadCount > 0 ? (
@@ -723,46 +834,69 @@ export default function ProjectChatPage() {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="relative shrink-0">
-                <Avatar className="h-8 w-8 text-xs font-bold">
-                  <AvatarFallback className="bg-primary/10 text-primary">{currentMember?.avatar}</AvatarFallback>
-                </Avatar>
-                <span
-                  className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-background ${
-                    currentMember?.status === "online"
-                      ? "bg-emerald-500"
-                      : currentMember?.status === "busy"
-                      ? "bg-amber-500"
-                      : "bg-slate-400"
-                  }`}
-                />
-              </div>
-              <div className="truncate">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm leading-tight truncate">{currentMember?.name}</span>
-                  <Badge variant="outline" className="text-[10px] h-4.5 px-1.5 py-0 font-normal">
-                    {currentMember?.role}
-                  </Badge>
-                  <Badge variant="outline" className="text-[10px] h-4 bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center gap-1 font-medium">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Live 1-1
-                  </Badge>
+            (() => {
+              const dmStatus = getMemberStatus(currentMember?.id, currentMember?.email);
+              const isDmOnline = dmStatus === "online";
+              const isDmBusy = dmStatus === "busy";
+
+              return (
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="relative shrink-0">
+                    <Avatar className="h-8 w-8 text-xs font-bold">
+                      <AvatarFallback className="bg-primary/10 text-primary">{currentMember?.avatar}</AvatarFallback>
+                    </Avatar>
+                    {/* Dấu chấm trạng thái: chỉ xanh khi online */}
+                    <span
+                      className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-background ${
+                        isDmOnline
+                          ? "bg-emerald-500 ring-emerald-100 dark:ring-emerald-950"
+                          : isDmBusy
+                          ? "bg-amber-500"
+                          : "bg-slate-300 dark:bg-slate-600"
+                      }`}
+                      title={isDmOnline ? "Đang trực tuyến" : isDmBusy ? "Đang bận" : "Ngoại tuyến"}
+                    />
+                  </div>
+                  <div className="truncate">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm leading-tight truncate">{currentMember?.name}</span>
+                      <Badge variant="outline" className="text-[10px] h-4.5 px-1.5 py-0 font-normal">
+                        {currentMember?.role}
+                      </Badge>
+                      {/* Huy hiệu: Chỉ hiện chấm xanh khi online */}
+                      {isDmOnline ? (
+                        <Badge variant="outline" className="text-[10px] h-4 bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Trực tuyến
+                        </Badge>
+                      ) : isDmBusy ? (
+                        <Badge variant="outline" className="text-[10px] h-4 bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-400 flex items-center gap-1 font-medium">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          Đang bận
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] h-4 bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 flex items-center gap-1 font-medium">
+                          <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                          Ngoại tuyến
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
+                      <Circle className={`h-1.5 w-1.5 ${
+                        isDmOnline 
+                          ? "fill-emerald-500 text-emerald-500" 
+                          : isDmBusy 
+                          ? "fill-amber-500 text-amber-500" 
+                          : "fill-slate-400 text-slate-400"
+                      }`} />
+                      {isDmOnline ? "Đang trực tuyến" : isDmBusy ? "Đang bận" : "Ngoại tuyến"}
+                      <span className="text-muted-foreground/60">•</span>
+                      <span>{currentMember?.email}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
-                  <Circle className={`h-1.5 w-1.5 ${
-                    currentMember?.status === "online" 
-                      ? "fill-emerald-500 text-emerald-500" 
-                      : currentMember?.status === "busy" 
-                      ? "fill-amber-500 text-amber-500" 
-                      : "fill-slate-400 text-slate-400"
-                  }`} />
-                  {currentMember?.status === "online" ? "Đang trực tuyến" : currentMember?.status === "busy" ? "Đang bận" : "Ngoại tuyến"}
-                  <span className="text-muted-foreground/60">•</span>
-                  <span>{currentMember?.email}</span>
-                </div>
-              </div>
-            </div>
+              );
+            })()
           )}
 
           {/* Action Tools */}
@@ -959,8 +1093,22 @@ export default function ProjectChatPage() {
           <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1.5 mt-2 max-w-5xl mx-auto">
             <span>Nhấn <strong>Enter</strong> để gửi tin nhắn</span>
             <span className="flex items-center gap-1.5 font-medium">
-              <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500 animate-pulse" />
-              Kết nối Realtime Đang Hoạt Động (1.5s Polling)
+              <Circle
+                className={`h-2 w-2 ${
+                  isConnectionHealthy && myStatus === "online"
+                    ? "fill-emerald-500 text-emerald-500 animate-pulse"
+                    : myStatus === "busy"
+                    ? "fill-amber-500 text-amber-500"
+                    : "fill-slate-400 text-slate-400"
+                }`}
+              />
+              {isConnectionHealthy && myStatus === "online"
+                ? "Kết nối Realtime Đang Hoạt Động (1.5s Live-Sync)"
+                : myStatus === "busy"
+                ? "Chế độ Đang bận (Realtime)"
+                : !isConnectionHealthy
+                ? "Mất kết nối Internet - Đang thử lại..."
+                : "Chế độ Ngoại tuyến"}
             </span>
           </div>
         </div>
@@ -1028,15 +1176,32 @@ export default function ProjectChatPage() {
 
                   <div className="space-y-1.5">
                     {activeChannelMembers.map((cm) => {
+                      const cmStatus = getMemberStatus(cm.userId, cm.user?.email);
+                      const isCmOnline = cmStatus === "online";
+                      const isCmBusy = cmStatus === "busy";
                       const isOwner = cm.userId === project?.ownerId;
                       const isAdmin = cm.role === "ADMIN" || isOwner;
                       const isMe = cm.userId === user?.id || cm.user?.email === user?.email;
+
                       return (
                         <div key={cm.id || cm.userId} className="flex items-center justify-between p-2 rounded-lg bg-card/60 border text-xs group hover:bg-card transition-colors">
                           <div className="flex items-center gap-2 truncate min-w-0">
-                            <Avatar className="h-6 w-6 text-[10px] shrink-0">
-                              <AvatarFallback>{cm.user?.avatar || (cm.user?.name ? cm.user.name.slice(0, 2).toUpperCase() : "US")}</AvatarFallback>
-                            </Avatar>
+                            <div className="relative shrink-0">
+                              <Avatar className="h-6 w-6 text-[10px]">
+                                <AvatarFallback>{cm.user?.avatar || (cm.user?.name ? cm.user.name.slice(0, 2).toUpperCase() : "US")}</AvatarFallback>
+                              </Avatar>
+                              {/* Chấm tròn trạng thái: chỉ xanh khi online */}
+                              <span
+                                className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-1 ring-card ${
+                                  isCmOnline
+                                    ? "bg-emerald-500"
+                                    : isCmBusy
+                                    ? "bg-amber-500"
+                                    : "bg-slate-300 dark:bg-slate-600"
+                                }`}
+                                title={isCmOnline ? "Đang trực tuyến" : isCmBusy ? "Đang bận" : "Ngoại tuyến"}
+                              />
+                            </div>
                             <div className="truncate">
                               <div className="font-medium truncate flex items-center gap-1">
                                 <span>{cm.user?.name || "Thành viên"}</span>
@@ -1076,57 +1241,67 @@ export default function ProjectChatPage() {
               </div>
             </>
           ) : (
-            <>
-              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
-                Hồ sơ cá nhân
-              </div>
-              <div className="flex flex-col items-center text-center p-4 rounded-xl bg-card border shadow-2xs mb-3">
-                <div className="relative mb-2">
-                  <Avatar className="h-16 w-16 text-lg font-bold">
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {currentMember?.avatar}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span
-                    className={`absolute bottom-0 right-0 h-4 w-4 rounded-full ring-2 ring-card ${
-                      currentMember?.status === "online"
-                        ? "bg-emerald-500"
-                        : currentMember?.status === "busy"
-                        ? "bg-amber-500"
-                        : "bg-slate-400"
-                    }`}
-                  />
-                </div>
-                <div className="font-bold text-sm">{currentMember?.name}</div>
-                <Badge variant="outline" className="text-[10px] mt-1 mb-2">
-                  {currentMember?.role}
-                </Badge>
-                <div className="text-xs text-muted-foreground">{currentMember?.email}</div>
-              </div>
+            (() => {
+              const profileStatus = getMemberStatus(currentMember?.id, currentMember?.email);
+              const isProfileOnline = profileStatus === "online";
+              const isProfileBusy = profileStatus === "busy";
 
-              <div className="space-y-2 text-xs">
-                <div className="p-3 rounded-xl bg-card border shadow-2xs">
-                  <div className="text-muted-foreground font-medium mb-1">Trạng thái làm việc</div>
-                  <div className="font-semibold flex items-center gap-1.5">
-                    <Circle className={`h-2 w-2 ${
-                      currentMember?.status === "online" 
-                        ? "fill-emerald-500 text-emerald-500" 
-                        : currentMember?.status === "busy" 
-                        ? "fill-amber-500 text-amber-500" 
-                        : "fill-slate-400 text-slate-400"
-                    }`} />
-                    {currentMember?.status === "online" ? "Sẵn sàng nhận việc" : currentMember?.status === "busy" ? "Đang tập trung Sprint" : "Offline"}
+              return (
+                <>
+                  <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
+                    Hồ sơ cá nhân
                   </div>
-                </div>
+                  <div className="flex flex-col items-center text-center p-4 rounded-xl bg-card border shadow-2xs mb-3">
+                    <div className="relative mb-2">
+                      <Avatar className="h-16 w-16 text-lg font-bold">
+                        <AvatarFallback className="bg-primary/10 text-primary">
+                          {currentMember?.avatar}
+                        </AvatarFallback>
+                      </Avatar>
+                      {/* Dấu chấm chỉ xanh khi online */}
+                      <span
+                        className={`absolute bottom-0 right-0 h-4 w-4 rounded-full ring-2 ring-card ${
+                          isProfileOnline
+                            ? "bg-emerald-500 ring-emerald-100 dark:ring-emerald-950"
+                            : isProfileBusy
+                            ? "bg-amber-500"
+                            : "bg-slate-300 dark:bg-slate-600"
+                        }`}
+                        title={isProfileOnline ? "Đang trực tuyến" : isProfileBusy ? "Đang bận" : "Ngoại tuyến"}
+                      />
+                    </div>
+                    <div className="font-bold text-sm">{currentMember?.name}</div>
+                    <Badge variant="outline" className="text-[10px] mt-1 mb-2">
+                      {currentMember?.role}
+                    </Badge>
+                    <div className="text-xs text-muted-foreground">{currentMember?.email}</div>
+                  </div>
 
-                <div className="p-3 rounded-xl bg-card border shadow-2xs">
-                  <div className="text-muted-foreground font-medium mb-1">Quyền hạn trong dự án</div>
-                  <div className="font-semibold text-primary">
-                    {currentMember?.id === project?.ownerId ? "Project Owner (Toàn quyền)" : "Thành viên cộng tác"}
+                  <div className="space-y-2 text-xs">
+                    <div className="p-3 rounded-xl bg-card border shadow-2xs">
+                      <div className="text-muted-foreground font-medium mb-1">Trạng thái làm việc</div>
+                      <div className="font-semibold flex items-center gap-1.5">
+                        <Circle className={`h-2 w-2 ${
+                          isProfileOnline 
+                            ? "fill-emerald-500 text-emerald-500" 
+                            : isProfileBusy 
+                            ? "fill-amber-500 text-amber-500" 
+                            : "fill-slate-400 text-slate-400"
+                        }`} />
+                        {isProfileOnline ? "Sẵn sàng nhận việc (Trực tuyến)" : isProfileBusy ? "Đang tập trung Sprint (Bận)" : "Ngoại tuyến (Offline)"}
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-card border shadow-2xs">
+                      <div className="text-muted-foreground font-medium mb-1">Quyền hạn trong dự án</div>
+                      <div className="font-semibold text-primary">
+                        {currentMember?.id === project?.ownerId ? "Project Owner (Toàn quyền)" : "Thành viên cộng tác"}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </>
+                </>
+              );
+            })()
           )}
         </div>
       )}

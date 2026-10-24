@@ -318,6 +318,15 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    sendHeartbeat: (data?: { projectId?: string; status?: string }) =>
+      apiFetch<{ success: boolean; timestamp: number; status: string }>("/chat/heartbeat", {
+        method: "POST",
+        body: JSON.stringify(data || {}),
+      }),
+    getPresence: (projectId?: string) =>
+      apiFetch<{ onlineUserIds: string[]; statuses: Record<string, "online" | "busy" | "offline"> }>(
+        `/chat/presence${projectId ? `?projectId=${projectId}` : ""}`
+      ),
   },
 
   reports: {

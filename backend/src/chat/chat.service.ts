@@ -9,11 +9,55 @@ import {
   CreateChannelDto,
   SendMessageDto,
   AddChannelMemberDto,
+  HeartbeatDto,
 } from './dto/chat.dto';
+
+interface UserPresenceEntry {
+  userId: string;
+  lastSeen: number;
+  status: 'online' | 'busy' | 'offline';
+  projectId?: string;
+}
 
 @Injectable()
 export class ChatService {
+  private presenceMap = new Map<string, UserPresenceEntry>();
+
   constructor(private prisma: PrismaService) {}
+
+  recordHeartbeat(userId: string, dto?: HeartbeatDto) {
+    const status =
+      dto?.status === 'busy' || dto?.status === 'offline'
+        ? (dto.status as 'busy' | 'offline')
+        : 'online';
+    this.presenceMap.set(userId, {
+      userId,
+      lastSeen: Date.now(),
+      status,
+      projectId: dto?.projectId,
+    });
+    return { success: true, timestamp: Date.now(), status };
+  }
+
+  getPresence(projectId?: string) {
+    const now = Date.now();
+    const OFFLINE_THRESHOLD_MS = 45 * 1000; // 45 seconds without heartbeat = offline
+    const onlineUserIds: string[] = [];
+    const statuses: Record<string, 'online' | 'busy' | 'offline'> = {};
+
+    for (const [userId, entry] of this.presenceMap.entries()) {
+      if (now - entry.lastSeen <= OFFLINE_THRESHOLD_MS) {
+        if (entry.status !== 'offline') {
+          onlineUserIds.push(userId);
+        }
+        statuses[userId] = entry.status;
+      } else {
+        statuses[userId] = 'offline';
+      }
+    }
+
+    return { onlineUserIds, statuses };
+  }
 
   async getChannels(projectId: string) {
     const project = await this.prisma.project.findUnique({
@@ -406,6 +450,7 @@ export class ChatService {
   }
 
   async sendMessage(channelId: string, userId: string, dto: SendMessageDto) {
+    this.recordHeartbeat(userId);
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
     });
@@ -469,6 +514,7 @@ export class ChatService {
     otherUserId: string,
     dto: SendMessageDto,
   ) {
+    this.recordHeartbeat(currentUserId, { projectId });
     if (currentUserId === otherUserId) {
       throw new ForbiddenException('Không thể gửi tin nhắn cho chính mình');
     }

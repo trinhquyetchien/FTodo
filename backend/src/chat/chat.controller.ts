@@ -5,6 +5,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -13,12 +14,14 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
 import {
   CreateChannelDto,
   SendMessageDto,
   AddChannelMemberDto,
+  HeartbeatDto,
 } from './dto/chat.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { GetUser } from '../auth/get-user.decorator';
@@ -135,5 +138,21 @@ export class ChatController {
       otherUserId,
       dto,
     );
+  }
+
+  @ApiOperation({ summary: 'Gửi nhịp tim (heartbeat) cập nhật trạng thái online' })
+  @Post('chat/heartbeat')
+  sendHeartbeat(
+    @GetUser('id') userId: string,
+    @Body() dto: HeartbeatDto,
+  ) {
+    return this.chatService.recordHeartbeat(userId, dto);
+  }
+
+  @ApiOperation({ summary: 'Lấy trạng thái trực tuyến của người dùng' })
+  @ApiQuery({ name: 'projectId', required: false, description: 'ID dự án' })
+  @Get('chat/presence')
+  getPresence(@Query('projectId') projectId?: string) {
+    return this.chatService.getPresence(projectId);
   }
 }

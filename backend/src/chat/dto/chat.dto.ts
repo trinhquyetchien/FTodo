@@ -69,3 +69,22 @@ export class SendMessageDto {
   @IsOptional()
   attachment?: string;
 }
+
+export class HeartbeatDto {
+  @ApiPropertyOptional({
+    example: 'project-uuid-123',
+    description: 'ID dự án người dùng đang xem',
+  })
+  @IsOptional()
+  @IsString()
+  projectId?: string;
+
+  @ApiPropertyOptional({
+    example: 'online',
+    enum: ['online', 'busy', 'offline'],
+    description: 'Trạng thái hoạt động của người dùng',
+  })
+  @IsOptional()
+  @IsString()
+  status?: string;
+}
