@@ -286,7 +286,7 @@ export default function BacklogPage() {
         });
         api.activities.create(project.id, {
           category: "task",
-          action: targetSprint === "SPRINT_1" ? `đã đưa ${targetItem.id} vào Sprint 1` : `đã chuyển ${targetItem.id} về Backlog`,
+          action: targetSprint === "SPRINT_1" ? `đã đưa ${targetItem.id} vào ${activeSprint?.name || "Sprint"}` : `đã chuyển ${targetItem.id} về Backlog`,
           detail: targetItem.title,
         }).catch(() => {});
         if (typeof window !== "undefined") {
@@ -316,7 +316,7 @@ export default function BacklogPage() {
       );
       api.activities.create(project.id, {
         category: "task",
-        action: `đã đưa toàn bộ ${backlogOnly.length} công việc từ Backlog vào Sprint 1`,
+        action: `đã đưa toàn bộ ${backlogOnly.length} công việc từ Backlog vào ${activeSprint?.name || "Sprint"}`,
         detail: `Số lượng: ${backlogOnly.length} công việc`,
       }).catch(() => {});
       if (typeof window !== "undefined") {
@@ -828,11 +828,11 @@ export default function BacklogPage() {
           )}
         </div>
 
-        {/* Quick Add inside Sprint 1 */}
+        {/* Quick Add inside Sprint */}
         <div className="p-2.5 bg-muted/10 border-t flex items-center gap-2">
           <Plus className="h-4 w-4 text-muted-foreground ml-1" />
           <Input
-            placeholder="+ Tạo User Story mới cho Sprint 1 (Nhập tiêu đề và nhấn Enter)..."
+            placeholder={`+ Tạo User Story mới cho ${activeSprint?.name || "Sprint"} (Nhập tiêu đề và nhấn Enter)...`}
             value={quickTitleSprint1}
             onChange={(e) => setQuickTitleSprint1(e.target.value)}
             onKeyDown={(e) => {
@@ -879,7 +879,7 @@ export default function BacklogPage() {
               onClick={handleMoveAllToSprint1}
               className="text-xs h-8 gap-1.5"
             >
-              <MoveUp className="h-3.5 w-3.5 text-primary" /> Đưa tất cả vào Sprint 1
+              <MoveUp className="h-3.5 w-3.5 text-primary" /> Đưa tất cả vào {activeSprint?.name || "Sprint"}
             </Button>
           </div>
         </div>
@@ -936,15 +936,15 @@ export default function BacklogPage() {
 
                 {/* Right */}
                 <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-                  {/* Quick button: Move up to Sprint 1 */}
+                  {/* Quick button: Move up to Sprint */}
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => moveToSprint(item.id, "SPRINT_1")}
                     className="h-7 text-[11px] px-2 gap-1 text-primary border-primary/30 hover:bg-primary/5"
-                    title="Đưa công việc này vào Sprint 1"
+                    title={`Đưa công việc này vào ${activeSprint?.name || "Sprint"}`}
                   >
-                    <MoveUp className="h-3 w-3" /> <span className="hidden xs:inline sm:inline">Vào Sprint 1</span><span className="xs:hidden sm:hidden">Lên</span>
+                    <MoveUp className="h-3 w-3" /> <span className="hidden xs:inline sm:inline">Vào {activeSprint?.name || "Sprint"}</span><span className="xs:hidden sm:hidden">Lên</span>
                   </Button>
 
                   {/* Story Points */}
@@ -1067,7 +1067,7 @@ export default function BacklogPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="SPRINT_1">Sprint 1 (Active)</SelectItem>
+                    <SelectItem value="SPRINT_1">{activeSprint?.name || "Sprint 1"} (Active)</SelectItem>
                     <SelectItem value="BACKLOG">Product Backlog</SelectItem>
                   </SelectContent>
                 </Select>

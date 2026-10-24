@@ -60,6 +60,7 @@ export interface BoardTask {
   assigneeId?: string;
   assignee: string; // Avatar initial: e.g. "QC", "VA", "US"
   assigneeName: string;
+  sprintId?: string | null;
 }
 
 const COLUMNS = [
@@ -182,6 +183,7 @@ export default function BoardPage() {
       assigneeId: t.assigneeId || t.assignee?.id,
       assignee: t.assignee?.avatar || initials,
       assigneeName,
+      sprintId: t.sprintId || null,
     };
   };
 
@@ -442,8 +444,16 @@ export default function BoardPage() {
     setIsAddTaskOpen(false);
   };
 
-  // Filtering
+  // Filtering: Only show tasks of the current active sprint on the Scrum Board
   const filteredTasks = tasks.filter((t) => {
+    // If an active sprint is running, only show its tasks; exclude backlog & past sprints
+    if (activeSprint?.id) {
+      if (t.sprintId !== activeSprint.id) return false;
+    } else {
+      // If no active sprint is running, exclude backlog items
+      if (!t.sprintId) return false;
+    }
+
     const matchesSearch =
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -457,8 +467,13 @@ export default function BoardPage() {
     return matchesSearch && matchesPriority && matchesType && matchesAssignee && matchesMyTasks;
   });
 
-  const totalPoints = tasks.reduce((acc, t) => acc + (t.points || 0), 0);
-  const donePoints = tasks
+  const sprintTasks = useMemo(() => {
+    if (!activeSprint?.id) return [];
+    return tasks.filter((t) => t.sprintId === activeSprint.id);
+  }, [tasks, activeSprint?.id]);
+
+  const totalPoints = sprintTasks.reduce((acc, t) => acc + (t.points || 0), 0);
+  const donePoints = sprintTasks
     .filter((t) => t.status === "DONE")
     .reduce((acc, t) => acc + (t.points || 0), 0);
   const completionRate = totalPoints > 0 ? Math.round((donePoints / totalPoints) * 100) : 0;
