@@ -535,8 +535,8 @@ export default function BacklogPage() {
     return item.epicId === selectedEpicFilter;
   });
 
-  const sprint1Items = filteredItems.filter((i) => (activeSprint?.id && i.sprintId === activeSprint.id) || (!i.sprintId && i.sprint === "SPRINT_1"));
-  const backlogItems = filteredItems.filter((i) => !i.sprintId && i.sprint === "BACKLOG");
+  const sprint1Items = filteredItems.filter((i) => Boolean(activeSprint?.id && i.sprintId === activeSprint.id));
+  const backlogItems = filteredItems.filter((i) => !i.sprintId);
 
   const plannedSprints = rawSprints.filter((s: any) => s.status === "PLANNED" && s.id !== activeSprint?.id);
   const completedSprints = rawSprints.filter((s: any) => s.status === "COMPLETED");

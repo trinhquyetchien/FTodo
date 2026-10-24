@@ -95,8 +95,8 @@ export class TasksService {
       data: { status: 'COMPLETED' },
     });
 
-    // 2. Identify incomplete tasks in this sprint
-    const incompleteTasks = sprint.tasks.filter((t) => t.status !== 'DONE');
+    // 2. Identify incomplete tasks in this sprint (exclude DONE tasks)
+    const incompleteTasks = sprint.tasks.filter((t) => (t.status || '').toUpperCase() !== 'DONE');
 
     let nextSprint: any = null;
 
