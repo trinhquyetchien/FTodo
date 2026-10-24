@@ -226,12 +226,12 @@ export default function IssuesPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <CheckSquare className="h-6 w-6 text-primary" /> Danh sách tác vụ
+            <CheckSquare className="h-6 w-6 text-primary" /> Danh sách công việc
           </h2>
         </div>
 
         <Button onClick={() => setIsCreateOpen(true)} className="gap-2 shadow-xs">
-          <Plus className="h-4 w-4" /> Tạo tác vụ mới
+          <Plus className="h-4 w-4" /> Tạo công việc mới
         </Button>
       </div>
 
@@ -331,7 +331,7 @@ export default function IssuesPage() {
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Tạo tác vụ mới (Create Issue)</DialogTitle>
+            <DialogTitle>Tạo công việc mới (Create Issue)</DialogTitle>
             <DialogDescription>
               Thêm một User Story, Task hoặc Bug vào dự án Scrum.
             </DialogDescription>
@@ -396,7 +396,7 @@ export default function IssuesPage() {
               <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
                 Hủy
               </Button>
-              <Button type="submit">Tạo tác vụ</Button>
+              <Button type="submit">Tạo công việc</Button>
             </DialogFooter>
           </form>
         </DialogContent>
